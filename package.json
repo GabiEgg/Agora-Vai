@@ -1,0 +1,16 @@
+{
+  "name": "dossie-paranormal",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Criador de fichas de Ordem Paranormal RPG com servidor, banco SQLite (local ou Turso) e campanha compartilhada.",
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server/server.js",
+    "build:dados": "node build.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0"
+  }
+}

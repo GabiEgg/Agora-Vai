@@ -1,0 +1,188 @@
+// Servidor do Dossiê Paranormal: serve o app e guarda contas, fichas, homebrew, configurações e imagens em SQLite.
+// Banco: arquivo local (node:sqlite, Node 22.13+) ou Turso na nuvem quando TURSO_DATABASE_URL está definido (veja banco.js).
+'use strict';
+const http=require('node:http');
+const fs=require('node:fs');
+const path=require('node:path');
+const crypto=require('node:crypto');
+const {abrirBanco,paraBuffer}=require('./banco');
+
+const PORT=+process.env.PORT||3000;
+const RAIZ=path.resolve(__dirname,'..');
+const DB_PATH=path.resolve(process.env.DB_PATH||path.join(__dirname,'dados','dossie.db'));
+const PERMITIR_CADASTRO=process.env.PERMITIR_CADASTRO!=='0';
+const COOKIE_SECURE=process.env.COOKIE_SECURE==='1';
+const TRUST_PROXY=process.env.TRUST_PROXY==='1'; // atrás do proxy de um serviço de hospedagem, o IP real vem em X-Forwarded-For
+const MAX_JSON=2*1024*1024, MAX_IMG=8*1024*1024, MAX_DOCS=1000;
+const SESSAO_DIAS=30;
+const TIPOS_IMG={'image/png':1,'image/jpeg':1,'image/gif':1,'image/webp':1};
+
+/* ---------------- banco ---------------- */
+// Em container com volume local, os volumes chegam como root: entrega a pasta do banco ao usuário comum e deixa de ser root.
+if(!process.env.TURSO_DATABASE_URL&&process.env.RODAR_COMO&&process.getuid&&process.getuid()===0){
+  fs.mkdirSync(path.dirname(DB_PATH),{recursive:true});
+  const usuario=process.env.RODAR_COMO;const {execFileSync}=require('node:child_process');
+  const uid=+execFileSync('id',['-u',usuario]).toString(),gid=+execFileSync('id',['-g',usuario]).toString();
+  for(const f of [path.dirname(DB_PATH),...fs.readdirSync(path.dirname(DB_PATH)).map(n=>path.join(path.dirname(DB_PATH),n))])fs.chownSync(f,uid,gid);
+  process.setgid(gid);process.setuid(uid);
+}
+let db=null; // aberto em iniciar()
+const Q={
+  usuarioPorNome:'SELECT * FROM usuarios WHERE usuario=?',
+  criarUsuario:'INSERT INTO usuarios(id,usuario,hash,sal,criado) VALUES(?,?,?,?,?)',
+  criarSessao:'INSERT INTO sessoes(token,usuario_id,expira) VALUES(?,?,?)',
+  sessao:'SELECT u.id,u.usuario FROM sessoes s JOIN usuarios u ON u.id=s.usuario_id WHERE s.token=? AND s.expira>?',
+  apagarSessao:'DELETE FROM sessoes WHERE token=?',
+  limparSessoes:'DELETE FROM sessoes WHERE expira<=?',
+  listarDocs:'SELECT doc_id,dados FROM docs WHERE usuario_id=?',
+  contarDocs:'SELECT COUNT(*) n FROM docs WHERE usuario_id=?',
+  existeDoc:'SELECT 1 FROM docs WHERE usuario_id=? AND doc_id=?',
+  gravarDoc:'INSERT INTO docs(usuario_id,doc_id,dados,atualizado) VALUES(?,?,?,?) ON CONFLICT(usuario_id,doc_id) DO UPDATE SET dados=excluded.dados, atualizado=excluded.atualizado',
+  apagarDoc:'DELETE FROM docs WHERE usuario_id=? AND doc_id=?',
+  gravarImg:'INSERT INTO imagens(id,usuario_id,tipo,dados,criado) VALUES(?,?,?,?,?)',
+  imagem:'SELECT tipo,dados FROM imagens WHERE id=?',
+  criarMesa:'INSERT INTO mesas(id,nome,codigo,mestre_id,criado) VALUES(?,?,?,?,?)',
+  mesaPorCodigo:'SELECT * FROM mesas WHERE codigo=?',
+  mesa:'SELECT * FROM mesas WHERE id=?',
+  apagarMesa:'DELETE FROM mesas WHERE id=?',
+  apagarMembros:'DELETE FROM mesa_membros WHERE mesa_id=?',
+  apagarEventos:'DELETE FROM mesa_eventos WHERE mesa_id=?',
+  addMembro:'INSERT OR IGNORE INTO mesa_membros(mesa_id,usuario_id,papel,entrou) VALUES(?,?,?,?)',
+  tirarMembro:"DELETE FROM mesa_membros WHERE mesa_id=? AND usuario_id=? AND papel<>'mestre'",
+  papel:'SELECT papel FROM mesa_membros WHERE mesa_id=? AND usuario_id=?',
+  minhasMesas:`SELECT m.id,m.nome,m.codigo,mm.papel,u.usuario mestre FROM mesa_membros mm JOIN mesas m ON m.id=mm.mesa_id JOIN usuarios u ON u.id=m.mestre_id WHERE mm.usuario_id=? ORDER BY m.criado`,
+  membros:`SELECT u.usuario,mm.papel FROM mesa_membros mm JOIN usuarios u ON u.id=mm.usuario_id WHERE mm.mesa_id=? ORDER BY mm.entrou`,
+  fichasDaMesa:`SELECT u.usuario,d.dados,d.atualizado FROM mesa_membros mm JOIN docs d ON d.usuario_id=mm.usuario_id JOIN usuarios u ON u.id=mm.usuario_id
+    WHERE mm.mesa_id=? AND d.doc_id LIKE 'f-%' AND json_extract(d.dados,'$.ficha.mesa')=?`,
+  addEvento:'INSERT INTO mesa_eventos(mesa_id,usuario_id,criado,dados) VALUES(?,?,?,?)',
+  podarEventos:'DELETE FROM mesa_eventos WHERE mesa_id=? AND id NOT IN (SELECT id FROM mesa_eventos WHERE mesa_id=? ORDER BY id DESC LIMIT 200)',
+  eventos:`SELECT e.id,e.criado,e.dados,u.usuario FROM mesa_eventos e JOIN usuarios u ON u.id=e.usuario_id WHERE e.mesa_id=? AND e.id>? ORDER BY e.id DESC LIMIT 50`,
+};
+setInterval(()=>{if(db)db.run(Q.limparSessoes,Date.now()).catch(()=>{})},3600e3).unref();
+
+/* ---------------- senhas e sessões ---------------- */
+const hashSenha=(senha,sal)=>crypto.scryptSync(senha,sal,64).toString('hex');
+function confere(senha,u){const a=Buffer.from(hashSenha(senha,u.sal),'hex'),b=Buffer.from(u.hash,'hex');return a.length===b.length&&crypto.timingSafeEqual(a,b)}
+function lerCookie(req,nome){const c=req.headers.cookie||'';for(const p of c.split(';')){const [k,...v]=p.trim().split('=');if(k===nome)return decodeURIComponent(v.join('='))}return null}
+async function usuarioDe(req){const t=lerCookie(req,'sessao');if(!t)return null;return await db.get(Q.sessao,t,Date.now())||null}
+async function abrirSessao(res,usuarioId){
+  const token=crypto.randomBytes(32).toString('hex');await db.run(Q.criarSessao,token,usuarioId,Date.now()+SESSAO_DIAS*864e5);
+  res.setHeader('Set-Cookie',`sessao=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSAO_DIAS*86400}${COOKIE_SECURE?'; Secure':''}`);
+}
+// Limite simples de tentativas de login/cadastro por IP (10 por minuto).
+const tentativas=new Map();
+function ipDe(req){const xf=TRUST_PROXY&&String(req.headers['x-forwarded-for']||'').split(',')[0].trim();return xf||req.socket.remoteAddress||'?'}
+function excedeu(req){const ip=ipDe(req);const agora=Date.now();const l=(tentativas.get(ip)||[]).filter(t=>agora-t<60e3);l.push(agora);tentativas.set(ip,l);return l.length>10}
+
+/* ---------------- utilidades HTTP ---------------- */
+function enviar(res,status,corpo,tipo='application/json; charset=utf-8',extra={}){
+  const buf=Buffer.isBuffer(corpo)?corpo:Buffer.from(typeof corpo==='string'?corpo:JSON.stringify(corpo));
+  res.writeHead(status,{'Content-Type':tipo,'Content-Length':buf.length,'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin',...extra});res.end(buf);
+}
+const erro=(res,status,msg)=>enviar(res,status,{erro:msg});
+function lerCorpo(req,max){return new Promise((ok,falha)=>{const partes=[];let n=0;
+  req.on('data',c=>{n+=c.length;if(n>max){falha(Object.assign(new Error('grande'),{status:413}));req.destroy()}else partes.push(c)});
+  req.on('end',()=>ok(Buffer.concat(partes)));req.on('error',falha)})}
+async function lerJSON(req){const b=await lerCorpo(req,MAX_JSON);try{return JSON.parse(b.toString('utf8')||'null')}catch(e){throw Object.assign(new Error('json'),{status:400})}}
+
+/* ---------------- arquivos do app ---------------- */
+const MIME={'.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.css':'text/css; charset=utf-8'};
+let paginaCache=null;
+function pagina(){ // o index.html é um fragmento (formato de artifact); aqui ganha o esqueleto de documento
+  if(paginaCache&&process.env.NODE_ENV==='production')return paginaCache;
+  const corpo=fs.readFileSync(path.join(RAIZ,'index.html'),'utf8').replace(/^<meta charset="utf-8">\s*/,'');
+  return paginaCache=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}</style></head><body>${corpo}</body></html>`;
+}
+function servirArquivo(res,url){
+  const rel=path.normalize(decodeURIComponent(url)).replace(/^([/\\])+/,'');
+  if(!/^(js[/\\][\w.-]+\.js|data[/\\]dados\.json)$/.test(rel))return erro(res,404,'Não encontrado');
+  const arq=path.join(RAIZ,rel);
+  fs.readFile(arq,(e,buf)=>{if(e)return erro(res,404,'Não encontrado');enviar(res,200,buf,MIME[path.extname(arq)]||'application/octet-stream',{'Cache-Control':'no-cache'})});
+}
+
+/* ---------------- rotas ---------------- */
+const ID_DOC=/^[A-Za-z0-9_\-:.]{1,120}$/;
+async function rotear(req,res){
+  const url=new URL(req.url,'http://x');const p=url.pathname;const m=req.method;
+  if(m==='GET'&&(p==='/'||p==='/index.html'))return enviar(res,200,pagina(),'text/html; charset=utf-8',{'Cache-Control':'no-cache'});
+  if(m==='GET'&&(p.startsWith('/js/')||p.startsWith('/data/')))return servirArquivo(res,p);
+  if(m==='GET'&&p.startsWith('/_blob/')){const id=p.slice(7);if(!/^[a-f0-9]{32}$/.test(id))return erro(res,404,'Não encontrado');
+    const img=await db.get(Q.imagem,id);if(!img)return erro(res,404,'Não encontrado');
+    return enviar(res,200,paraBuffer(img.dados),img.tipo,{'Cache-Control':'private, max-age=31536000, immutable'})}
+  if(!p.startsWith('/api/'))return erro(res,404,'Não encontrado');
+  // Proteção contra requisições de outros sites: exige o cabeçalho que só o app envia.
+  if(m!=='GET'&&req.headers['x-dossie']!=='1')return erro(res,403,'Requisição recusada');
+
+  if(p==='/api/eu'&&m==='GET'){const u=await usuarioDe(req);return enviar(res,200,{usuario:u?u.usuario:null,cadastro:PERMITIR_CADASTRO})}
+  if((p==='/api/entrar'||p==='/api/cadastrar')&&m==='POST'){
+    if(excedeu(req))return erro(res,429,'Muitas tentativas. Espere um minuto.');
+    const b=await lerJSON(req)||{};const usuario=String(b.usuario||'').trim(),senha=String(b.senha||'');
+    if(!/^[\p{L}\p{N}_.-]{3,32}$/u.test(usuario))return erro(res,400,'Nome de usuário: 3 a 32 letras, números, ponto, hífen ou sublinhado.');
+    if(senha.length<6||senha.length>200)return erro(res,400,'A senha precisa ter pelo menos 6 caracteres.');
+    let u=await db.get(Q.usuarioPorNome,usuario);
+    if(p==='/api/cadastrar'){
+      if(!PERMITIR_CADASTRO)return erro(res,403,'Novos cadastros estão desligados neste servidor.');
+      if(u)return erro(res,409,'Esse nome de usuário já existe.');
+      const sal=crypto.randomBytes(16).toString('hex');const id=crypto.randomUUID();
+      await db.run(Q.criarUsuario,id,usuario,hashSenha(senha,sal),sal,Date.now());u={id,usuario};
+    }else if(!u||!confere(senha,u))return erro(res,401,'Usuário ou senha incorretos.');
+    await abrirSessao(res,u.id);return enviar(res,200,{usuario:u.usuario});
+  }
+  if(p==='/api/sair'&&m==='POST'){const t=lerCookie(req,'sessao');if(t)await db.run(Q.apagarSessao,t);
+    return enviar(res,200,{ok:true},undefined,{'Set-Cookie':`sessao=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${COOKIE_SECURE?'; Secure':''}`})}
+
+  const u=await usuarioDe(req);if(!u)return erro(res,401,'Não autenticado');
+  if(p==='/api/docs'&&m==='GET'){const out={};for(const r of await db.all(Q.listarDocs,u.id)){try{out[r.doc_id]=JSON.parse(r.dados)}catch(e){}}return enviar(res,200,out)}
+  const md=p.match(/^\/api\/docs\/([^/]+)$/);
+  if(md){const id=decodeURIComponent(md[1]);if(!ID_DOC.test(id))return erro(res,400,'Identificador inválido');
+    if(m==='PUT'){const dados=await lerJSON(req);if(!dados||typeof dados!=='object'||Array.isArray(dados))return erro(res,400,'Documento inválido');
+      if(!(await db.get(Q.existeDoc,u.id,id))&&Number((await db.get(Q.contarDocs,u.id)).n)>=MAX_DOCS)return erro(res,507,'Limite de documentos da conta atingido.');
+      await db.run(Q.gravarDoc,u.id,id,JSON.stringify(dados),Date.now());return enviar(res,200,{ok:true})}
+    if(m==='DELETE'){await db.run(Q.apagarDoc,u.id,id);return enviar(res,200,{ok:true})}}
+  if(p==='/api/imagens'&&m==='POST'){const tipo=String(req.headers['content-type']||'').split(';')[0].trim();
+    if(!TIPOS_IMG[tipo])return erro(res,415,'Use PNG, JPG, GIF ou WebP.');
+    const buf=await lerCorpo(req,MAX_IMG);if(!buf.length)return erro(res,400,'Arquivo vazio');
+    const id=crypto.randomBytes(16).toString('hex');await db.run(Q.gravarImg,id,u.id,tipo,buf,Date.now());
+    return enviar(res,200,{id,url:'/_blob/'+id,sizeBytes:buf.length,contentType:tipo})}
+  if(p.startsWith('/api/mesas'))return rotasMesa(req,res,u,p,m,url);
+  return erro(res,404,'Não encontrado');
+}
+
+/* ---------------- campanhas (mesas compartilhadas) ----------------
+   O mestre cria a campanha e passa o código. Jogadores entram com o código e escolhem,
+   ficha por ficha, quais ligar à campanha. Só o mestre lê as fichas ligadas; jogadores
+   continuam vendo apenas as próprias. Avisos de rituais vão dos jogadores para o mestre. */
+const ALFA='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const novoCodigo=()=>Array.from(crypto.randomBytes(6),b=>ALFA[b%ALFA.length]).join('');
+async function rotasMesa(req,res,u,p,m,url){
+  if(p==='/api/mesas'&&m==='GET')return enviar(res,200,(await db.all(Q.minhasMesas,u.id)).map(x=>({id:x.id,nome:x.nome,papel:x.papel,mestre:x.mestre,codigo:x.papel==='mestre'?x.codigo:undefined})));
+  if(p==='/api/mesas'&&m==='POST'){const b=await lerJSON(req)||{};const nome=String(b.nome||'').trim().slice(0,80);if(!nome)return erro(res,400,'Dê um nome para a campanha.');
+    if((await db.all(Q.minhasMesas,u.id)).filter(x=>x.papel==='mestre').length>=20)return erro(res,400,'Limite de 20 campanhas como mestre.');
+    const id=crypto.randomUUID();let codigo=novoCodigo();while(await db.get(Q.mesaPorCodigo,codigo))codigo=novoCodigo();
+    await db.run(Q.criarMesa,id,nome,codigo,u.id,Date.now());await db.run(Q.addMembro,id,u.id,'mestre',Date.now());
+    return enviar(res,200,{id,nome,codigo,papel:'mestre',mestre:u.usuario})}
+  if(p==='/api/mesas/entrar'&&m==='POST'){if(excedeu(req))return erro(res,429,'Muitas tentativas. Espere um minuto.');
+    const b=await lerJSON(req)||{};const mesa=await db.get(Q.mesaPorCodigo,String(b.codigo||'').trim().toUpperCase());if(!mesa)return erro(res,404,'Código não encontrado.');
+    await db.run(Q.addMembro,mesa.id,u.id,'jogador',Date.now());const pap=(await db.get(Q.papel,mesa.id,u.id)).papel;
+    return enviar(res,200,{id:mesa.id,nome:mesa.nome,papel:pap})}
+  const mm=p.match(/^\/api\/mesas\/([\w-]{1,64})(\/[a-z]+)?$/);if(!mm)return erro(res,404,'Não encontrado');
+  const mesa=await db.get(Q.mesa,mm[1]);const pap=mesa&&(await db.get(Q.papel,mesa.id,u.id));if(!mesa||!pap)return erro(res,404,'Campanha não encontrada.');
+  const mestre=pap.papel==='mestre';const sub=mm[2]||'';
+  if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
+  if(sub==='/sair'&&m==='POST'){if(mestre)return erro(res,400,'O mestre não sai da própria campanha; exclua-a se quiser.');await db.run(Q.tirarMembro,mesa.id,u.id);return enviar(res,200,{ok:true})}
+  if(sub==='/fichas'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê as fichas da campanha.');
+    const fichas=[];for(const r of await db.all(Q.fichasDaMesa,mesa.id,mesa.id)){try{fichas.push({usuario:r.usuario,atualizado:r.atualizado,ficha:JSON.parse(r.dados).ficha})}catch(e){}}
+    return enviar(res,200,{membros:await db.all(Q.membros,mesa.id),fichas})}
+  if(sub==='/eventos'&&m==='POST'){const b=await lerJSON(req);if(!b||typeof b!=='object')return erro(res,400,'Aviso inválido');const txt=JSON.stringify(b);if(txt.length>8000)return erro(res,413,'Aviso grande demais.');
+    await db.run(Q.addEvento,mesa.id,u.id,Date.now(),txt);await db.run(Q.podarEventos,mesa.id,mesa.id);return enviar(res,200,{ok:true})}
+  if(sub==='/eventos'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê os avisos.');const depois=+url.searchParams.get('depois')||0;
+    return enviar(res,200,(await db.all(Q.eventos,mesa.id,depois)).map(e=>({id:e.id,criado:e.criado,usuario:e.usuario,...JSON.parse(e.dados)})))}
+  return erro(res,404,'Não encontrado');
+}
+
+async function iniciar(){
+  db=await abrirBanco(DB_PATH);
+  http.createServer((req,res)=>{rotear(req,res).catch(e=>{if(!res.headersSent)erro(res,e.status||500,e.status===413?'Arquivo grande demais.':e.status===400?'Requisição inválida.':'Erro interno.');if(!e.status)console.error(e)})})
+    .listen(PORT,()=>console.log(`Dossiê Paranormal em http://localhost:${PORT} · banco: ${db.tipo}`));
+}
+iniciar().catch(e=>{console.error('Não foi possível abrir o banco de dados:',e.message);process.exit(1)});

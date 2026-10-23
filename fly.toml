@@ -1,0 +1,29 @@
+# Configuração para o Fly.io. Troque o nome do app abaixo por um nome único seu.
+app = "dossie-paranormal-TROQUE"
+primary_region = "gru" # São Paulo
+
+[build]
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  DB_PATH = "/dados/dossie.db"
+  COOKIE_SECURE = "1"
+  TRUST_PROXY = "1"
+
+# Disco permanente onde fica o banco (crie com: fly volumes create dossie_dados --region gru --size 1)
+[[mounts]]
+  source = "dossie_dados"
+  destination = "/dados"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"   # desliga quando ninguém usa (economiza) e liga sozinho no próximo acesso
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
