@@ -118,4 +118,4 @@ data/dados.json   conteúdo dos livros (gerado por build.js a partir de src/)
 server/server.js  servidor HTTP + API + SQLite
 ```
 
-API (usada pelo app): `GET /api/eu`, `POST /api/cadastrar`, `POST /api/entrar`, `POST /api/sair`, `GET /api/docs`, `PUT/DELETE /api/docs/:id`, `POST /api/imagens`, `GET /_blob/:id`, `GET/POST /api/mesas`, `POST /api/mesas/entrar`, `DELETE /api/mesas/:id`, `POST /api/mesas/:id/sair`, `GET /api/mesas/:id/fichas` (só mestre), `GET/POST /api/mesas/:id/eventos`, `GET/POST /api/mesas/:id/iniciativa` (também dano, cura, registro do combate com `?log=1` e efeitos).
+API (usada pelo app): `GET /api/eu`, `POST /api/cadastrar`, `POST /api/entrar`, `POST /api/sair`, `GET /api/docs`, `PUT/DELETE /api/docs/:id`, `POST /api/imagens`, `GET /_blob/:id`, `GET/POST /api/mesas`, `POST /api/mesas/entrar`, `DELETE /api/mesas/:id`, `POST /api/mesas/:id/sair`, `GET /api/mesas/:id/fichas` (só mestre), `GET/POST /api/mesas/:id/eventos`, `GET/PUT /api/mesas/:id/regras`, `GET/POST /api/mesas/:id/iniciativa` (também dano, cura, registro do combate com `?log=1` e efeitos).

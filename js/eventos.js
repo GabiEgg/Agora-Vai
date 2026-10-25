@@ -53,7 +53,9 @@ function conjurar(f,id){
   const x=byId('rituais',id);const sel=document.querySelector('input[name="forma"]:checked')||{};const forma=sel.value||'n';
   const base=+((sel.dataset||{}).c)||CUSTO_CIRC[+x.circulo]||0;
   const val=nm=>(document.querySelector(`input[name="${nm}"]:checked`)||{}).value||'';
-  const alvo=val('alvo')||'outro';const alvoNome=(document.getElementById('cast-alvo-nome')||{}).value||'';
+  const iniAlvos=[...document.querySelectorAll('input[name="cast-ini"]:checked')].map(el=>el.value);
+  const iniNomes=iniAlvos.map(ch=>((((S.iniJog||{})[f.mesa]||{}).entradas||[]).find(e=>e.chave===ch)||{}).nome).filter(Boolean);
+  const alvo=iniAlvos.length?'outro':(val('alvo')||'outro');const alvoNome=iniAlvos.length?iniNomes.join(', '):(document.getElementById('cast-alvo-nome')||{}).value||'';
   const marcado=idc=>{const el=document.getElementById(idc);return !!(el&&el.checked)};
   const r0=calc(f);const dt=r0.dt+(r0.dtElem[x.elemento]||0);
   const extras=(r0.castExtra||[]).filter(c=>marcado('cast-x-'+c.id));const custo=base+extras.reduce((a,c)=>a+c.pe,0);
@@ -93,8 +95,14 @@ function conjurar(f,id){
       msgs.push(sust?'Sustentado: gaste 1 '+(r0.det?'PD':'PE')+' no início de cada turno (aba Bônus)':'Lembrete na aba Bônus')}}
   if(ret){(f.retidos=f.retidos||[]).push({rit:id,nome:x.nome+nf,pe:total,bonus:f._ultimoBonus||null});delete f._ultimoBonus;perderSan(f,1);msgs.push(`Ritual retido: ${total} ${r0.det?'PD':'PE'} presos (saem do atual e do máximo), −1 SAN`)}
   const dano=comBonus(forma==='v'?(x.danoV||x.danoD||x.dano):forma==='d'?(x.danoD||x.dano):x.dano);
+  // Alvos na iniciativa: rola o dano uma vez e o servidor aplica em cada alvo com o teste de resistência dele.
+  if(iniAlvos.length){let vD=null;
+    if(dano){const xr=rollExpr(dano,r0.A);vD=xr.total;pushRoll({t:`${x.nome}${nf}: dano${x.tipoDano?' de '+x.tipoDano:''}`,v:vD,d:xr.txt})}
+    const tp=tiposDe(x.tipoDano||'');
+    ritualNosAlvos(f,{alvos:iniAlvos,ritual:x.nome+nf,dt,resistencia:x.resistencia||'',dano:vD,tipos:tp.length?tp:(x.elemento&&x.elemento!=='medo'?[x.elemento]:[]),cura:ef&&ef.cura?comBonus(ef.cura):null,A:r0.A,efeito:!/instant/i.test(durF||'')});
+    msgs.push(`Aplicado em: ${iniNomes.join(', ')}`)}
   // Dano e cura só são rolados se a pessoa pedir; senão ficam como lembrete para rolar na mesa.
-  if(rolar&&dano){const v=rollDano(`${x.nome}: dano${x.tipoDano?' de '+x.tipoDano:''}`,dano,r0.A);
+  else if(rolar&&dano){const v=rollDano(`${x.nome}: dano${x.tipoDano?' de '+x.tipoDano:''}`,dano,r0.A);
     if(npc&&+npc.pvMax&&v!=null){npc.pv=(npc.pv??+npc.pvMax)-v;msgs.push(`${npc.nome}: −${v} PV (${npc.pv}/${npc.pvMax})`)}}
   if(rolar&&npc&&ef&&ef.cura&&+npc.pvMax){const c=rollExpr(comBonus(ef.cura),r0.A).total;npc.pv=Math.min(+npc.pvMax,(npc.pv??+npc.pvMax)+c);msgs.push(`${npc.nome}: +${c} PV`)}
   // Resumo do que o mestre precisa rolar ou decidir.

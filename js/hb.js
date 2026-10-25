@@ -99,12 +99,13 @@ function renderGuia(){
   ${s('Rituais em outros personagens',`<p>Em “Conjurar…”, escolha o alvo: você, um aliado/NPC da sua ficha ou um inimigo. Fora de você, aparece o cartão <b>Para o mestre</b> com a DT, o teste de resistência e o efeito. O dano só é rolado pelo app se você marcar “Rolar o dano para mim”; deixe desmarcado para rolar os dados na mesa.</p>`)}
   ${s('Campanha (servidor próprio)',`<ol><li>Disponível quando o app roda no servidor com login. O mestre abre <b>Campanha</b>, cria uma e passa o código.</li>
    <li>Cada jogador entra com o código e, no Dossiê de cada agente, escolhe a campanha no campo <b>Campanha</b>.</li>
-   <li>Só o mestre vê as fichas ligadas (somente leitura), com PV, PE, Sanidade e condições, e recebe os avisos de rituais com DT e teste de resistência. Jogadores continuam vendo só as próprias fichas.</li></ol>`)}
+   <li>Só o mestre vê as fichas ligadas (somente leitura), com PV, PE, Sanidade e condições, e recebe os avisos de rituais com DT e teste de resistência. Jogadores continuam vendo só as próprias fichas.</li>
+   <li><b>Regras da campanha:</b> os livros, regras opcionais e automações que o mestre tem ligados ficam disponíveis para os jogadores. Na aba <b>Mesa</b> (ou no cartão da campanha), o jogador clica em <b>Usar as regras do mestre</b>; com <b>Manter sincronizado</b>, mudanças do mestre chegam sozinhas. Pacotes de homebrew não são copiados.</li></ol>`)}
   ${s('Escudo do Mestre e iniciativa',`<ol><li>Quem criou uma campanha ganha a aba <b>Escudo do Mestre</b>: combate e iniciativa, agentes ligados, avisos de rituais, bestiário com as criaturas e NPCs dos livros ligados e tabelas de referência (DTs, alcances, condições).</li>
    <li>No <b>Combate</b>, clique em <b>Pedir iniciativa</b>. Cada jogador vê um aviso na ficha e pode <b>rolar no app</b> ou digitar o valor que tirou nos <b>dados físicos</b>. O mestre também pode digitar o valor por eles.</li>
    <li>Criaturas entram pelo botão <b>Combate</b> do bestiário (rolam iniciativa e trazem PV e Defesa); NPCs avulsos podem ser adicionados com um nome e um valor. <b>Próximo</b> avança o turno e a rodada, e os jogadores veem de quem é a vez. Os dados das criaturas ficam só para o mestre.</li>
    <li><b>Dano e cura:</b> no painel do Combate, escolha o alvo, <b>quem causou</b>, o valor (número ou dados, como 2d8+4) e o tipo de dano. Resistências, imunidades e vulnerabilidades da criatura já são descontadas (marque “Ignorar resistências” se precisar). Os ataques de cada criatura aparecem na linha dela; a rolagem de dano ganha botões para mandar o dano direto a um agente.</li>
-   <li><b>Jogadores atacando pelo app:</b> durante o combate, a rolagem de ataque da arma mostra “Atacar” com cada inimigo. O app compara com a Defesa da criatura (sem mostrá-la ao jogador) e, se acertar, rola o dano e já manda para o alvo com as resistências descontadas. A rolagem de dano de uma arma ou ritual também mostra os inimigos como alvo. No Escudo, os ataques das criaturas funcionam do mesmo jeito contra os agentes. Dano ou cura que o mestre mandar aparece como aviso na ficha, com o botão Aplicar.</li>
+   <li><b>Jogadores atacando pelo app:</b> durante o combate, a rolagem de ataque da arma mostra “Atacar” com cada inimigo. O app compara com a Defesa da criatura (sem mostrá-la ao jogador) e, se acertar, rola o dano e já manda para o alvo com as resistências descontadas. A rolagem de dano de uma arma ou ritual também mostra os inimigos como alvo. <b>Rituais:</b> no Conjurar, marque os “Alvos no combate” (um ou vários). O app rola o dano ou a cura, rola o teste de resistência da criatura contra a sua DT (passou: metade ou anula, conforme o ritual), desconta resistências e marca o ritual como efeito na criatura quando ele tem duração. No Escudo, os ataques das criaturas funcionam do mesmo jeito contra os agentes. Dano ou cura que o mestre mandar aparece como aviso na ficha, com o botão Aplicar.</li>
    <li><b>Efeitos:</b> marque condições nas criaturas pelo “+ efeito”; nos agentes valem as condições e efeitos ativos da ficha. A cada turno o app anota quem estava sob quais efeitos.</li>
    <li>Ao <b>encerrar o combate</b> aparece o resumo: dano causado e sofrido, cura feita e recebida, abates, turnos, turnos sob cada efeito e a linha do tempo. Os jogadores também podem ver o resumo.</li></ol>`)}
   ${s('Mapas',`<ol><li>No Escudo, aba <b>Mapas</b>, crie um mapa com nome e tamanho.</li>
@@ -188,6 +189,7 @@ function castModal(id){
     ${(f.aliados||[]).map((a,i)=>`<label><input type="radio" name="alvo" value="npc:${i}"> ${h(a.nome)}${+a.pvMax?` <span class="hint">(${a.pv??a.pvMax}/${a.pvMax} PV)</span>`:''}</label>`).join('')}
     <label><input type="radio" name="alvo" value="outro" ${temEf?'':'checked'}> Inimigo ou outro personagem <input class="inp sm" id="cast-alvo-nome" placeholder="nome (opcional)" style="width:min(200px,100%)"></label>
    </fieldset>
+   ${alvosIniBloco(f,x)}
    ${x.dano||(x.ef&&x.ef.cura)?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-rolar"> Rolar o ${x.dano?'dano':'efeito'} para mim (${h(x.dano||x.ef.cura)}${x.danoD?' / discente '+h(x.danoD):''}${x.danoV?' / verdadeiro '+h(x.danoV):''}) — deixe desmarcado para rolar na mesa</label>`:''}
    <p class="hint" style="margin:0">Fora de você, o app mostra um cartão “Para o mestre” com a DT ${r.dt}${x.resistencia?', o teste de '+h(x.resistencia):''} e o efeito.</p>
    ${f.mesa&&S.conta&&S.conta.usuario?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-avisar" checked> Avisar o mestre da campanha</label>`:''}
@@ -195,6 +197,13 @@ function castModal(id){
    ${regraOn('reter_ritual')&&/cena/i.test(x.duracao||'')?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-ret"> Reter ritual: os ${r.det?'PD':'PE'} gastos ficam presos (saem do atual e do máximo) até você soltar; perde 1 SAN</label>`:''}
    <div class="row"><button class="btn acc" data-act="castGo" data-id="${x.id}">Conjurar</button></div></div>`);
 }
+/* Alvos da iniciativa da campanha: o ritual é aplicado direto (teste de resistência da criatura, dano, cura, efeito). */
+function alvosIniBloco(f,x){
+  const es=alvosRitual(f);if(!es.length)return '';
+  const cura=!!((x.ef&&x.ef.cura)||(x.efD&&x.efD.cura));
+  return `<fieldset class="alvos"><legend class="eyebrow">Alvos no combate</legend>
+    ${es.map(e=>`<label><input type="checkbox" name="cast-ini" value="${h(e.chave)}"> ${h(e.nome)} <span class="hint">${e.tipo==='agente'?'aliado':e.tipo==='npc'?'NPC':'criatura'}</span></label>`).join('')}
+    <p class="hint" style="margin:0">Marque quem o ritual atinge. ${x.dano?`O dano é rolado e aplicado direto${x.resistencia?'; o app rola o teste de '+h(x.resistencia.split(' ')[0])+' da criatura contra a sua DT':''}, com as resistências dela.`:cura?'A cura é rolada para cada alvo; aliados recebem o aviso na ficha.':x.resistencia?'O app rola o teste de resistência da criatura contra a sua DT e marca o efeito nela se não for anulado.':'O efeito fica marcado no alvo.'}${x.dano?' Aliados não sofrem o dano pelo app.':''}</p></fieldset>`}
 /* Bloco "reação" do modal de conjurar: RD contra o dano sofrido, Defesa contra o ataque e teste com bônus. */
 function reacaoBloco(x,r){const rc=x.reacao;const fm=rc.formas||['n','d','v'];
   const rd=rc.rd?Object.entries(rc.rd).map(([k,v])=>`${{n:'normal',d:'discente',v:'verdadeiro'}[k]} ${v}`).join(', '):'';

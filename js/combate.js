@@ -36,6 +36,19 @@ function contextoCombate(){
   const d=(S.iniJog||{})[f.mesa];if(!d||!d.pedido)return null;
   return {mesa:f.mesa,mestre:false,es:ordenarIni(d.entradas||[]).filter(e=>e.tipo!=='agente'),autor:f.nome||'Agente',ficha:f.id,autorChave:chaveMinha(d,f)};
 }
+/* Alvos de ritual: todos da iniciativa menos o próprio agente. */
+function alvosRitual(f){if(!f||f._alheia||!f.mesa||!(S.conta&&S.conta.usuario))return [];const d=(S.iniJog||{})[f.mesa];if(!d||!d.pedido)return [];
+  const eu=chaveMinha(d,f);return ordenarIni(d.entradas||[]).filter(e=>e.chave!==eu)}
+/* Aplica o ritual em cada alvo marcado; o servidor rola o teste de resistência da criatura. */
+async function ritualNosAlvos(f,o){
+  const d=(S.iniJog||{})[f.mesa];const autorChave=d&&chaveMinha(d,f);const out=[];
+  for(const ch of o.alvos){const e=(d.entradas||[]).find(x=>x.chave===ch);if(!e)continue;
+    let cura=null;if(o.cura){const x=rollExpr(o.cura,o.A);cura=x.total;pushRoll({t:`${o.ritual}: cura em ${e.nome}`,v:'+'+cura,d:x.txt})}
+    try{const r=await Api.req('POST',`/api/mesas/${encodeURIComponent(f.mesa)}/iniciativa`,{acao:'ritual',alvo:ch,ritual:o.ritual,dt:o.dt,resistencia:o.resistencia,dano:e.tipo==='agente'?null:o.dano,tipos:o.tipos,cura,efeito:o.efeito,autor:f.nome,autorChave,ficha:f.id});
+      out.push(`${r.alvo}: ${r.valor!=null?r.valor+' de dano':r.cura?'+'+r.cura+' PV':r.efeito?'efeito marcado':'atingido'}${r.nota?' ('+r.nota+')':''}${r.caiu?' · caiu!':''}`)}
+    catch(err){out.push(`${e.nome}: ${err.message}`)}}
+  if(out.length)toast(out.join(' · '),8000);S._iniJogKey=null;atualizarIniJogador();
+}
 /* Botões "Dano em X" que aparecem na rolagem de dano quando há combate. */
 function acoesAlvo(valor,meta={}){
   const c=contextoCombate();if(!c||!(valor>0))return [];
@@ -123,6 +136,7 @@ function resumoHtml(itens){
   const linhaTempo=itens.map(x=>{const tp=(x.tipos||[]).map(t=>TIPO_NOME[t]).join('+');
     const txt=x.t==='dano'?`${x.autor||'Alguém'} → ${x.alvo}: ${x.valor} de dano${tp?' ('+tp+')':''}${x.origem?' com '+x.origem:''}${x.nota?' · '+x.nota:''}${x.caiu?' · caiu':''}`
       :x.t==='cura'?`${x.autor||'Alguém'} curou ${x.alvo}: +${x.valor} PV`:x.t==='recebido'?`${x.alvo} sofreu ${x.valor}${x.texto?' ('+x.texto+')':' (anotado na ficha)'}`:x.t==='curado'?`${x.alvo} recuperou ${x.valor} PV${x.texto?' com '+x.texto:' (anotado na ficha)'}`
+      :x.t==='efeito'?`${x.autor||'Alguém'} usou ${x.origem||'um ritual'} em ${x.alvo}${x.nota?' · '+x.nota:''}${x.efeito?' · efeito marcado':''}`
       :x.t==='ataque'?`${x.autor||'Alguém'} atacou ${x.alvo}${x.origem?' com '+x.origem:''}: ${x.valor} · ${x.acertou===true?'acertou':x.acertou===false?'errou':'mestre decide'}${x.critico?' · crítico':''}`
       :x.t==='turno'?`Turno de ${x.alvo}${(x.efeitos||[]).length?' · sob '+x.efeitos.join(', '):''}`:x.texto||'';
     return `<li><span class="hint">R${x.rodada||0}</span> ${h(txt)}</li>`}).join('');

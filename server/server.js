@@ -75,6 +75,9 @@ const Q={
   logLista:'SELECT id,criado,dados FROM mesa_log WHERE mesa_id=? AND id>? ORDER BY id LIMIT 2000',
   logContar:'SELECT COUNT(*) n FROM mesa_log WHERE mesa_id=?',
   logApagar:'DELETE FROM mesa_log WHERE mesa_id=?',
+  cfgMesa:'SELECT dados,atualizado FROM mesa_cfg WHERE mesa_id=?',
+  cfgMesaSet:'INSERT INTO mesa_cfg(mesa_id,dados,atualizado) VALUES(?,?,?) ON CONFLICT(mesa_id) DO UPDATE SET dados=excluded.dados,atualizado=excluded.atualizado',
+  cfgMesaDel:'DELETE FROM mesa_cfg WHERE mesa_id=?',
   eventos:`SELECT e.id,e.criado,e.dados,u.usuario FROM mesa_eventos e JOIN usuarios u ON u.id=e.usuario_id WHERE e.mesa_id=? AND e.id>? ORDER BY e.id DESC LIMIT 50`,
 };
 setInterval(()=>{if(db)db.run(Q.limparSessoes,Date.now()).catch(()=>{})},3600e3).unref();
@@ -187,7 +190,7 @@ async function rotasMesa(req,res,u,p,m,url){
   const mm=p.match(/^\/api\/mesas\/([\w-]{1,64})(\/[a-z]+)?$/);if(!mm)return erro(res,404,'Não encontrado');
   const mesa=await db.get(Q.mesa,mm[1]);const pap=mesa&&(await db.get(Q.papel,mesa.id,u.id));if(!mesa||!pap)return erro(res,404,'Campanha não encontrada.');
   const mestre=pap.papel==='mestre';const sub=mm[2]||'';
-  if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.iniDelTudo,mesa.id);await db.run(Q.iniDelEstado,mesa.id);await db.run(Q.logApagar,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
+  if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.iniDelTudo,mesa.id);await db.run(Q.iniDelEstado,mesa.id);await db.run(Q.logApagar,mesa.id);await db.run(Q.cfgMesaDel,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
   if(sub==='/sair'&&m==='POST'){if(mestre)return erro(res,400,'O mestre não sai da própria campanha; exclua-a se quiser.');await db.run(Q.tirarMembro,mesa.id,u.id);return enviar(res,200,{ok:true})}
   if(sub==='/fichas'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê as fichas da campanha.');
     const fichas=[];for(const r of await db.all(Q.fichasDaMesa,mesa.id,mesa.id)){try{fichas.push({usuario:r.usuario,atualizado:r.atualizado,ficha:JSON.parse(r.dados).ficha})}catch(e){}}
@@ -197,6 +200,12 @@ async function rotasMesa(req,res,u,p,m,url){
   if(sub==='/eventos'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê os avisos.');const depois=+url.searchParams.get('depois')||0;
     return enviar(res,200,(await db.all(Q.eventos,mesa.id,depois)).map(e=>({id:e.id,criado:e.criado,usuario:e.usuario,...JSON.parse(e.dados)})))}
   if(sub==='/iniciativa')return rotaIniciativa(req,res,u,m,mesa,mestre);
+  /* Regras da campanha: o mestre publica livros, regras opcionais e automações; os jogadores copiam. */
+  if(sub==='/regras'&&m==='GET'){const r=await db.get(Q.cfgMesa,mesa.id);let cfg=null;try{cfg=r?JSON.parse(r.dados):null}catch(e){}return enviar(res,200,{cfg,atualizado:r?r.atualizado:0})}
+  if(sub==='/regras'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre define as regras da campanha.');const b=await lerJSON(req)||{};
+    const bools=o=>{const out={};if(o&&typeof o==='object')for(const [k,v] of Object.entries(o).slice(0,500))if(/^[\w-]{1,64}$/.test(k))out[k]=!!v;return out};
+    const cfg={fontes:bools(b.fontes),regras:bools(b.regras),auto:bools(b.auto),acoesInterludio:Math.max(1,Math.min(10,Math.round(+b.acoesInterludio)||2))};
+    await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true})}
   return erro(res,404,'Não encontrado');
 }
 
@@ -222,6 +231,10 @@ function aplicarDefesas(valor,tipos,defs,ignorar){
   return {valor:v,nota:nota.join(', ')};
 }
 /* Jogadores não veem os PV das criaturas, só se caíram. */
+/* "4d20+10": rola 4d20 e fica com o maior; "–2d20+3" (ou "-2d20"): rola 2 e fica com o pior. */
+function rolarD20(expr){const m=String(expr||'').replace(/–/g,'-').match(/^\s*(-?)(\d*)d20\s*([+-]\s*\d+)?/);if(!m)return null;
+  const k=Math.max(1,Math.min(10,+(m[2]||1)));const rs=Array.from({length:k},()=>1+crypto.randomInt(20));const pick=m[1]?Math.min(...rs):Math.max(...rs);
+  const bonus=m[3]?+m[3].replace(/\s/g,''):0;return {total:pick+bonus,txt:`${k}d20${m[1]?' (pior)':''} [${rs.join(', ')}] ${bonus>=0?'+':'−'} ${Math.abs(bonus)}`}}
 const semPV=(r,mestre)=>{if(mestre||r.alvoTipo==='agente')return r;const {pvAntes,pvDepois,pvMax,...resto}=r;return resto};
 async function rotaIniciativa(req,res,u,m,mesa,mestre){
   const agora=Date.now();
@@ -280,6 +293,37 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     const reg={t:'ataque',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,valor,acertou,critico:!!b.critico,origem:txtCurto(b.origem,80)||null,rodada:est.rodada||0};
     if((await db.get(Q.logContar,mesa.id)).n>=2000)return erro(res,400,'Registro do combate cheio.');
     await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(reg));return enviar(res,200,{ok:true,...reg})}
+  if(acao==='ritual'){ /* ritual num alvo da iniciativa: teste de resistência da criatura, dano/cura e efeito */
+    const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.alvo,120));if(!ent)return erro(res,404,'Alvo não está no combate.');
+    let dd=null;try{dd=ent.dados?JSON.parse(ent.dados):null}catch(e){}
+    const dt=intOuNulo(b.dt);const resist=txtCurto(b.resistencia,60);const nomeRit=txtCurto(b.ritual,80)||'Ritual';
+    const tipoT=/fortitude/i.test(resist)?'fortitude':/reflexos/i.test(resist)?'reflexos':/vontade/i.test(resist)?'vontade':null;
+    let teste=null;const expr=tipoT&&dd&&dd.saves&&dd.saves[tipoT];
+    if(tipoT&&dt!=null&&expr){const t=rolarD20(expr);if(t)teste={tipo:tipoT,total:t.total,txt:t.txt,passou:t.total>=dt}}
+    const anula=/anula|desacredita/i.test(resist);const passou=!!(teste&&teste.passou);
+    const notaT=teste?`${tipoT[0].toUpperCase()+tipoT.slice(1)} ${teste.total} vs DT ${dt}: ${passou?(anula?'passou (anulou)':'passou (metade)'):'falhou'}`:tipoT?`teste de ${tipoT} não rolado (o mestre decide)`:'';
+    let autor=txtCurto(b.autor,80)||null,autorChave=txtCurto(b.autorChave,120)||null;
+    if(!mestre){autorChave='a:'+u.id+':'+txtCurto(b.ficha,64);autor=autor||'Agente'}
+    const est=await db.get(Q.iniEstado,mesa.id)||{rodada:0};const regs=[];
+    let bruto=intOuNulo(b.dano);if(bruto!=null&&!mestre&&ent.tipo==='agente')bruto=null; /* jogadores não ferem aliados pelo app */
+    let pvAntes=null,pvDepois=null,valor=null,notaD='';
+    if(bruto!=null&&bruto>0){let v=passou?(anula?0:Math.floor(bruto/2)):bruto;
+      const tipos=(Array.isArray(b.tipos)?b.tipos:[]).map(t=>txtCurto(t,20)).filter(t=>TIPOS_DANO.includes(t)).slice(0,4);
+      const c=aplicarDefesas(v,tipos,dd&&dd.defs,false);valor=c.valor;notaD=c.nota;
+      if(dd&&+dd.pvMax){pvAntes=dd.pv??+dd.pvMax;pvDepois=pvAntes-valor;dd.pv=pvDepois}
+      regs.push({t:'dano',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,bruto,valor,tipos,nota:[notaT,notaD].filter(Boolean).join(', '),origem:nomeRit,rodada:est.rodada||0,pvAntes,pvDepois,pvMax:dd&&+dd.pvMax||null,caiu:pvAntes!=null&&pvAntes>0&&pvDepois<=0})}
+    const cura=intOuNulo(b.cura);
+    if(cura!=null&&cura>0){if(dd&&+dd.pvMax){pvAntes=dd.pv??+dd.pvMax;pvDepois=Math.min(+dd.pvMax,pvAntes+cura);dd.pv=pvDepois}
+      regs.push({t:'cura',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,bruto:cura,valor:cura,tipos:[],nota:'',origem:nomeRit,rodada:est.rodada||0,pvAntes,pvDepois,pvMax:dd&&+dd.pvMax||null})}
+    /* efeito com duração fica marcado no alvo (criatura/NPC) se não foi anulado */
+    const efeito=!!b.efeito&&!(passou&&anula)&&ent.tipo!=='agente';
+    if(efeito){dd=dd||{};dd.conds=Array.isArray(dd.conds)?dd.conds:[];if(!dd.conds.includes(nomeRit)&&dd.conds.length<12)dd.conds.push(nomeRit)}
+    if(bruto!=null||cura!=null||efeito)await db.run(Q.iniSetDados,JSON.stringify(dd),agora,mesa.id,ent.chave);
+    const notaE=notaT.replace('passou (metade)','passou (efeito parcial)');
+    if(!regs.length)regs.push({t:'efeito',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,origem:nomeRit,nota:notaE,rodada:est.rodada||0,efeito});
+    if((await db.get(Q.logContar,mesa.id)).n>=1990)return erro(res,400,'Registro do combate cheio.');
+    for(const r of regs)await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(r));
+    return enviar(res,200,{ok:true,alvo:ent.nome,teste,passou,anula,valor,bruto,cura,nota:[bruto!=null?notaT:notaE,notaD].filter(Boolean).join(', '),efeito,caiu:regs.some(r=>r.caiu)})}
   if(acao==='registro'){ /* jogador relata dano/cura que aplicou na própria ficha; mestre registra turnos e efeitos */
     const t=['recebido','curado','turno','nota'].includes(b.t)?b.t:null;if(!t)return erro(res,400,'Registro inválido.');
     if(t==='turno'&&!mestre)return so();
@@ -299,6 +343,12 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     else{if((await db.get(Q.iniContar,mesa.id)).n>=60)return erro(res,400,'Iniciativa cheia (60 entradas).');chave=(tipo==='npc'?'m:':'c:')+crypto.randomUUID()}
     let dadosF=dados;if(b.dados===undefined&&b.chave){const ex=await db.get(Q.iniDados,mesa.id,chave);dadosF=ex?ex.dados:null} /* sem "dados": mantém PV e efeitos atuais */
     await db.run(Q.iniUpsert,mesa.id,chave,null,tipo,nome,valor,valor==null?null:'mestre',dadosF,agora);return enviar(res,200,{ok:true,chave})}
+  if(acao==='mesclar'){ /* mestre completa dados de uma criatura (testes de resistência, defesas) */
+    const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.chave,120));if(!ent)return erro(res,404,'Entrada não encontrada.');
+    let dd={};try{dd=ent.dados?JSON.parse(ent.dados):{}}catch(e){}
+    for(const k of ['saves','defs'])if(b[k]&&typeof b[k]==='object')dd[k]=b[k];
+    const txt=JSON.stringify(dd);if(txt.length>6000)return erro(res,413,'Dados grandes demais.');
+    await db.run(Q.iniSetDados,txt,agora,mesa.id,ent.chave);return enviar(res,200,{ok:true})}
   if(acao==='efeitos'){const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.chave,120));if(!ent)return erro(res,404,'Entrada não encontrada.');
     let dd={};try{dd=ent.dados?JSON.parse(ent.dados):{}}catch(e){}dd.conds=(Array.isArray(b.conds)?b.conds:[]).slice(0,12).map(x=>txtCurto(x,40)).filter(Boolean);
     await db.run(Q.iniSetDados,JSON.stringify(dd),agora,mesa.id,ent.chave);return enviar(res,200,{ok:true})}

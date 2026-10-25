@@ -28,6 +28,7 @@ async function abrirEscudo(){
 async function atualizarIni(){
   const m=mesaAtual();if(!m||m.papel!=='mestre')return;
   try{const {d,L}=await buscarLog(m.id);const k=JSON.stringify(d)+L.ultimo;
+    completarCriaturas(d,m.id);
     if(k!==S._iniKey){S._iniKey=k;S.ini=d;if(S.view==='escudo'&&!document.activeElement.closest('.cb-painel,.mapa-lado'))render()}}catch(e){}
 }
 const iniPost=(corpo,mesaId)=>Api.req('POST',`/api/mesas/${encodeURIComponent(mesaId||S.mesaAberta)}/iniciativa`,corpo);
@@ -39,6 +40,11 @@ function rollCri(label,expr){
   const k=+(m[2]||1);const dados=m[1]?2-k:k;const bonus=m[3]?+m[3].replace(/\s/g,''):0;
   return rollTest(label,dados,bonus).v;
 }
+const savesCri=c=>({fortitude:c.fortitude||null,reflexos:c.reflexos||null,vontade:c.vontade||null});
+/* Criaturas que entraram no combate antes desta versão ganham testes de resistência e defesas. */
+function completarCriaturas(d,mesaId){if(!S.cri)return;S._mesclados=S._mesclados||new Set();
+  (d.entradas||[]).forEach(e=>{const dd=e.dados||{};if(e.tipo!=='criatura'||!dd.ref||(dd.saves&&dd.defs)||S._mesclados.has(e.chave))return;const c=criPorId(dd.ref);if(!c)return;
+    S._mesclados.add(e.chave);iniPost({acao:'mesclar',chave:e.chave,saves:savesCri(c),defs:defesasCri(c)},mesaId).catch(()=>S._mesclados.delete(e.chave))})}
 function iniDe(c){return /d20/.test(c.iniciativa||'')?c.iniciativa:null}
 
 /* ---------- tela ---------- */
@@ -105,10 +111,10 @@ function painelDano(es){
      <span class="hint">${defs&&defesasTxt(defs)?h(alvo.nome)+': '+h(defesasTxt(defs)):alvo&&alvo.tipo==='agente'?'O jogador recebe um aviso na ficha para aplicar.':'Sem resistências conhecidas.'}</span></div></div>`;
 }
 function ultimosLog(){const L=S.logs[S.mesaAberta];if(!L||!L.itens.length||!(S.ini&&S.ini.pedido))return '';
-  const it=L.itens.filter(x=>x.t!=='turno').slice(-6).reverse();if(!it.length)return '';
+  const it=L.itens.filter(x=>x.t!=='turno'&&x.t!=='ataque').slice(-6).reverse();if(!it.length)return '';
   return `<div class="sec"><h3 class="eyebrow">Últimos acontecimentos</h3><ul class="linha-tempo">${it.map(x=>{const tp=(x.tipos||[]).map(t=>TIPO_NOME[t]).join('+');
     return `<li><span class="hint">R${x.rodada}</span> ${h(x.t==='dano'?`${x.autor||'Alguém'} → ${x.alvo}: ${x.valor}${x.bruto!==x.valor?' (de '+x.bruto+')':''}${tp?' '+tp:''}${x.nota?' · '+x.nota:''}${x.caiu?' · caiu':''}`
-      :x.t==='cura'?`${x.autor||'Alguém'} curou ${x.alvo}: +${x.valor}`:x.t==='recebido'?`${x.alvo}: −${x.valor} PV na ficha${x.texto?' ('+x.texto+')':''}`:`${x.alvo}: +${x.valor} PV na ficha${x.texto?' com '+x.texto:''}`)}</li>`}).join('')}</ul></div>`}
+      :x.t==='cura'?`${x.autor||'Alguém'} curou ${x.alvo}: +${x.valor}${x.origem?' ('+x.origem+')':''}`:x.t==='efeito'?`${x.autor||'Alguém'} → ${x.alvo}: ${x.origem||'ritual'}${x.nota?' · '+x.nota:''}`:x.t==='recebido'?`${x.alvo}: −${x.valor} PV na ficha${x.texto?' ('+x.texto+')':''}`:`${x.alvo}: +${x.valor} PV na ficha${x.texto?' com '+x.texto:''}`)}</li>`}).join('')}</ul></div>`}
 async function iniProximo(){
   const d=S.ini||{};const es=ordenarIni(d.entradas||[]).filter(e=>e.valor!=null);if(!es.length){toast('Ninguém tem iniciativa ainda.');return}
   let i=es.findIndex(e=>e.chave===d.turno);let rodada=d.rodada||1;
@@ -120,7 +126,7 @@ function nomeLivre(base){const ns=new Set(((S.ini||{}).entradas||[]).map(e=>e.no
 async function addCriaturaCombate(id,nome){
   const c=criPorId(id);if(!c)return;if(!S.mesaAberta){toast('Abra uma campanha primeiro.');return}
   const v=iniDe(c)?rollCri(`${c.nome}: iniciativa`,c.iniciativa):null;
-  await iniPost({acao:'entrada',tipo:'criatura',nome:nomeLivre(nome||c.nome),valor:v,dados:{ref:c.id,pv:c.pv,pvMax:c.pv,def:c.defesa,defs:defesasCri(c),conds:[]}});
+  await iniPost({acao:'entrada',tipo:'criatura',nome:nomeLivre(nome||c.nome),valor:v,dados:{ref:c.id,pv:c.pv,pvMax:c.pv,def:c.defesa,defs:defesasCri(c),saves:savesCri(c),conds:[]}});
   await atualizarIni();toast(`${c.nome} entrou no combate${v!=null?' com iniciativa '+v:''}.`);
 }
 

@@ -414,31 +414,31 @@ function paneNotas(f){
 /* ============================== MESA (fontes e regras) ============================== */
 function renderMesa(){
   const t=S.mesaTab;const tabs=[['fontes','Livros e suplementos'],['regras','Regras opcionais'],['auto','Automação']];
-  let body='';
+  let body='';const trava=mesaSincronizada()?'disabled ':'';
   if(t==='fontes'){
     const pk=pacotesHB();
     body=`<p class="hint">Ligue os livros e suplementos usados na sua mesa. Origens, classes, trilhas, poderes, rituais, itens, aliados e regras de cada um só aparecem quando ele está ligado. Vale para todas as fichas.</p>
-     <div class="toggles">${D.fontes.map(x=>tgl(`fonte-${x.id}`,x.nome,x.desc,fonteOn(x.id),x.fixa?'disabled':`data-act="tglFonte" data-id="${x.id}"`,x.sigla,contaFonte(x.id))).join('')}</div>
+     <div class="toggles">${D.fontes.map(x=>tgl(`fonte-${x.id}`,x.nome,x.desc,fonteOn(x.id),x.fixa?'disabled':`${trava}data-act="tglFonte" data-id="${x.id}"`,x.sigla,contaFonte(x.id))).join('')}</div>
      <div class="sec-h" style="margin-top:8px"><h2>Pacotes de homebrew</h2></div>
      ${pk.length?`<div class="toggles">${pk.map(p=>tgl('pk-'+slug(p),p,'Conteúdo criado na aba Homebrew.',pacoteOn(p),`data-act="tglPacote" data-id="${h(p)}"`,'★',HB_TYPES.reduce((s,[k])=>s+(S.hb[k]||[]).filter(x=>(x.pacote||'Minha mesa')===p).length,0))).join('')}</div>`:'<p class="hint">Você ainda não criou homebrew. Na aba Homebrew, cada criação pertence a um pacote com nome; os pacotes aparecem aqui para ligar e desligar.</p>'}`;
   }else if(t==='regras'){
     const grupos={};D.regras.forEach(x=>{if(!fonteOn(x.fonte))return;(grupos[x.fonte]=grupos[x.fonte]||[]).push(x)});
     body=`<p class="hint">Regras marcadas como “sempre” são novos usos de perícia que só listamos para referência. As demais mudam cálculos ou liberam botões quando ligadas (por exemplo, Determinação troca PE e Sanidade por PD).</p>`+
      Object.entries(grupos).map(([fid,list])=>`<div class="sec-h" style="margin-top:6px"><h2>${h(FONTE(fid).nome)}</h2></div><div class="toggles">${list.map(x=>x.sempre?tgl('r-'+x.id,x.nome,x.desc,true,'disabled','sempre'):
-       tgl('r-'+x.id,x.nome,x.desc,regraOn(x.id),`data-act="tglRegra" data-id="${x.id}"`,x.efeito?'automático':'referência',x.requer?'Complementa: '+regraRotulo(x.requer):'')).join('')}</div>`).join('');
+       tgl('r-'+x.id,x.nome,x.desc,regraOn(x.id),`${trava}data-act="tglRegra" data-id="${x.id}"`,x.efeito?'automático':'referência',x.requer?'Complementa: '+regraRotulo(x.requer):'')).join('')}</div>`).join('');
   }else{
     const a=S.cfg.auto;
     body=`<div class="toggles">
-     ${tgl('a-cp','Custo do Paranormal automático','Ao conjurar, rola Ocultismo (DT 20 + custo) e desconta a Sanidade (ou PD) perdida, incluindo a perda permanente ao falhar por 5 ou mais.',a.custoParanormal,'data-act="tglAuto" data-id="custoParanormal"')}
-     ${tgl('a-tr','Transcender automático','Poderes paranormais escolhidos com “Transcender” reduzem a Sanidade máxima (ou os PD) do agente.',a.transcender,'data-act="tglAuto" data-id="transcender"')}
-     ${tgl('a-ml','Lembrete do preço das maldições','Ao rolar um teste do atributo ligado a um item amaldiçoado equipado, mostra um botão para descontar 2 de Sanidade por maldição se falhar.',a.maldicao,'data-act="tglAuto" data-id="maldicao"')}
-     ${tgl('a-dm','Aviso de dano massivo','Ao perder metade ou mais dos PV de uma vez, lembra do teste de Fortitude.',a.massivo,'data-act="tglAuto" data-id="massivo"')}
+     ${tgl('a-cp','Custo do Paranormal automático','Ao conjurar, rola Ocultismo (DT 20 + custo) e desconta a Sanidade (ou PD) perdida, incluindo a perda permanente ao falhar por 5 ou mais.',a.custoParanormal,trava+'data-act="tglAuto" data-id="custoParanormal"')}
+     ${tgl('a-tr','Transcender automático','Poderes paranormais escolhidos com “Transcender” reduzem a Sanidade máxima (ou os PD) do agente.',a.transcender,trava+'data-act="tglAuto" data-id="transcender"')}
+     ${tgl('a-ml','Lembrete do preço das maldições','Ao rolar um teste do atributo ligado a um item amaldiçoado equipado, mostra um botão para descontar 2 de Sanidade por maldição se falhar.',a.maldicao,trava+'data-act="tglAuto" data-id="maldicao"')}
+     ${tgl('a-dm','Aviso de dano massivo','Ao perder metade ou mais dos PV de uma vez, lembra do teste de Fortitude.',a.massivo,trava+'data-act="tglAuto" data-id="massivo"')}
     </div>
-    <div class="grid g4" style="margin-top:10px">${fld('Ações por interlúdio',`<input class="inp num" type="number" min="1" max="6" data-cfg="acoesInterludio" value="${+S.cfg.acoesInterludio||2}">`)}</div>`;
+    <div class="grid g4" style="margin-top:10px">${fld('Ações por interlúdio',`<input class="inp num" type="number" min="1" max="6" data-cfg="acoesInterludio" value="${+S.cfg.acoesInterludio||2}" ${trava}>`)}</div>`;
   }
   return `<div class="sheet"><div class="sheet-head"><div class="name"><span class="eyebrow">Configuração da campanha</span><h2 class="bigh">Mesa</h2></div></div>
    <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${t===k}" data-act="mesaTab" data-v="${k}">${l}</button>`).join('')}</div>
-   <div class="pane">${body}</div></div>`;
+   <div class="pane">${regrasCampanhaHtml()}${body}</div></div>`;
 }
 function regraRotulo(id){const y=D.regras.find(z=>z.id===id);return y?`${y.nome} (${FONTE(y.fonte).sigla})`:id}
 function contaFonte(id){const n=['origens','trilhas','poderes','rituais','itens'].reduce((s,k)=>s+(D[k]||[]).filter(x=>x.fonte===id).length,0);return n+' itens'}
