@@ -1,4 +1,4 @@
-# Dossiê Paranormal — servidor
+# Cristopher — servidor
 
 Criador de fichas de Ordem Paranormal RPG com Sobrevivendo ao Horror, Arquivos Secretos, regras opcionais, condições, interlúdio, bônus e homebrew. Esta pasta roda como um site próprio, com contas de usuário e banco de dados SQLite.
 
@@ -71,7 +71,7 @@ Precisa do terminal (Prompt de Comando, PowerShell ou Terminal) e de uma conta n
 1. Instale o `flyctl`: veja as instruções em https://fly.io/docs/flyctl/install/
 2. Entre na conta: `fly auth login`
 3. Abra o terminal **dentro desta pasta** (onde está o `Dockerfile`).
-4. Escolha um nome único para o app (só letras minúsculas, números e hífen) e troque `dossie-paranormal-TROQUE` no `fly.toml` por ele.
+4. Escolha um nome único para o app (só letras minúsculas, números e hífen) e troque `cristopher-TROQUE` no `fly.toml` por ele.
 5. Crie o app: `fly apps create NOME-ESCOLHIDO`
 6. Crie o disco do banco: `fly volumes create dossie_dados --region gru --size 1`
 7. Publique: `fly deploy`
@@ -118,4 +118,4 @@ data/dados.json   conteúdo dos livros (gerado por build.js a partir de src/)
 server/server.js  servidor HTTP + API + SQLite
 ```
 
-API (usada pelo app): `GET /api/eu`, `POST /api/cadastrar`, `POST /api/entrar`, `POST /api/sair`, `GET /api/docs`, `PUT/DELETE /api/docs/:id`, `POST /api/imagens`, `GET /_blob/:id`, `GET/POST /api/mesas`, `POST /api/mesas/entrar`, `DELETE /api/mesas/:id`, `POST /api/mesas/:id/sair`, `GET /api/mesas/:id/fichas` (só mestre), `GET/POST /api/mesas/:id/eventos`.
+API (usada pelo app): `GET /api/eu`, `POST /api/cadastrar`, `POST /api/entrar`, `POST /api/sair`, `GET /api/docs`, `PUT/DELETE /api/docs/:id`, `POST /api/imagens`, `GET /_blob/:id`, `GET/POST /api/mesas`, `POST /api/mesas/entrar`, `DELETE /api/mesas/:id`, `POST /api/mesas/:id/sair`, `GET /api/mesas/:id/fichas` (só mestre), `GET/POST /api/mesas/:id/eventos`, `GET/POST /api/mesas/:id/iniciativa` (também dano, cura, registro do combate com `?log=1` e efeitos).

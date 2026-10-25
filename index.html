@@ -1,5 +1,6 @@
 <meta charset="utf-8">
-<title>Dossiê Paranormal</title>
+<title>Cristopher</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%2284%200%20266%20446%22%20fill%3D%22none%22%20stroke%3D%22%238a6d1d%22%20stroke-width%3D%2226%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%22148%22%20cy%3D%2298%22%20r%3D%2218%22/%3E%3Cpath%20d%3D%22M163%2082C166%2042%20196%2014%20236%2014C282%2014%20304%2048%20300%2086C297%20117%20270%20136%20242%20146C221%20153%20215%20160%20216%20176L217%20418%22/%3E%3Cpath%20d%3D%22M101%20114L176%20278%22/%3E%3Cpath%20d%3D%22M107%20124C135%20175%20175%20200%20216%20210%22/%3E%3Cpath%20d%3D%22M219%20214C250%20192%20290%20140%20326%20130C334%20128%20334%20138%20331%20152L310%20249%22/%3E%3Ccircle%20cx%3D%22307%22%20cy%3D%22264%22%20r%3D%2213%22/%3E%3Cpath%20d%3D%22M296%20274L272%20299L222%20292%22/%3E%3Cpath%20d%3D%22M214%20280C178%20276%20146%20302%20145%20340C145%20360%20190%20400%20222%20428%22/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
@@ -34,7 +35,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .wrap{padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:14px 40px;max-width:1320px;margin:0 auto}
 .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-block:4px 14px;border-bottom:2px solid var(--ink);margin-bottom:16px}
 .brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
-.brand svg{width:38px;height:38px;flex:none;color:var(--accent)}
+.brand svg{width:auto;height:44px;flex:none;color:var(--accent)}
 .brand b{font-family:var(--f-display);font-weight:400;font-size:30px;letter-spacing:.02em;text-transform:uppercase;line-height:1;display:block}
 .brand span{font-size:12px;color:var(--muted)}
 .nav{display:flex;gap:4px}
@@ -264,6 +265,8 @@ td.dice.neg{color:var(--sangue)} td.dice.pos{color:var(--ok)}
 .tgl .tx{display:grid;gap:3px;min-width:0}
 .tgl .tl-h{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline}
 .tgl small{font-size:12px;color:var(--muted);line-height:1.4}
+.tgl .badge{white-space:normal;text-align:left}
+.tgl small,.tgl b{overflow-wrap:anywhere}
 .grp{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:6px}
 .condgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
 .condbtn{text-align:left;border:1px solid var(--line);background:var(--sunk);border-radius:4px;padding:6px 8px;cursor:pointer;display:grid;gap:2px}
@@ -296,13 +299,66 @@ label.btn input[type=radio]{margin:0}
 .filtros{align-items:center}
 .btn.el[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:var(--bg)}
 label.btn:has(input:disabled){opacity:.45;cursor:not-allowed}
+/* escudo do mestre */
+.ini-list{display:grid;gap:6px}
+.ini-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;background:var(--paper)}
+.ini-row.atual{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.ini-pos{font-family:var(--f-display);font-size:22px;width:28px;text-align:center}
+.ini-nome{flex:1 1 180px;min-width:0}
+.ini-aviso{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 18px;background:var(--accent);color:var(--accent-ink);font-size:13px}
+.ini-aviso .inp{color:var(--ink);background:var(--paper)} .ini-aviso .hint{color:inherit;opacity:.85}
+.ini-aviso .btn{color:var(--ink);background:var(--paper)} .ini-aviso .btn.acc{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.ini-aviso.ok{background:var(--sunk);color:var(--ink);border-bottom:1px solid var(--line)}
+.ini-aviso.ok .hint{color:var(--muted)}
+.ini-aviso ol{margin:4px 0 0;padding-left:20px}
+.cri-list{display:grid;gap:8px}
+.ini-extra{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.ini-extra:empty{display:none}
+.ini-extra .inp.sm{width:auto;max-width:150px}
+.ini-aviso.dano{background:var(--pv);color:#fff}
+.cb-painel{border-color:var(--ink)}
+.cb-painel .grid{gap:8px}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+.linha-tempo{margin:4px 0 0;padding-left:20px;font-size:13px;display:grid;gap:2px}
+.resumo .tbl{width:100%;border-collapse:collapse;font-size:13px}
+.resumo .tbl th,.resumo .tbl td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+.resumo .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.resumo .chips{margin-bottom:8px}
+.mapa-wrap{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:var(--r);background:var(--sunk);margin-top:8px}
+.mapa{--cs:24px;display:grid;grid-template-columns:repeat(var(--w),var(--cs));grid-auto-rows:var(--cs);width:max-content;user-select:none;-webkit-user-select:none}
+.mapa.editar{touch-action:none;cursor:crosshair}
+.mapa.usar .tp{cursor:pointer}
+.mc{position:relative;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--line) 70%,transparent)}
+.mc.tv{background:transparent}
+.mc.tp{background:var(--paper)}
+.mc.tw{background:var(--ink)}
+.mc.td{background:var(--accent);box-shadow:inset 0 0 0 4px var(--paper)}
+.mc.pre{outline:2px dashed var(--accent);outline-offset:-2px}
+.mc.sel{background:color-mix(in srgb,var(--accent) 22%,var(--paper))}
+.mc .mo{font-weight:700;line-height:1;color:var(--ink)}
+.mc .mo.cri{color:var(--pv)}
+.mc .ml{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:700;background:var(--paper);border:1px solid var(--ink);border-radius:3px;padding:0 4px;pointer-events:none;z-index:1}
+.mapa-lado{margin-top:10px;display:grid;gap:6px}
+.mapa-objs{display:grid;gap:4px}
+.mapa-obj{border-bottom:1px solid var(--line);padding:4px 0}
+.mo-ic{width:18px;text-align:center}
+.mapa-mini{width:100%;max-height:120px;border-radius:4px;display:block}
+.chips.seg{gap:0}.chips.seg .btn{border-radius:0}.chips.seg .btn:first-child{border-radius:var(--r) 0 0 var(--r)}.chips.seg .btn:last-child{border-radius:0 var(--r) var(--r) 0}
+@media (max-width:640px){.mapa{--cs:18px}.mc{font-size:10px}}
+.card.cri.on{border-color:var(--ink)}
+.cri-ficha{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.cri-ficha p{margin:0;font-size:13px}
+.cri-acoes{display:grid;gap:6px}
+.cri-acao{border-left:2px solid var(--line);padding-left:8px;display:grid;gap:3px}
+.rollchip{font-family:var(--f-mono);font-size:11.5px;padding:4px 8px;border-radius:4px;border:1px solid var(--line);background:var(--sunk);cursor:pointer;color:inherit}
+.rollchip:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 3 L30 33 L4 14 L36 14 L10 33 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      <div><b>Dossiê Paranormal</b><span>Fichas de Ordem Paranormal RPG com suplementos e homebrew</span></div>
+      <svg viewBox="84 0 266 446" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"><circle cx="148" cy="98" r="18"/><path d="M163 82C166 42 196 14 236 14C282 14 304 48 300 86C297 117 270 136 242 146C221 153 215 160 216 176L217 418"/><path d="M101 114L176 278"/><path d="M107 124C135 175 175 200 216 210"/><path d="M219 214C250 192 290 140 326 130C334 128 334 138 331 152L310 249"/><circle cx="307" cy="264" r="13"/><path d="M296 274L272 299L222 292"/><path d="M214 280C178 276 146 302 145 340C145 360 190 400 222 428"/></svg>
+      <div><b>Cristopher</b><span>Fichas de Ordem Paranormal RPG com suplementos e homebrew</span></div>
     </div>
     <nav class="nav" id="nav"></nav>
     <span class="status" id="status"><i></i><span>Salvo neste navegador</span></span>
@@ -317,4 +373,7 @@ label.btn:has(input:disabled){opacity:.45;cursor:not-allowed}
 <script src="js/ui.js" charset="utf-8"></script>
 <script src="js/hb.js" charset="utf-8"></script>
 <script src="js/campanha.js" charset="utf-8"></script>
+<script src="js/escudo.js" charset="utf-8"></script>
+<script src="js/combate.js" charset="utf-8"></script>
+<script src="js/mapas.js" charset="utf-8"></script>
 <script src="js/eventos.js" charset="utf-8"></script>

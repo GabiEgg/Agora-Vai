@@ -1,4 +1,4 @@
-// Servidor do Dossiê Paranormal: serve o app e guarda contas, fichas, homebrew, configurações e imagens em SQLite.
+// Servidor do Cristopher: serve o app e guarda contas, fichas, homebrew, configurações e imagens em SQLite.
 // Banco: arquivo local (node:sqlite, Node 22.13+) ou Turso na nuvem quando TURSO_DATABASE_URL está definido (veja banco.js).
 'use strict';
 const http=require('node:http');
@@ -56,6 +56,25 @@ const Q={
     WHERE mm.mesa_id=? AND d.doc_id LIKE 'f-%' AND json_extract(d.dados,'$.ficha.mesa')=?`,
   addEvento:'INSERT INTO mesa_eventos(mesa_id,usuario_id,criado,dados) VALUES(?,?,?,?)',
   podarEventos:'DELETE FROM mesa_eventos WHERE mesa_id=? AND id NOT IN (SELECT id FROM mesa_eventos WHERE mesa_id=? ORDER BY id DESC LIMIT 200)',
+  iniLista:'SELECT i.chave,i.usuario_id,i.tipo,i.nome,i.valor,i.fonte,i.dados,i.atualizado,u.usuario FROM mesa_ini i LEFT JOIN usuarios u ON u.id=i.usuario_id WHERE i.mesa_id=?',
+  iniContar:'SELECT COUNT(*) n FROM mesa_ini WHERE mesa_id=?',
+  iniUma:'SELECT chave,usuario_id,tipo FROM mesa_ini WHERE mesa_id=? AND chave=?',
+  membroPorNome:'SELECT u.id FROM mesa_membros mm JOIN usuarios u ON u.id=mm.usuario_id WHERE mm.mesa_id=? AND u.usuario=?',
+  iniEstado:'SELECT pedido,turno,rodada,atualizado FROM mesa_estado WHERE mesa_id=?',
+  iniSetEstado:'INSERT INTO mesa_estado(mesa_id,pedido,turno,rodada,atualizado) VALUES(?,?,?,?,?) ON CONFLICT(mesa_id) DO UPDATE SET pedido=excluded.pedido,turno=excluded.turno,rodada=excluded.rodada,atualizado=excluded.atualizado',
+  iniUpsert:'INSERT INTO mesa_ini(mesa_id,chave,usuario_id,tipo,nome,valor,fonte,dados,atualizado) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(mesa_id,chave) DO UPDATE SET nome=excluded.nome,valor=excluded.valor,fonte=excluded.fonte,dados=excluded.dados,atualizado=excluded.atualizado',
+  iniValor:'UPDATE mesa_ini SET valor=?,fonte=?,atualizado=? WHERE mesa_id=? AND chave=?',
+  iniZerar:"UPDATE mesa_ini SET valor=NULL,fonte=NULL,atualizado=? WHERE mesa_id=?",
+  iniDel:'DELETE FROM mesa_ini WHERE mesa_id=? AND chave=?',
+  iniDelAgentes:"DELETE FROM mesa_ini WHERE mesa_id=? AND tipo='agente'",
+  iniDelTudo:'DELETE FROM mesa_ini WHERE mesa_id=?',
+  iniDelEstado:'DELETE FROM mesa_estado WHERE mesa_id=?',
+  iniDados:'SELECT chave,usuario_id,tipo,nome,dados FROM mesa_ini WHERE mesa_id=? AND chave=?',
+  iniSetDados:'UPDATE mesa_ini SET dados=?,atualizado=? WHERE mesa_id=? AND chave=?',
+  logAdd:'INSERT INTO mesa_log(mesa_id,usuario_id,criado,dados) VALUES(?,?,?,?)',
+  logLista:'SELECT id,criado,dados FROM mesa_log WHERE mesa_id=? AND id>? ORDER BY id LIMIT 2000',
+  logContar:'SELECT COUNT(*) n FROM mesa_log WHERE mesa_id=?',
+  logApagar:'DELETE FROM mesa_log WHERE mesa_id=?',
   eventos:`SELECT e.id,e.criado,e.dados,u.usuario FROM mesa_eventos e JOIN usuarios u ON u.id=e.usuario_id WHERE e.mesa_id=? AND e.id>? ORDER BY e.id DESC LIMIT 50`,
 };
 setInterval(()=>{if(db)db.run(Q.limparSessoes,Date.now()).catch(()=>{})},3600e3).unref();
@@ -95,7 +114,7 @@ function pagina(){ // o index.html é um fragmento (formato de artifact); aqui g
 }
 function servirArquivo(res,url){
   const rel=path.normalize(decodeURIComponent(url)).replace(/^([/\\])+/,'');
-  if(!/^(js[/\\][\w.-]+\.js|data[/\\]dados\.json)$/.test(rel))return erro(res,404,'Não encontrado');
+  if(!/^(js[/\\][\w.-]+\.js|data[/\\](dados|criaturas)\.json)$/.test(rel))return erro(res,404,'Não encontrado');
   const arq=path.join(RAIZ,rel);
   fs.readFile(arq,(e,buf)=>{if(e)return erro(res,404,'Não encontrado');enviar(res,200,buf,MIME[path.extname(arq)]||'application/octet-stream',{'Cache-Control':'no-cache'})});
 }
@@ -168,7 +187,7 @@ async function rotasMesa(req,res,u,p,m,url){
   const mm=p.match(/^\/api\/mesas\/([\w-]{1,64})(\/[a-z]+)?$/);if(!mm)return erro(res,404,'Não encontrado');
   const mesa=await db.get(Q.mesa,mm[1]);const pap=mesa&&(await db.get(Q.papel,mesa.id,u.id));if(!mesa||!pap)return erro(res,404,'Campanha não encontrada.');
   const mestre=pap.papel==='mestre';const sub=mm[2]||'';
-  if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
+  if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.iniDelTudo,mesa.id);await db.run(Q.iniDelEstado,mesa.id);await db.run(Q.logApagar,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
   if(sub==='/sair'&&m==='POST'){if(mestre)return erro(res,400,'O mestre não sai da própria campanha; exclua-a se quiser.');await db.run(Q.tirarMembro,mesa.id,u.id);return enviar(res,200,{ok:true})}
   if(sub==='/fichas'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê as fichas da campanha.');
     const fichas=[];for(const r of await db.all(Q.fichasDaMesa,mesa.id,mesa.id)){try{fichas.push({usuario:r.usuario,atualizado:r.atualizado,ficha:JSON.parse(r.dados).ficha})}catch(e){}}
@@ -177,12 +196,121 @@ async function rotasMesa(req,res,u,p,m,url){
     await db.run(Q.addEvento,mesa.id,u.id,Date.now(),txt);await db.run(Q.podarEventos,mesa.id,mesa.id);return enviar(res,200,{ok:true})}
   if(sub==='/eventos'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê os avisos.');const depois=+url.searchParams.get('depois')||0;
     return enviar(res,200,(await db.all(Q.eventos,mesa.id,depois)).map(e=>({id:e.id,criado:e.criado,usuario:e.usuario,...JSON.parse(e.dados)})))}
+  if(sub==='/iniciativa')return rotaIniciativa(req,res,u,m,mesa,mestre);
   return erro(res,404,'Não encontrado');
+}
+
+/* ---------------- iniciativa da campanha ----------------
+   O mestre pede iniciativa; cada jogador rola no app ou digita o que tirou nos dados físicos.
+   Cada entrada é uma linha (agente, criatura ou NPC), para que respostas simultâneas não se atropelem.
+   Jogadores veem a ordem; só o mestre vê os dados das criaturas (PV etc.). */
+const txtCurto=(v,n)=>String(v??'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,n);
+const intOuNulo=v=>{if(v===null||v===undefined||v==='')return null;const n=Math.round(+v);return Number.isFinite(n)&&n>=-100&&n<=1000?n:undefined};
+/* Tipos de dano e cálculo de resistência, imunidade e vulnerabilidade (dobra o dano).
+   defs = {res:{tipo:n}, resTudo, imu:[tipos], imuTudo, imuExceto:[tipos], vul:[tipos]} vem da ficha da criatura.
+   Dano de vários tipos: só resiste/é imune se valer para todos; vulnerável se for a qualquer um. */
+const TIPOS_DANO=['balistico','corte','impacto','perfuracao','eletricidade','fogo','frio','quimico','mental','sangue','morte','conhecimento','energia','medo'];
+function aplicarDefesas(valor,tipos,defs,ignorar){
+  if(!defs||ignorar)return {valor,nota:ignorar?'resistências ignoradas':''};
+  const ts=tipos.length?tipos:[null];
+  const imune=t=>(defs.imuTudo&&!(t&&(defs.imuExceto||[]).includes(t)))||(t&&(defs.imu||[]).includes(t));
+  if(ts.every(imune))return {valor:0,nota:'imune'};
+  const vul=ts.some(t=>t&&(defs.vul||[]).includes(t));
+  const res=Math.min(...ts.map(t=>Math.max(+defs.resTudo||0,t&&defs.res&&+defs.res[t]||0)));
+  let v=Math.max(0,valor-res);const nota=[];if(res)nota.push('resistência '+res);
+  if(vul){v*=2;nota.push('vulnerável (×2)')}
+  return {valor:v,nota:nota.join(', ')};
+}
+/* Jogadores não veem os PV das criaturas, só se caíram. */
+const semPV=(r,mestre)=>{if(mestre||r.alvoTipo==='agente')return r;const {pvAntes,pvDepois,pvMax,...resto}=r;return resto};
+async function rotaIniciativa(req,res,u,m,mesa,mestre){
+  const agora=Date.now();
+  if(m==='GET'){
+    const est=await db.get(Q.iniEstado,mesa.id)||{pedido:0,turno:null,rodada:0,atualizado:0};
+    const entradas=(await db.all(Q.iniLista,mesa.id)).map(r=>{let dados=null;try{dados=r.dados?JSON.parse(r.dados):null}catch(e){}
+      const meu=r.usuario_id===u.id;
+      return {chave:r.chave,tipo:r.tipo,nome:r.nome,valor:r.valor,fonte:r.fonte,usuario:r.usuario||null,meu,dados:mestre||meu?dados:null}});
+    const out={pedido:est.pedido,turno:est.turno,rodada:est.rodada,entradas,nLog:Number((await db.get(Q.logContar,mesa.id)).n)};
+    if(/[?&]log=1/.test(req.url||'')){const dep=Math.max(0,+((req.url||'').match(/[?&]depois=(\d+)/)||[])[1]||0);
+      out.log=(await db.all(Q.logLista,mesa.id,dep)).map(r=>{try{return semPV({id:r.id,criado:r.criado,...JSON.parse(r.dados)},mestre)}catch(e){return null}}).filter(Boolean)}
+    return enviar(res,200,out)}
+  if(m!=='POST')return erro(res,405,'Método não permitido');
+  const b=await lerJSON(req)||{};const acao=String(b.acao||'');
+  const so=()=>erro(res,403,'Só o mestre pode fazer isso.');
+  const estado=async(campos)=>{const e=await db.get(Q.iniEstado,mesa.id)||{pedido:0,turno:null,rodada:0};const n={...e,...campos};
+    await db.run(Q.iniSetEstado,mesa.id,n.pedido||0,n.turno??null,n.rodada||0,agora)};
+  if(acao==='valor'){
+    const valor=intOuNulo(b.valor);if(valor===undefined)return erro(res,400,'Valor de iniciativa inválido.');
+    const fonte=b.fonte==='fisico'?'fisico':'app';
+    if(b.chave&&mestre){const ex=await db.get(Q.iniUma,mesa.id,String(b.chave));if(!ex)return erro(res,404,'Entrada não encontrada.');
+      await db.run(Q.iniValor,valor,fonte,agora,mesa.id,ex.chave);return enviar(res,200,{ok:true})}
+    const ficha=txtCurto(b.ficha,64);if(!/^[\w-]{1,64}$/.test(ficha))return erro(res,400,'Ficha inválida.');
+    let dono=u.id; /* o mestre pode registrar o valor que um jogador tirou nos dados físicos */
+    if(mestre&&b.usuario){const mb=await db.get(Q.membroPorNome,mesa.id,txtCurto(b.usuario,40));if(!mb)return erro(res,404,'Jogador não está na campanha.');dono=mb.id}
+    const nome=txtCurto(b.nome,80)||'Agente';const chave='a:'+dono+':'+ficha;
+    if(!(await db.get(Q.iniUma,mesa.id,chave))&&(await db.get(Q.iniContar,mesa.id)).n>=60)return erro(res,400,'Iniciativa cheia (60 entradas).');
+    await db.run(Q.iniUpsert,mesa.id,chave,dono,'agente',nome,valor,fonte,null,agora);return enviar(res,200,{ok:true,chave})}
+  if(acao==='dano'||acao==='cura'){ /* qualquer membro: dano/cura num participante, com resistências da criatura */
+    const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.alvo,120));if(!ent)return erro(res,404,'Alvo não está no combate.');
+    if(!mestre&&ent.tipo==='agente'&&acao==='dano')return erro(res,403,'Jogadores só causam dano em criaturas e NPCs pelo app.');
+    const bruto=intOuNulo(b.valor);if(bruto==null||bruto<0)return erro(res,400,'Valor inválido.');
+    const tipos=(Array.isArray(b.tipos)?b.tipos:[]).map(t=>txtCurto(t,20)).filter(t=>TIPOS_DANO.includes(t)).slice(0,4);
+    let dd=null;try{dd=ent.dados?JSON.parse(ent.dados):null}catch(e){}
+    const calc=acao==='dano'?aplicarDefesas(bruto,tipos,dd&&dd.defs,!!(mestre&&b.ignorar)):{valor:bruto,nota:''};
+    /* autor: o mestre escolhe; o jogador é sempre o próprio agente */
+    let autor=txtCurto(b.autor,80)||null,autorChave=txtCurto(b.autorChave,120)||null;
+    if(!mestre){const ficha=txtCurto(b.ficha,64);autorChave='a:'+u.id+':'+ficha;autor=autor||'Agente'}
+    let pvAntes=null,pvDepois=null;
+    if(dd&&+dd.pvMax){pvAntes=dd.pv??+dd.pvMax;pvDepois=acao==='dano'?pvAntes-calc.valor:Math.min(+dd.pvMax,pvAntes+calc.valor);dd.pv=pvDepois;
+      await db.run(Q.iniSetDados,JSON.stringify(dd),agora,mesa.id,ent.chave)}
+    const est=await db.get(Q.iniEstado,mesa.id)||{rodada:0};
+    const reg={t:acao,alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,bruto,valor:calc.valor,tipos,nota:calc.nota,origem:txtCurto(b.origem,80)||null,rodada:est.rodada||0,pvAntes,pvDepois,pvMax:dd&&+dd.pvMax||null,caiu:pvAntes!=null&&pvAntes>0&&pvDepois<=0};
+    if((await db.get(Q.logContar,mesa.id)).n>=2000)return erro(res,400,'Registro do combate cheio.');
+    await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(reg));return enviar(res,200,{ok:true,...semPV(reg,mestre)})}
+  if(acao==='ataque'){ /* teste de ataque contra a Defesa do alvo; o jogador só fica sabendo se acertou */
+    const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.alvo,120));if(!ent)return erro(res,404,'Alvo não está no combate.');
+    if(!mestre&&ent.tipo==='agente')return erro(res,403,'Jogadores só atacam criaturas e NPCs pelo app.');
+    const valor=intOuNulo(b.valor);if(valor==null)return erro(res,400,'Valor inválido.');
+    let dd=null;try{dd=ent.dados?JSON.parse(ent.dados):null}catch(e){}
+    const def=dd&&dd.def!=null&&dd.def!==''?+dd.def:null;
+    const acertou=def!=null?valor>=def:(mestre&&typeof b.acertou==='boolean'?b.acertou:null);
+    let autor=txtCurto(b.autor,80)||null,autorChave=txtCurto(b.autorChave,120)||null;
+    if(!mestre){autorChave='a:'+u.id+':'+txtCurto(b.ficha,64);autor=autor||'Agente'}
+    const est=await db.get(Q.iniEstado,mesa.id)||{rodada:0};
+    const reg={t:'ataque',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,valor,acertou,critico:!!b.critico,origem:txtCurto(b.origem,80)||null,rodada:est.rodada||0};
+    if((await db.get(Q.logContar,mesa.id)).n>=2000)return erro(res,400,'Registro do combate cheio.');
+    await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(reg));return enviar(res,200,{ok:true,...reg})}
+  if(acao==='registro'){ /* jogador relata dano/cura que aplicou na própria ficha; mestre registra turnos e efeitos */
+    const t=['recebido','curado','turno','nota'].includes(b.t)?b.t:null;if(!t)return erro(res,400,'Registro inválido.');
+    if(t==='turno'&&!mestre)return so();
+    const est=await db.get(Q.iniEstado,mesa.id)||{rodada:0};if(!est.pedido)return enviar(res,200,{ok:false});
+    const reg={t,rodada:est.rodada||0,alvo:txtCurto(b.alvo,80)||null,alvoChave:txtCurto(b.alvoChave,120)||null,autor:txtCurto(b.autor,80)||null,valor:intOuNulo(b.valor)||0,
+      efeitos:(Array.isArray(b.efeitos)?b.efeitos:[]).slice(0,20).map(x=>txtCurto(x,60)).filter(Boolean),texto:txtCurto(b.texto,200)||null,tipos:(Array.isArray(b.tipos)?b.tipos:[]).map(x=>txtCurto(x,20)).filter(x=>TIPOS_DANO.includes(x)).slice(0,4)};
+    if(!mestre)reg.alvoChave='a:'+u.id+':'+txtCurto(b.ficha,64);
+    if((await db.get(Q.logContar,mesa.id)).n>=2000)return erro(res,400,'Registro do combate cheio.');
+    await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(reg));return enviar(res,200,{ok:true})}
+  if(!mestre)return so();
+  if(acao==='pedir'){await db.run(Q.logApagar,mesa.id);await db.run(Q.iniDelAgentes,mesa.id);await db.run(Q.iniZerar,agora,mesa.id);await estado({pedido:agora,turno:null,rodada:1});return enviar(res,200,{ok:true,pedido:agora})}
+  if(acao==='entrada'){ /* criatura ou NPC do mestre */
+    const tipo=b.tipo==='npc'?'npc':'criatura';const valor=intOuNulo(b.valor);if(valor===undefined)return erro(res,400,'Valor inválido.');
+    const nome=txtCurto(b.nome,80);if(!nome)return erro(res,400,'Dê um nome.');
+    const dados=b.dados&&typeof b.dados==='object'?JSON.stringify(b.dados):null;if(dados&&dados.length>6000)return erro(res,413,'Dados grandes demais.');
+    let chave=String(b.chave||'');if(chave){if(!/^[cm]:[\w-]{1,64}$/.test(chave))return erro(res,400,'Chave inválida.')}
+    else{if((await db.get(Q.iniContar,mesa.id)).n>=60)return erro(res,400,'Iniciativa cheia (60 entradas).');chave=(tipo==='npc'?'m:':'c:')+crypto.randomUUID()}
+    let dadosF=dados;if(b.dados===undefined&&b.chave){const ex=await db.get(Q.iniDados,mesa.id,chave);dadosF=ex?ex.dados:null} /* sem "dados": mantém PV e efeitos atuais */
+    await db.run(Q.iniUpsert,mesa.id,chave,null,tipo,nome,valor,valor==null?null:'mestre',dadosF,agora);return enviar(res,200,{ok:true,chave})}
+  if(acao==='efeitos'){const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.chave,120));if(!ent)return erro(res,404,'Entrada não encontrada.');
+    let dd={};try{dd=ent.dados?JSON.parse(ent.dados):{}}catch(e){}dd.conds=(Array.isArray(b.conds)?b.conds:[]).slice(0,12).map(x=>txtCurto(x,40)).filter(Boolean);
+    await db.run(Q.iniSetDados,JSON.stringify(dd),agora,mesa.id,ent.chave);return enviar(res,200,{ok:true})}
+  if(acao==='remover'){await db.run(Q.iniDel,mesa.id,String(b.chave||''));return enviar(res,200,{ok:true})}
+  if(acao==='turno'){const rodada=Math.max(0,Math.min(9999,Math.round(+b.rodada)||0));await estado({turno:b.turno?txtCurto(b.turno,120):null,rodada});return enviar(res,200,{ok:true})}
+  if(acao==='encerrar'){await db.run(Q.iniDelTudo,mesa.id);await estado({pedido:0,turno:null,rodada:0});return enviar(res,200,{ok:true})}
+  return erro(res,400,'Ação desconhecida.');
 }
 
 async function iniciar(){
   db=await abrirBanco(DB_PATH);
   http.createServer((req,res)=>{rotear(req,res).catch(e=>{if(!res.headersSent)erro(res,e.status||500,e.status===413?'Arquivo grande demais.':e.status===400?'Requisição inválida.':'Erro interno.');if(!e.status)console.error(e)})})
-    .listen(PORT,()=>console.log(`Dossiê Paranormal em http://localhost:${PORT} · banco: ${db.tipo}`));
+    .listen(PORT,()=>console.log(`Cristopher em http://localhost:${PORT} · banco: ${db.tipo}`));
 }
 iniciar().catch(e=>{console.error('Não foi possível abrir o banco de dados:',e.message);process.exit(1)});

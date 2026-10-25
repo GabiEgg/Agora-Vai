@@ -6,16 +6,16 @@ function render(){
   if(!D)return;if(_rendering){setTimeout(render,0);return}_rendering=true;try{renderNow()}finally{_rendering=false}
 }
 /* Redesenhar não pode apagar o que a pessoa está digitando (ex.: lista de campanhas chegando do servidor). */
-function guardarCampos(){const ids=['mesa-nome','mesa-codigo','hb-q'];const v={};ids.forEach(id=>{const el=document.getElementById(id);if(el)v[id]=el.value});
+function guardarCampos(){const ids=['mesa-nome','mesa-codigo','hb-q','cri-q',...[...document.querySelectorAll('input[data-keep][id]')].map(el=>el.id)];const v={};ids.forEach(id=>{const el=document.getElementById(id);if(el)v[id]=el.value});
   const at=document.activeElement;return {v,foco:at&&at.id&&ids.includes(at.id)?at.id:null}}
 function restaurarCampos(g){Object.entries(g.v).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val});
   if(g.foco){const el=document.getElementById(g.foco);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}}
 function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g)}
 function renderTela(){
-  const navs=[['ficha','Fichas'],...(S.conta&&S.conta.usuario?[['campanha','Campanha']]:[]),['mesa','Mesa'],['hb','Homebrew'],['guia','Guia']];
+  const navs=[['ficha','Fichas'],...(S.conta&&S.conta.usuario?[['campanha','Campanha']]:[]),...(souMestre()?[['escudo','Escudo do Mestre']]:[]),['mesa','Mesa'],['hb','Homebrew'],['guia','Guia']];
   document.getElementById('nav').innerHTML=navs.map(([k,l])=>`<button class="btn" aria-pressed="${S.view===k}" data-act="view" data-v="${k}">${l}${k==='hb'&&hbCount()?` <span class="badge hb">${hbCount()}</span>`:''}${k==='mesa'?` <span class="badge">${D.fontes.filter(x=>fonteOn(x.id)).length+pacotesHB().filter(pacoteOn).length}</span>`:''}</button>`).join('')+(S.conta?(S.conta.usuario?`<button class="btn" data-act="contaMenu" title="Conta no servidor">${h(S.conta.usuario)}</button>`:`<button class="btn acc" data-act="contaMenu">Entrar</button>`):'');
   const app=document.getElementById('app');
-  app.innerHTML=S.view==='hb'?renderHB():S.view==='mesa'?renderMesa():S.view==='guia'?renderGuia():S.view==='campanha'?renderCampanha():renderFichas();
+  app.innerHTML=S.view==='hb'?renderHB():S.view==='mesa'?renderMesa():S.view==='guia'?renderGuia():S.view==='campanha'?renderCampanha():S.view==='escudo'?renderEscudo():renderFichas();
   if(S.view==='ficha'&&S.tab==='dossie')drawStar();
 }
 function renderFichas(){
@@ -29,13 +29,13 @@ function renderFichas(){
   const r=calc(f);
   const panes={dossie:paneDossie,pericias:panePericias,habilidades:paneHab,rituais:paneRit,inventario:paneInv,aliados:paneAliados,interludio:paneInterludio,bonus:paneBonus,notas:paneNotas};
   const nb=(f.bonus||[]).length;const na=(f.aliados||[]).length;
-  const banner=f._alheia?`<div class="alheia"><span>Ficha de <b>${h(f._dono)}</b> · somente leitura (mudanças aqui não são salvas)</span><button class="btn sm" data-act="voltarCampanha">Voltar para a campanha</button></div>`:'';
+  const banner=f._alheia?`<div class="alheia"><span>Ficha de <b>${h(f._dono)}</b> · somente leitura (mudanças aqui não são salvas)</span><button class="btn sm" data-act="voltarCampanha">Voltar ao Escudo</button></div>`:'';
   return `<div class="layout">${side}<section class="sheet">${banner}
     <div class="sheet-head"><div class="name"><span class="eyebrow">Agente da Ordem · ${h(r.patente.nome)}${r.det?' · Determinação':''}</span><input id="f-nome" data-f="nome" value="${h(f.nome)}" aria-label="Nome do agente"></div>
       <span class="stamp">${r.est?'Estágio '+(f.estagio||1):'NEX '+f.nex+'%'}</span>
       <div class="row">${S.confirm==='del'?`<span class="confirm">Excluir esta ficha? <button class="btn sm danger" data-act="delOk">Excluir</button><button class="btn sm" data-act="cancel">Cancelar</button></span>`:
        `<button class="btn sm" data-act="dup">Duplicar</button><button class="btn sm" data-act="exportF">Exportar</button><button class="btn sm danger" data-act="del">Excluir</button>`}</div></div>
-    ${vitalsStrip(f,r)}
+    ${iniBanner(f,r)}${vitalsStrip(f,r)}
     <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}${k==='bonus'&&nb?` <span class="badge ${r.ef.naoAcumula.length?'warnb':'acc'}" ${r.ef.naoAcumula.length?'title="Há efeitos de rituais que não acumulam"':''}>${nb}${r.ef.naoAcumula.length?' !':''}</span>`:''}${k==='aliados'&&na?` <span class="badge">${na}</span>`:''}</button>`).join('')}</div>
     <div class="pane">${f.classe||['notas','aliados'].includes(S.tab)||S.tab==='dossie'?panes[S.tab](f,r):`<div class="empty">Escolha uma classe no Dossiê para liberar esta aba.</div>`}</div></section></div>`;
 }
@@ -255,10 +255,13 @@ function paneInv(f,r){
 }
 const ORD_TIPO=Object.keys(TIPO_ITEM);
 function invGrupos(f,r){
-  const g={};f.inventario.forEach((it,i)=>(g[it.tipo]=g[it.tipo]||[]).push([it,i]));
+  const ck=S.filtroCat??'';const cats=[...new Set(f.inventario.map(it=>catItem(it,r)))].sort();
+  const g={};f.inventario.forEach((it,i)=>{if(ck!==''&&String(catItem(it,r))!==ck)return;(g[it.tipo]=g[it.tipo]||[]).push([it,i])});
   const tipos=Object.keys(g).sort((a,b)=>(ORD_TIPO.indexOf(a)+99)%99-(ORD_TIPO.indexOf(b)+99)%99);const cur=S.filtroInv||'';
   const chips=tipos.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar por tipo"><button class="btn sm" aria-pressed="${!cur}" data-act="filtroInv" data-v="">Todos</button>${tipos.map(t=>`<button class="btn sm" aria-pressed="${cur===t}" data-act="filtroInv" data-v="${h(t)}">${TIPO_ITEM[t]||h(t)} (${g[t].length})</button>`).join('')}</div>`:'';
-  return chips+tipos.filter(t=>!cur||cur===t||!g[cur]).map(t=>`<div class="grp-h"><h3>${TIPO_ITEM[t]||h(t)}</h3><span class="hint">${g[t].reduce((s,[it])=>s+espItem(it)*(+it.qtd||1),0)} esp.</span></div>
+  const chipsCat=cats.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar por categoria"><span class="eyebrow">Categoria</span><button class="btn sm" aria-pressed="${ck===''}" data-act="filtroCat" data-v="">Todas</button>${cats.map(k=>`<button class="btn sm" aria-pressed="${ck===String(k)}" data-act="filtroCat" data-v="${k}">${CAT_NOME[k]}</button>`).join('')}</div>`:'';
+  if(!tipos.length)return chipsCat+'<p class="hint">Nenhum item nesta categoria.</p>';
+  return chipsCat+chips+tipos.filter(t=>!cur||cur===t||!g[cur]).map(t=>`<div class="grp-h"><h3>${TIPO_ITEM[t]||h(t)}</h3><span class="hint">${g[t].reduce((s,[it])=>s+espItem(it)*(+it.qtd||1),0)} esp.</span></div>
     <div class="items">${g[t].map(([it,i])=>itemRow(it,i,f,r)).join('')}</div>`).join('');
 }
 const imgDe=it=>it.img||(it.ref&&S.cfg.imgs[it.ref])||'';
@@ -386,8 +389,22 @@ function paneBonus(f,r){
    <div class="chips">${[...r.conds.values()].filter(x=>Object.keys(x.c.efeitos||{}).length).map(x=>`<span class="chip warn" title="${h(x.c.desc)}">${h(x.c.nome)}</span>`).join('')}
    ${r.aliados.map(({d})=>`<span class="chip ok">${h(d.nome)}: ${h(d.bonus)}</span>`).join('')}
    ${f.formaSuprema?'<span class="chip ok">Forma suprema: +20 PV, +10 PE, +10 Defesa, +5 testes e DT</span>':''}
-   ${f.inventario.filter(i=>i.equipado&&(i.bonusPericia||i.rd)).map(i=>`<span class="chip">${h(i.nome)}${i.bonusPericia?': '+(typeof i.bonusPericia==='number'?`+${i.bonusPericia} ${perNome(i.pericia||'?')}`:Object.entries(i.bonusPericia).map(([k,v])=>`+${v} ${perNome(k)}`).join(', ')):''}</span>`).join('')}</div>
+   ${f.inventario.filter(i=>i.equipado).map(i=>{const t=itemBonusTxt(i);return t?`<span class="chip">${h(i.nome)}: ${h(t)}</span>`:''}).join('')}</div>
    ${lembretes.length?`<p class="hint">Poderes com uso rápido: ${lembretes.join(' ')}</p>`:''}</div>`;
+}
+/* Bônus que um item equipado dá de verdade, já com modificações e maldições (ex.: Aprimorado +3). */
+function itemBonusTxt(it){
+  const ms=modsDoItem(it);const ef=k=>ms.reduce((a,m)=>a+(+(m.efeitos||{})[k]||0),0);const out=[];
+  const extra=ef('bonusPericia');
+  if(typeof it.bonusPericia==='number')out.push(`+${it.bonusPericia+extra} ${it.pericia?perNome(it.pericia):'(escolha a perícia)'}`);
+  else if(it.bonusPericia&&typeof it.bonusPericia==='object')Object.entries(it.bonusPericia).forEach(([k,v])=>out.push(`+${v+extra} ${perNome(k)}`));
+  if(it.periciaExtra&&ms.some(m=>m.id==='mod_funcao_adicional_acessorio'))out.push(`+2 ${perNome(it.periciaExtra)}`);
+  const def=(it.tipo==='protecao'?+it.defesa||0:0)+ef('defesa');if(def)out.push(`+${def} Defesa`);
+  if(it.rd)out.push(`RD ${typeof it.rd==='object'?Object.entries(it.rd).map(([k,v])=>v+' '+k).join(', '):it.rd}`);
+  ms.forEach(m=>{const e=m.efeitos||{};if(e.pericia&&e.pericia.id)out.push(`+${e.pericia.valor} ${perNome(e.pericia.id)}`);
+    Object.entries(e.attr||{}).forEach(([k,v])=>out.push(`+${v} ${k}`));if(e.pv)out.push(`+${e.pv} PV`);if(e.pe)out.push(`+${e.pe} PE`);if(e.dt)out.push(`+${e.dt} DT de rituais`);if(e.deslocamento)out.push(`+${e.deslocamento}m deslocamento`)});
+  (it.mods||[]).forEach(m=>{if(m&&m.alvo&&+m.valor)out.push(`${sgn(+m.valor)} ${nomeStat(m.alvo)}`)});
+  return out.join(', ');
 }
 function paneNotas(f){
   const ta=(k,l)=>fld(l,`<textarea class="inp" data-f="${k}" rows="5">${h(f[k])}</textarea>`);

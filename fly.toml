@@ -1,5 +1,5 @@
 # Configuração para o Fly.io. Troque o nome do app abaixo por um nome único seu.
-app = "dossie-paranormal-TROQUE"
+app = "cristopher-TROQUE"
 primary_region = "gru" # São Paulo
 
 [build]

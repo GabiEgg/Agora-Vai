@@ -100,6 +100,17 @@ function renderGuia(){
   ${s('Campanha (servidor próprio)',`<ol><li>Disponível quando o app roda no servidor com login. O mestre abre <b>Campanha</b>, cria uma e passa o código.</li>
    <li>Cada jogador entra com o código e, no Dossiê de cada agente, escolhe a campanha no campo <b>Campanha</b>.</li>
    <li>Só o mestre vê as fichas ligadas (somente leitura), com PV, PE, Sanidade e condições, e recebe os avisos de rituais com DT e teste de resistência. Jogadores continuam vendo só as próprias fichas.</li></ol>`)}
+  ${s('Escudo do Mestre e iniciativa',`<ol><li>Quem criou uma campanha ganha a aba <b>Escudo do Mestre</b>: combate e iniciativa, agentes ligados, avisos de rituais, bestiário com as criaturas e NPCs dos livros ligados e tabelas de referência (DTs, alcances, condições).</li>
+   <li>No <b>Combate</b>, clique em <b>Pedir iniciativa</b>. Cada jogador vê um aviso na ficha e pode <b>rolar no app</b> ou digitar o valor que tirou nos <b>dados físicos</b>. O mestre também pode digitar o valor por eles.</li>
+   <li>Criaturas entram pelo botão <b>Combate</b> do bestiário (rolam iniciativa e trazem PV e Defesa); NPCs avulsos podem ser adicionados com um nome e um valor. <b>Próximo</b> avança o turno e a rodada, e os jogadores veem de quem é a vez. Os dados das criaturas ficam só para o mestre.</li>
+   <li><b>Dano e cura:</b> no painel do Combate, escolha o alvo, <b>quem causou</b>, o valor (número ou dados, como 2d8+4) e o tipo de dano. Resistências, imunidades e vulnerabilidades da criatura já são descontadas (marque “Ignorar resistências” se precisar). Os ataques de cada criatura aparecem na linha dela; a rolagem de dano ganha botões para mandar o dano direto a um agente.</li>
+   <li><b>Jogadores atacando pelo app:</b> durante o combate, a rolagem de ataque da arma mostra “Atacar” com cada inimigo. O app compara com a Defesa da criatura (sem mostrá-la ao jogador) e, se acertar, rola o dano e já manda para o alvo com as resistências descontadas. A rolagem de dano de uma arma ou ritual também mostra os inimigos como alvo. No Escudo, os ataques das criaturas funcionam do mesmo jeito contra os agentes. Dano ou cura que o mestre mandar aparece como aviso na ficha, com o botão Aplicar.</li>
+   <li><b>Efeitos:</b> marque condições nas criaturas pelo “+ efeito”; nos agentes valem as condições e efeitos ativos da ficha. A cada turno o app anota quem estava sob quais efeitos.</li>
+   <li>Ao <b>encerrar o combate</b> aparece o resumo: dano causado e sofrido, cura feita e recebida, abates, turnos, turnos sob cada efeito e a linha do tempo. Os jogadores também podem ver o resumo.</li></ol>`)}
+  ${s('Mapas',`<ol><li>No Escudo, aba <b>Mapas</b>, crie um mapa com nome e tamanho.</li>
+   <li>No modo <b>Editar</b>, use <b>Cômodo</b> e arraste para criar um cômodo com paredes (cômodos encostados dividem a parede), ou pinte piso, parede e porta casa a casa.</li>
+   <li>No modo <b>Usar</b>, clique num cômodo para dar nome e colocar criaturas do bestiário, itens ou anotações. “Combate” coloca as criaturas na iniciativa.</li>
+   <li>Os mapas ficam salvos na sua conta, com tudo o que você colocou neles, para abrir em outra sessão.</li></ol>`)}
   ${s('Aliados e NPCs',`<p>Adicione aliados do catálogo (Acólito, Mascarados, Pássaros, animais…) ou crie NPCs com PV, Defesa, ataque e dano. NPCs aceitam o mesmo campo de dano rápido.</p>`)}
   ${s('Homebrew',`<ol><li>Na aba <b>Homebrew</b>, escolha o tipo (origem, classe, trilha, poder, ritual, item, modificação, aliado, condição, perícia) e clique em <b>Criar</b>.</li>
    <li>Dê um nome de <b>pacote</b> (ex.: “Campanha do Ricardo”). Cada pacote vira um interruptor na aba Mesa.</li>
@@ -130,7 +141,7 @@ function renderPick(){
   // filtros por círculo/elemento (rituais) e tipo (itens)
   const elsX=x=>(x.elementos||[x.elemento]).filter(Boolean);
   if(type==='rituais'){const base=list;list=list.filter(x=>(!pickState.fc||+x.circulo===+pickState.fc)&&(!pickState.fe||(pickState.fe==='_'?!elsX(x).length:elsX(x).includes(pickState.fe))));pickState._base=base}
-  if(type==='itens'){pickState._base=list;list=list.filter(x=>!pickState.ft||x.tipo===pickState.ft)}
+  if(type==='itens'){pickState._base=list;list=list.filter(x=>(!pickState.ft||x.tipo===pickState.ft)&&(pickState.fk==null||pickState.fk===''||String(+x.cat||0)===pickState.fk))}
   const has=x=>(src==='poderes')?f.poderes.some(p=>p.ref===x.id)&&!x.repetivel:type==='rituais'?f.rituais.includes(x.id):type==='aliados'?(f.aliados||[]).some(a=>a.ref===x.id):false;
   const titulo={poderes:'Adicionar poder',transcender:'Transcender: poder paranormal',rituais:'Aprender ritual',itens:'Adicionar item',aliados:'Adicionar aliado',mods:'Modificação ou maldição'}[type];
   const filtroL={poderes:'Mostrar poderes de outras classes',rituais:'Mostrar círculos acima do permitido',mods:'Mostrar todas'}[type]||'';
@@ -144,7 +155,8 @@ function renderPick(){
   const lim=list.slice(0,300);
   const filtros=type==='rituais'?`<div class="chips filtros" style="padding:0 14px"><span class="eyebrow">Círculo</span>${['',1,2,3,4].map(c=>`<button class="btn sm" aria-pressed="${String(pickState.fc||'')===String(c)}" data-act="pickF" data-k="fc" data-v="${c}">${c?c+'º':'Todos'}</button>`).join('')}
      <span class="eyebrow" style="margin-left:8px">Elemento</span>${['','sangue','morte','conhecimento','energia','medo','_'].map(e=>`<button class="btn sm ${e&&e!=='_'?'el el-'+e:''}" aria-pressed="${(pickState.fe||'')===e}" data-act="pickF" data-k="fe" data-v="${e}">${e===''?'Todos':e==='_'?'Varia':ELEM[e]}</button>`).join('')}</div>`
-   :type==='itens'?`<div class="chips filtros" style="padding:0 14px"><button class="btn sm" aria-pressed="${!pickState.ft}" data-act="pickF" data-k="ft" data-v="">Todos</button>${ORD_TIPO.filter(t=>(pickState._base||[]).some(x=>x.tipo===t)).map(t=>`<button class="btn sm" aria-pressed="${pickState.ft===t}" data-act="pickF" data-k="ft" data-v="${t}">${TIPO_ITEM[t]}</button>`).join('')}</div>`:'';
+   :type==='itens'?`<div class="chips filtros" style="padding:0 14px"><button class="btn sm" aria-pressed="${!pickState.ft}" data-act="pickF" data-k="ft" data-v="">Todos</button>${ORD_TIPO.filter(t=>(pickState._base||[]).some(x=>x.tipo===t)).map(t=>`<button class="btn sm" aria-pressed="${pickState.ft===t}" data-act="pickF" data-k="ft" data-v="${t}">${TIPO_ITEM[t]}</button>`).join('')}</div>
+     <div class="chips filtros" style="padding:0 14px"><span class="eyebrow">Categoria</span><button class="btn sm" aria-pressed="${!pickState.fk}" data-act="pickF" data-k="fk" data-v="">Todas</button>${[0,1,2,3,4].filter(k=>(pickState._base||[]).some(x=>(+x.cat||0)===k)).map(k=>`<button class="btn sm" aria-pressed="${pickState.fk===String(k)}" data-act="pickF" data-k="fk" data-v="${k}">${CAT_NOME[k]}</button>`).join('')}</div>`:'';
   let ultimo=null;
   const cab=x=>{if(!grupo)return '';const [k,l]=grupo(x);const key=k+'|'+l;if(key===ultimo)return '';ultimo=key;return `<div class="grp">${h(l)}</div>`};
   modal(titulo,`<div class="modal-h" style="padding-top:8px"><input class="inp" id="pick-q" placeholder="Buscar…" value="${h(q)}" style="flex:1 1 200px">${filtroL?`<label class="row" style="font-size:12px;gap:4px"><input type="checkbox" id="pick-all" ${all?'checked':''}> ${filtroL}</label>`:''}</div>
@@ -240,7 +252,7 @@ function importar(o){
   const addF=f=>{if(!f||!f.atributos)throw 0;const nf=migrar(f);delete nf._exemplo;S.fichas[nf.id]=nf;S.active=nf.id;Store.touch('f-'+nf.id)};
   if(o.tipo==='ficha'){addF(o.ficha);const n=o.homebrew?mergeHB(o.homebrew):0;S.view='ficha';return `Ficha importada${n?` com ${n} itens de homebrew`:''}.`}
   if(o.tipo==='homebrew'){const n=mergeHB(o.homebrew);return `${n} itens de homebrew importados. Confira os pacotes na aba Mesa.`}
-  if(o.tipo==='backup'){Object.values(o.fichas||{}).forEach(addF);const n=mergeHB(o.homebrew||{});if(o.cfg){S.cfg={...cfgPadrao(),...o.cfg};saveCfg()}S.view='ficha';return `Backup restaurado: ${Object.keys(o.fichas||{}).length} fichas e ${n} itens de homebrew.`}
+  if(o.tipo==='backup'){Object.values(o.fichas||{}).forEach(addF);const n=mergeHB(o.homebrew||{});if(o.cfg){S.cfg={...cfgPadrao(),...o.cfg};saveCfg()}if(Array.isArray(o.mapas)&&o.mapas.length){const ids=new Set(S.mapas.map(x=>x.id));o.mapas.forEach(x=>{if(x&&x.id&&x.cel&&!ids.has(x.id))S.mapas.push(x)});Store.touch('mapas')}S.view='ficha';return `Backup restaurado: ${Object.keys(o.fichas||{}).length} fichas e ${n} itens de homebrew.`}
   if(o.atributos){addF(o);return 'Ficha importada.'}
   throw 0;
 }

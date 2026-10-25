@@ -2,16 +2,16 @@
 const fs=require('fs'),path=require('path');
 const R=f=>require('./src/'+f);
 const FONTES=[
- {id:'core',sigla:'OPRPG',nome:'Ordem Paranormal RPG — Livro de Regras',desc:'Livro básico (v1.3). Sempre ativo.',fixa:true,arquivos:['core1','core2','core3','core4','core5','core6','core7','core8']},
- {id:'sah',sigla:'SaH',nome:'Sobrevivendo ao Horror',desc:'Origens, trilhas, classe Sobrevivente, equipamentos, rituais e regras opcionais (Determinação, medo, patentes…).',arquivos:['sah1','sah2','sah3','sah4','sah5','sah6']},
- {id:'as01',sigla:'AS#01',nome:'Arquivos Secretos #01 — Agatha e os Transtornados',desc:'Ritos & Maldições: origens, Maledictólogo, Transcender com Itens, Reter Ritual.',arquivos:['as01']},
- {id:'as02',sigla:'AS#02',nome:'Arquivos Secretos #02 — Hexatombe: os Mascarados',desc:'Poderes e itens dos Mascarados e agentes, aliados, As Máscaras.',arquivos:['as02']},
- {id:'as03',sigla:'AS#03',nome:'Arquivos Secretos #03 — Hexatombe: o fim',desc:'Poderes de sacrifício, trilha Performático, aliados, veículos operacionais, animais.',arquivos:['as03']},
- {id:'as04',sigla:'AS#04',nome:'Arquivos Secretos #04 — Complexo 0413',desc:'Origens, Granadeiro Blaster, ritual Backup, granadas e hacking.',arquivos:['as04']},
- {id:'as05',sigla:'AS#05',nome:'Arquivos Secretos #05 — Transmissão',desc:'Origens, Criptologista do Oculto, poderes de Transmissão, novas regalias.',arquivos:['as05']},
- {id:'as06',sigla:'AS#06',nome:'Arquivos Secretos #06 — Indústrias Panacea',desc:'Origens Panacea, medicamentos, doenças, venenos, evolução modular.',arquivos:['as06']},
- {id:'as07',sigla:'AS#07',nome:'Arquivos Secretos #07 — Ritos Fúnebres',desc:'Origens, Vampirismo, Monstruoso para especialista e ocultista, regras debaixo d’água.',arquivos:['as07']},
- {id:'as09',sigla:'AS#09',nome:'Arquivos Secretos #09 — Hell Hunters',desc:'Origens, Incursor, Piloto de Drone, armamento e regras de perigo.',arquivos:['as09']},
+ {id:'core',sigla:'OPRPG',nome:'Ordem Paranormal RPG — Livro de Regras',desc:'Livro básico (v1.3). Sempre ativo.',fixa:true,arquivos:['core1','core2','core3','core4','core5','core6','core7','core8','cri_core']},
+ {id:'sah',sigla:'SaH',nome:'Sobrevivendo ao Horror',desc:'Origens, trilhas, classe Sobrevivente, equipamentos, rituais e regras opcionais (Determinação, medo, patentes…).',arquivos:['sah1','sah2','sah3','sah4','sah5','sah6','cri_sah']},
+ {id:'as01',sigla:'AS#01',nome:'Arquivos Secretos #01 — Agatha e os Transtornados',desc:'Ritos & Maldições: origens, Maledictólogo, Transcender com Itens, Reter Ritual.',arquivos:['as01','cri_as01']},
+ {id:'as02',sigla:'AS#02',nome:'Arquivos Secretos #02 — Hexatombe: os Mascarados',desc:'Poderes e itens dos Mascarados e agentes, aliados, As Máscaras.',arquivos:['as02','cri_as02']},
+ {id:'as03',sigla:'AS#03',nome:'Arquivos Secretos #03 — Hexatombe: o fim',desc:'Poderes de sacrifício, trilha Performático, aliados, veículos operacionais, animais.',arquivos:['as03','cri_as03']},
+ {id:'as04',sigla:'AS#04',nome:'Arquivos Secretos #04 — Complexo 0413',desc:'Origens, Granadeiro Blaster, ritual Backup, granadas e hacking.',arquivos:['as04','cri_as04']},
+ {id:'as05',sigla:'AS#05',nome:'Arquivos Secretos #05 — Transmissão',desc:'Origens, Criptologista do Oculto, poderes de Transmissão, novas regalias.',arquivos:['as05','cri_as05']},
+ {id:'as06',sigla:'AS#06',nome:'Arquivos Secretos #06 — Indústrias Panacea',desc:'Origens Panacea, medicamentos, doenças, venenos, evolução modular.',arquivos:['as06','cri_as06']},
+ {id:'as07',sigla:'AS#07',nome:'Arquivos Secretos #07 — Ritos Fúnebres',desc:'Origens, Vampirismo, Monstruoso para especialista e ocultista, regras debaixo d’água.',arquivos:['as07','cri_as07']},
+ {id:'as09',sigla:'AS#09',nome:'Arquivos Secretos #09 — Hell Hunters',desc:'Origens, Incursor, Piloto de Drone, armamento e regras de perigo.',arquivos:['as09','cri_as09']},
 ];
 const PERICIAS=[
  ['acrobacia','Acrobacia','AGI',0,1],['adestramento','Adestramento','PRE',1,0],['artes','Artes','PRE',1,0],['atletismo','Atletismo','FOR',0,0],
@@ -25,7 +25,7 @@ const PERICIAS=[
 
 const USOS=require('./src/pericias.js');PERICIAS.forEach(p=>{const u=USOS[p.id];if(u){p.desc=u.desc;p.usos=u.usos}});
 const out={versao:2,periciasGeral:USOS.geral,fontes:FONTES.map(({arquivos,...f})=>f),pericias:PERICIAS};
-const LISTAS=['origens','classes','trilhas','poderes','rituais','itens','modificacoes','aliados','condicoes','regras','interludio','insanidade','efeitosMedo','visoesMedo','desvantagensIdade','doencas','venenos'];
+const LISTAS=['criaturas','origens','classes','trilhas','poderes','rituais','itens','modificacoes','aliados','condicoes','regras','interludio','insanidade','efeitosMedo','visoesMedo','desvantagensIdade','doencas','venenos'];
 LISTAS.forEach(k=>out[k]=[]);
 out.extras={};
 const ids={};let dup=0;
@@ -174,6 +174,9 @@ out.rituais.forEach(x=>{const a=RIT[x.id];if(!a)return;
 // tornarGeral é lista de ids (SaH): guarda como extra
 out.extras.tornarGeral=out.tornarGeral;delete out.tornarGeral;
 fs.mkdirSync(path.join(__dirname,'data'),{recursive:true});
+// As criaturas só interessam ao mestre: ficam num arquivo à parte, carregado quando o Escudo do Mestre abre.
+fs.writeFileSync(path.join(__dirname,'data','criaturas.json'),JSON.stringify({criaturas:out.criaturas}));
+const nCri=out.criaturas.length;delete out.criaturas;
 const txt=JSON.stringify(out);
 fs.writeFileSync(path.join(__dirname,'data','dados.json'),txt);
-console.log('ok',(txt.length/1024).toFixed(0)+'KB','dups',dup,Object.fromEntries(Object.entries(out).filter(([k,v])=>Array.isArray(v)).map(([k,v])=>[k,v.length])));
+console.log('ok',(txt.length/1024).toFixed(0)+'KB','criaturas',nCri,'dups',dup,Object.fromEntries(Object.entries(out).filter(([k,v])=>Array.isArray(v)).map(([k,v])=>[k,v.length])));

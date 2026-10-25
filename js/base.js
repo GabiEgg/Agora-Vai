@@ -126,7 +126,7 @@ const F=()=>S.alheia||S.fichas[S.active];
 const LKEY='dossie-paranormal-v1';
 const Store={mode:'local',col:null,timers:{},chains:{},
   loadLocal(){try{return JSON.parse(localStorage.getItem(LKEY)||'null')}catch(e){return null}},
-  saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({fichas:realFichas(),hb:S.hb,cfg:S.cfg,active:S.active}))}catch(e){}},
+  saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({fichas:realFichas(),hb:S.hb,cfg:S.cfg,active:S.active,mapas:S.mapas||[]}))}catch(e){}},
   touch(docId){this.saveLocal();if(this.mode!=='db')return;clearTimeout(this.timers[docId]);this.timers[docId]=setTimeout(()=>this.flush(docId),700)},
   flush(docId){this.chains[docId]=(this.chains[docId]||Promise.resolve()).then(()=>this.write(docId)).catch(()=>{})},
   async write(docId,tent=0){
@@ -134,6 +134,7 @@ const Store={mode:'local',col:null,timers:{},chains:{},
     try{
       if(docId==='homebrew')await ref.set({hb:S.hb});
       else if(docId==='config')await ref.set({cfg:S.cfg});
+      else if(docId==='mapas')await ref.set({mapas:S.mapas||[]});
       else{const f=S.fichas[docId.slice(2)];if(!f||f._exemplo)await ref.delete();else await ref.set({ficha:f});}
       setStatus('db');
     }catch(e){
@@ -160,9 +161,10 @@ const Store={mode:'local',col:null,timers:{},chains:{},
   async carregar(col){
     this.col=col;
     const snap=await this.col.get();
-    const remote={};let remoteHB=null,remoteCfg=null;
-    snap.docs.forEach(d=>{const v=d.data()||{};if(d.id==='homebrew')remoteHB=v.hb;else if(d.id==='config')remoteCfg=v.cfg;else if(d.id.startsWith('f-')&&v.ficha)remote[v.ficha.id]=v.ficha});
+    const remote={};let remoteHB=null,remoteCfg=null,remoteMapas=null;
+    snap.docs.forEach(d=>{const v=d.data()||{};if(d.id==='homebrew')remoteHB=v.hb;else if(d.id==='config')remoteCfg=v.cfg;else if(d.id==='mapas')remoteMapas=v.mapas;else if(d.id.startsWith('f-')&&v.ficha)remote[v.ficha.id]=v.ficha});
     this.mode='db';
+    if(Array.isArray(remoteMapas))S.mapas=remoteMapas;else if((S.mapas||[]).length)this.flush('mapas');
     if(Object.keys(remote).length||remoteHB||remoteCfg){
       if(Object.keys(remote).length){S.fichas={};for(const k in remote)S.fichas[k]=migrar(remote[k])}
       if(remoteHB){S.hb={...emptyHB(),...remoteHB};S._hbv++}
@@ -196,6 +198,6 @@ function realFichas(){const o={};for(const k in S.fichas)if(!S.fichas[k]._exempl
 const hbCount=()=>HB_TYPES.reduce((s,[k])=>s+(S.hb[k]||[]).length,0);
 function setStatus(m){const el=document.getElementById('status');if(!el)return;el.className='status '+(m==='db'?'db':m==='err'?'err':'');
   el.querySelector('span').textContent=m==='db'?(S.conta&&S.conta.usuario?'Salvo no servidor':'Salvo na sua conta'):m==='err'?'Falha ao salvar':'Salvo neste navegador'}
-function saveF(f=F()){if(!f||f._alheia)return;if(f._exemplo)delete f._exemplo;f.atualizado=Date.now();Store.touch('f-'+f.id)}
+function saveF(f=F()){if(!f||f._alheia)return;if(f._exemplo)delete f._exemplo;f.atualizado=Date.now();if(typeof monitorPV==='function')monitorPV(f);Store.touch('f-'+f.id)}
 function saveHB(){S._hbv++;Store.touch('homebrew')}
 function saveCfg(){Store.touch('config')}

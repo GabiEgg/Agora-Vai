@@ -1,5 +1,10 @@
 /* ============================== EVENTOS ============================== */
-function curaPV(f,expr,fonte){const r=calc(f);const x=rollExpr(expr,r.A);const v=Math.max(0,x.total);f.pv=Math.min(r.pvMax,r.pv+v);if(f.pv>0&&f.contadores)delete f.contadores.morrendo;return `${fonte}: +${f.pv-r.pv} PV${x.txt.includes('d')?' ('+x.txt+')':''}`}
+/* Rola o dano de uma arma a partir da rolagem de ataque (crítico, Ataque Especial, Furtivo). */
+function danoDaArma(f,roll,i,crit){const it=f.inventario[i];if(!it)return null;const r=calc(f);const ai=armaInfo(it,r,f);let ex=danoExpr(ai,crit)+((roll.aeDano||0)?'+'+5*roll.aeDano:'')+(roll.furtivo?'+'+roll.furtivo:'');
+  const meta={tipos:tiposDe(it.tipoDano),origem:it.nome,autor:f.nome};
+  if(crit&&r.critMaxFogo&&ai.forma==='fogo'){const v=maxExpr(ex,r.A);pushRoll({t:`Crítico (Atirar para Matar): ${it.nome}`,v,d:`dano máximo de ${ex}`,acts:acoesAlvo(v,meta)});return v}
+  return rollDano(`${crit?'Crítico':'Dano'}: ${it.nome}${roll.aeDano?' (Ataque Especial +'+5*roll.aeDano+')':''}`,ex,r.A,meta)}
+function curaPV(f,expr,fonte){S._pvOrigem=fonte;const r=calc(f);const x=rollExpr(expr,r.A);const v=Math.max(0,x.total);f.pv=Math.min(r.pvMax,r.pv+v);if(f.pv>0&&f.contadores)delete f.contadores.morrendo;return `${fonte}: +${f.pv-r.pv} PV${x.txt.includes('d')?' ('+x.txt+')':''}`}
 function darTemp(f,k,expr,fonte){const r=calc(f);const x=rollExpr(expr,r.A);const v=Math.max(0,x.total);const tk=k+'Temp';const antes=+f[tk]||0;f[tk]=Math.max(antes,v);
   return `${fonte}: ${v} ${k==='pv'?'PV':r.det?'PD':'PE'} temporários${x.txt.includes('d')?' ('+x.txt+')':''}${antes>v?' (os atuais eram maiores; não acumulam)':''}`}
 function upload(onDone){
@@ -143,20 +148,20 @@ document.addEventListener('click',e=>{
   if(t.tagName==='INPUT')return; /* checkboxes com data-act são tratados no change */
   const f=F();const ds=t.dataset;
   switch(a){
-   case 'view':S.view=ds.v;S.confirm=null;S.alheia=null;if(ds.v==='campanha')carregarMesas();break;
+   case 'view':S.view=ds.v;S.confirm=null;S.alheia=null;if(ds.v==='campanha')carregarMesas();if(ds.v==='escudo'){abrirEscudo();return}if(ds.v==='ficha')atualizarIniJogador();break;
    case 'contaMenu':contaModal();return;
    case 'mesaCriar':{const n=document.getElementById('mesa-nome').value.trim();if(!n){toast('Dê um nome para a campanha.');return}
      Api.req('POST','/api/mesas',{nome:n}).then(m=>{toast(`Campanha criada. Código para os jogadores: ${m.codigo}`,8000);return carregarMesas().then(()=>abrirMesa(m.id))}).catch(e=>toast(e.message));return}
    case 'mesaEntrar':{const c=document.getElementById('mesa-codigo').value.trim();if(!c){toast('Digite o código que o mestre passou.');return}
      Api.req('POST','/api/mesas/entrar',{codigo:c}).then(m=>{toast(`Você entrou em “${m.nome}”. Ligue suas fichas a ela no Dossiê.`,6000);carregarMesas()}).catch(e=>toast(e.message));return}
-   case 'mesaAbrir':abrirMesa(ds.id);return;
+   case 'mesaAbrir':S.mesaAberta=ds.id;abrirEscudo();return;
    case 'mesaAtualizar':atualizarMesa(true).then(render);return;
    case 'mesaCopiar':navigator.clipboard.writeText(ds.v).then(()=>toast('Código copiado.'),()=>toast('Código: '+ds.v));return;
    case 'mesaDel':S.confirm='mesaDel:'+ds.id;break;
    case 'mesaExcluir':Api.req('DELETE','/api/mesas/'+encodeURIComponent(ds.id)).then(()=>{S.confirm=null;if(S.mesaAberta===ds.id)S.mesaAberta=null;toast('Campanha excluída.');carregarMesas()}).catch(e=>toast(e.message));return;
    case 'mesaSair':Api.req('POST','/api/mesas/'+encodeURIComponent(ds.id)+'/sair').then(()=>{toast('Você saiu da campanha.');carregarMesas()}).catch(e=>toast(e.message));return;
    case 'verFicha':{const x=S.mesaDados.fichas[+ds.i];const fa=migrar(clone(x.ficha));fa._alheia=true;fa._dono=x.usuario;S.alheia=fa;S.view='ficha';S.tab='dossie';break}
-   case 'voltarCampanha':S.alheia=null;S.view='campanha';break;
+   case 'voltarCampanha':S.alheia=null;S.view='escudo';break;
    case 'sair':Api.req('POST','/api/sair').catch(()=>{}).finally(()=>{try{localStorage.removeItem(LKEY)}catch(e){}location.reload()});return;
    case 'tab':S.tab=ds.v;S.confirm=null;break;
    case 'mesaTab':S.mesaTab=ds.v;break;
@@ -167,7 +172,7 @@ document.addEventListener('click',e=>{
    case 'delOk':{const id=f.id;delete S.fichas[id];Store.touch('f-'+id);S.active=Object.keys(S.fichas)[0]||null;S.confirm=null;break}
    case 'cancel':S.confirm=null;break;
    case 'exportF':showExport('Exportar ficha',slug(f.nome||'ficha')+'.json',{tipo:'ficha',versao:2,ficha:(({_exemplo,...x})=>x)(f),homebrew:hbUsadoPor(f)});return;
-   case 'backup':showExport('Backup completo','dossie-paranormal-backup.json',{tipo:'backup',versao:2,fichas:realFichas(),homebrew:S.hb,cfg:S.cfg});return;
+   case 'backup':showExport('Backup completo','cristopher-backup.json',{tipo:'backup',versao:2,fichas:realFichas(),homebrew:S.hb,cfg:S.cfg,mapas:S.mapas||[]});return;
    case 'exportHB':showExport('Pacotes de homebrew','homebrew-ordem.json',{tipo:'homebrew',versao:2,homebrew:S.hb});return;
    case 'importar':showImport();return;
    case 'attr':{const r=calc(f);const v=f.atributos[ds.a]+(+ds.d);const min=regraOn('atributos_negativos')?-3:0;
@@ -186,14 +191,23 @@ document.addEventListener('click',e=>{
      if(r.ataqueEspecial)extra.push({l:'Ataque Especial: +5 no ataque (2 PE)',a:'atkEsp',alvo:'ataque'},{l:'Ataque Especial: +5 no dano (2 PE)',a:'atkEsp',alvo:'dano'});
      if(r.furtivo&&(ai.corpo||it.alcance==='curto')){const n=Math.min(4,Math.max(1,r.nTrilha));extra.push({l:`Ataque Furtivo +${n}d6 (1 ${r.det?'PD':'PE'})`,a:'furtivo',dado:n+'d6'})}
      if(r.gladiador&&ai.corpo)extra.push({l:`Acertou: +${r.gladiador} PE temporários (Gladiador Paranormal)`,a:'gladiador'});
-     roll.acts.splice(roll.acts.length-1,0,...extra);renderRolls();return}
-   case 'dmg':{const it=f.inventario[+ds.i];const r=calc(f);rollDano(`Dano: ${it.nome}${it.tipoDano?' ('+it.tipoDano+')':''}`,danoExpr(armaInfo(it,r,f),false),r.A);return}
+     const iD=roll.acts.findIndex(x=>x.a==='dmgFrom');roll.acts.splice(iD<0?roll.acts.length:iD,0,...extra);renderRolls();return}
+   case 'dmg':{const it=f.inventario[+ds.i];const r=calc(f);rollDano(`Dano: ${it.nome}${it.tipoDano?' ('+it.tipoDano+')':''}`,danoExpr(armaInfo(it,r,f),false),r.A,{tipos:tiposDe(it.tipoDano),origem:it.nome,autor:f.nome});return}
    case 'rollAct':{const roll=S.rolls[0];const ac=roll&&roll.acts[+ds.k];if(!ac)return;
+     if(ac.a==='danoAlvo'){roll.acts.splice(+ds.k,1);renderRolls();enviarDano(ac).then(()=>{if(S.view==='escudo')atualizarIni();else{S._iniJogKey=null;atualizarIniJogador()}}).catch(err=>{toast(err.message);roll.acts.splice(+ds.k,0,ac);renderRolls()});return}
      if(ac.a==='useBonus'){const b=(f.bonus||[]).find(x=>x.uid===ac.id);if(!b||b.usos<1)return;const x=rollExpr(b.valor);b.usos--;roll.v+=x.total;roll.d+=` + ${b.nome} ${x.txt}`;roll.acts.splice(+ds.k,1);saveF();renderRolls();if(S.tab==='bonus'||S.tab==='interludio')render();return}
      if(ac.a==='precoMald'){perderSan(f,2*ac.n);roll.acts.splice(+ds.k,1);saveF();toast(`Preço da maldição: −${2*ac.n} ${calc(f).det?'PD':'SAN'}.`);break}
-     if(ac.a==='dmgFrom'){const it=f.inventario[ac.i];if(!it)return;const r=calc(f);const ai=armaInfo(it,r,f);let ex=danoExpr(ai,ac.crit)+((roll.aeDano||0)?'+'+5*roll.aeDano:'')+(roll.furtivo?'+'+roll.furtivo:'');
-       if(ac.crit&&r.critMaxFogo&&ai.forma==='fogo'){const v=maxExpr(ex,r.A);pushRoll({t:`Crítico (Atirar para Matar): ${it.nome}`,v,d:`dano máximo de ${ex}`});return}
-       rollDano(`${ac.crit?'Crítico':'Dano'}: ${it.nome}${roll.aeDano?' (Ataque Especial +'+5*roll.aeDano+')':''}`,ex,r.A);return}
+     if(ac.a==='dmgFrom'){danoDaArma(f,roll,ac.i,ac.crit);return}
+     if(ac.a==='ataqueAlvo'){roll.acts=roll.acts.filter(x=>x.a!=='ataqueAlvo');renderRolls();
+       enviarAtaque(ac,roll).then(async res=>{
+         if(res.acertou===false)return;
+         let v=null,tipos=[];
+         if(ac.arma!=null){const it=f.inventario[ac.arma];v=danoDaArma(f,roll,ac.arma,roll.crit);tipos=tiposDe(it&&it.tipoDano)}
+         else if(ac.dano){v=rollDano(`${ac.autor}: ${ac.origem}${roll.crit?' (crítico)':''}`,ac.dano,{},{autor:ac.autor,autorChave:ac.autorChave,origem:ac.origem});tipos=tiposDe(ac.dano)}
+         if(v>0&&res.acertou===true){await enviarDano({mesa:ac.mesa,ch:ac.ch,v,tipos,autor:ac.autor,autorChave:ac.autorChave,origem:ac.origem,ficha:ac.ficha});
+           if(S.rolls[0])S.rolls[0].acts=(S.rolls[0].acts||[]).filter(x=>!(x.a==='danoAlvo'&&x.ch===ac.ch));renderRolls()}
+         if(S.view==='escudo')atualizarIni();else{S._iniJogKey=null;atualizarIniJogador()}
+       }).catch(err=>toast(err.message));return}
      if(ac.a==='atkEsp'){const r=calc(f);const max=f.nex>=85?4:f.nex>=55?3:f.nex>=25?2:1;const usados=(roll.ae||0)+(roll.aeDano||0);
        if(usados>=max){toast(`Ataque Especial: no máximo +${5*max} neste NEX.`);return}
        if(gastarPE(f,usados?1:2,'Ataque Especial')===false)return;
@@ -216,6 +230,7 @@ document.addEventListener('click',e=>{
    case 'pickF':pickState[ds.k]=ds.v;renderPick();return;
    case 'filtroRit':S.filtroRit=ds.v;break;
    case 'filtroInv':S.filtroInv=ds.v;break;
+   case 'filtroCat':S.filtroCat=ds.v;break;
    case 'pickAdd':{const ty=pickState.type,id=ds.id;let nome='';
      if(ty==='poderes'||ty==='transcender'){const d=byId('poderes',id);if(d.id==='ger_transcender'){openPick('transcender');return}
        if(f.poderes.some(p=>p.ref===id)&&!d.repetivel){toast('Este poder já está na ficha.');return}
@@ -274,7 +289,7 @@ document.addEventListener('click',e=>{
    case 'sustManter':{const b=f.bonus.find(x=>x.uid===ds.id);if(!b)return;const n=gastarPE(f,1,'Sustentar '+b.nome);if(n===false)return;saveF();toast(`${b.nome}: sustentado (−${n} ${calc(f).det?'PD':'PE'}).`);break}
    case 'bCont':{const b=f.bonus.find(x=>x.uid===ds.id);if(!b||!b.cont)return;b.cont.atual=Math.max(0,Math.min(b.ef.cont.max,(+b.cont.atual||0)+ +ds.d));saveF();break}
    case 'ritAcao':{const b=f.bonus.find(x=>x.uid===ds.id);const ac=b&&b.ef&&(b.ef.acoes||[])[+ds.k];if(!ac)return;const r=calc(f);
-     if(ac.dano){const v=rollDano(`${b.nome}: ${ac.nome}`,ac.dano,r.A);if(ac.curaMetade&&v){const c=Math.floor(v/2);toast(curaPV(f,String(c),b.nome))}}
+     if(ac.dano){const rt=ritualDe(b);const tp=tiposDe(ac.dano+' '+(ac.nome||''));const v=rollDano(`${b.nome}: ${ac.nome}`,ac.dano,r.A,{tipos:tp.length?tp:rt&&rt.elemento?[rt.elemento]:[],origem:rt?rt.nome:b.nome,autor:f.nome});if(ac.curaMetade&&v){const c=Math.floor(v/2);toast(curaPV(f,String(c),b.nome))}}
      else if(ac.danoEu){aplicarDelta(f,'pv','-'+ac.danoEu)}
      else if(ac.san){const x=rollExpr(ac.san,r.A);perderSan(f,x.total);pushRoll({t:`${b.nome}: ${ac.nome}`,v:'−'+x.total+(r.det?' PD':' SAN'),d:x.txt})}
      else if(ac.per){const p=r.per[ac.per];rollTest(`${b.nome}: ${perNome(ac.per)}`,p.dados,p.bonus,{attr:p.attr})}
@@ -381,7 +396,7 @@ function refresh(){
   try{const res=await fetch('data/dados.json');if(!res.ok)throw new Error(res.status);D=await res.json()}
   catch(e){app.innerHTML='<div class="empty">Não foi possível carregar o conteúdo dos livros. Recarregue a página.</div>';return}
   const saved=Store.loadLocal();
-  if(saved){for(const k in saved.fichas||{})S.fichas[k]=migrar(saved.fichas[k]);S.hb={...emptyHB(),...(saved.hb||{})};
+  if(saved){for(const k in saved.fichas||{})S.fichas[k]=migrar(saved.fichas[k]);S.hb={...emptyHB(),...(saved.hb||{})};S.mapas=Array.isArray(saved.mapas)?saved.mapas:[];
     if(saved.cfg)S.cfg={...cfgPadrao(),...saved.cfg,auto:{...cfgPadrao().auto,...(saved.cfg.auto||{})}};S.active=saved.active}
   if(!Object.keys(S.fichas).length){const e=exemplo();S.fichas[e.id]=e;S.active=e.id}
   if(!S.fichas[S.active])S.active=Object.keys(S.fichas)[0];

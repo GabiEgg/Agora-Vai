@@ -311,10 +311,13 @@ function rollTest(label,dados,bonus,ctx={}){
     if(S.cfg.auto.maldicao){const r=calc(f);const its=r.precoMaldicao[ctx.attr];if(its&&its.length)roll.acts.push({l:`Falhou? Preço da maldição (−${2*its.length} SAN)`,a:'precoMald',n:its.length})}
   }
   if(ctx.arma!=null)roll.acts.push({l:roll.crit?'Rolar dano crítico':'Rolar dano',a:'dmgFrom',i:ctx.arma,crit:roll.crit});
+  if(ctx.arma!=null&&f)roll.acts.push(...acoesAtaque({arma:ctx.arma,origem:(f.inventario[ctx.arma]||{}).nome,autor:f.nome}));
   pushRoll(roll);return roll;
 }
-function rollDano(label,expr,A){const s=String(expr||'').trim();if(!s){toast('Sem dano definido.');return null}
-  const x=rollExpr(s,A);pushRoll({t:label,v:x.total,d:x.txt});return x.total}
+/* meta: {tipos, origem, autor, autorChave}. Em combate, a rolagem ganha botões para mandar o dano a um alvo. */
+function rollDano(label,expr,A,meta={}){const s=String(expr||'').trim();if(!s){toast('Sem dano definido.');return null}
+  const x=rollExpr(s,A);const tipos=meta.tipos||tiposDe(label+' '+s);
+  pushRoll({t:label,v:x.total,d:x.txt,acts:acoesAlvo(x.total,{...meta,tipos})});return x.total}
 function maxExpr(expr,A={}){let s2=String(expr||'').replace(/\s/g,'').toUpperCase().replace(/(AGI|FOR|INT|PRE|VIG)/g,m=>String(A[m]??0));
   return s2.replace(/(\d*)D(\d+)/g,(x,q,fc)=>String((+q||1)*(+fc))).split(/(?=[+-])/).reduce((t,v)=>t+(+v||0),0)}
 function pushRoll(r){S.rolls.unshift(r);S.rolls=S.rolls.slice(0,3);renderRolls()}
@@ -335,7 +338,7 @@ function aplicarDelta(f,k,txt,opts={}){
   else if(modo==='+'){f[k]=Math.min(max,cur+v);msg=`+${f[k]-cur} ${nome}${x.txt.includes('d')?' ('+x.txt+')':''}`}
   else{
     let dano=v;const tk=k+'Temp';
-    if((k==='pv'||k==='pe')&&(+f[tk]||0)>0&&!opts.ignoraTemp){const abs=Math.min(+f[tk],dano);f[tk]=+f[tk]-abs;dano-=abs;if(abs)msg+=`${abs} absorvido(s) pelos ${nome} temporários. `}
+    if((k==='pv'||k==='pe')&&(+f[tk]||0)>0&&!opts.ignoraTemp){const abs=Math.min(+f[tk],dano);f[tk]=+f[tk]-abs;dano-=abs;if(k==='pv'&&abs){S._abs=S._abs||{};S._abs[f.id]=(S._abs[f.id]||0)+abs}if(abs)msg+=`${abs} absorvido(s) pelos ${nome} temporários. `}
     const novo=k==='pv'?Math.max(-r.pvMax,cur-dano):Math.max(0,cur-dano);f[k]=novo;
     msg+=`−${dano} ${nome}${x.txt.includes('d')?' ('+x.txt+')':''} → ${novo}/${max}`;
     if(k==='pv'&&S.cfg.auto.massivo&&v>=Math.ceil(r.pvMax/2)&&r.pvMax&&cur>0&&novo>0)msg+=' · Dano massivo: Fortitude DT 15 ou cai a 0 PV.';
