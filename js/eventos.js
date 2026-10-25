@@ -67,12 +67,25 @@ function conjurar(f,id){
   const ef=forma==='v'?(x.efV||x.efD||x.ef):forma==='d'?(x.efD||x.ef):x.ef;
   const npcI=alvo.startsWith('npc:')?+alvo.slice(4):-1;const npc=npcI>=0?(f.aliados||[])[npcI]:null;
   const rolar=marcado('cast-rolar');
+  const reacao=x.reacao&&(x.reacao.sempre||marcado('cast-reacao'));
+  if(reacao){msgs.push(...usarReacao(f,x,forma,r0));saveF(f);toast(msgs.join(' · '),7000);return true}
+  const durF=duracaoForma(x,forma);const sust=/sustentad/i.test(durF);
+  if(sust){const ant=(f.bonus||[]).filter(b=>b.dur==='sust');
+    if(ant.length){f.bonus=f.bonus.filter(b=>b.dur!=='sust');msgs.push('Só um ritual sustentado por vez: '+ant.map(b=>b.nome).join(', ')+' encerrado')}}
+  const durB=sust?'sust':/rodada/i.test(durF)?'rodadas':/dia|permanente/i.test(durF)?'missao':'cena';
   if(alvo==='eu'&&ef){const e={...ef};
     if(e.pvTemp){msgs.push(darTemp(f,'pv',e.pvTemp,x.nome));delete e.pvTemp}
     if(e.cura){msgs.push(curaPV(f,comBonus(e.cura),x.nome));delete e.cura}
-    if(Object.keys(e).filter(k=>k!=='pvTempTipo').length){const bu=uid();(f.bonus=f.bonus||[]).push({uid:bu,tipo:'efeito',ritual:true,alvoEf:/arma|muni/i.test(x.alvo||'')?'arma':'agente',nome:x.nome+nf,ef:e,dur:ret?'retido':'cena'});if(ret)f._ultimoBonus=bu}
+    const lem=lembreteForma(x,forma);if(lem&&lem.acoes)e.acoes=lem.acoes;
+    if(Object.keys(e).filter(k=>k!=='pvTempTipo'&&k!=='dadosBonus').length){const bu=uid();const nb={uid:bu,tipo:'efeito',ritual:true,alvoEf:/arma|muni/i.test(x.alvo||'')?'arma':'agente',nome:x.nome+nf,ef:e,dur:ret?'retido':durB,rit:x.id};
+      if(e.cont)nb.cont={atual:e.cont.max};if(e.dadosRit)nb.dadosRit={resta:e.dadosRit.qtd};
+      (f.bonus=f.bonus||[]).push(nb);if(ret)f._ultimoBonus=bu;if(sust)msgs.push('Sustentado: gaste 1 '+(r0.det?'PD':'PE')+' no início de cada turno (botão na aba Bônus)')}
     const sob=calc(f).ef.naoAcumula.filter(z=>z.ignorado.nome===x.nome+nf||z.vale.nome===x.nome+nf);
     if(sob.length)msgs.push('Não acumula com outro ritual: '+sob.map(z=>`${nomeStat(z.stat)} (vale ${valStat(z.stat,z.vale.v)} de ${z.vale.nome})`).join(', '))}
+  if(alvo!=='eu'){const lem=lembreteForma(x,forma);
+    if(lem||sust){const quem0=npc?npc.nome:(alvoNome||'alvo');(f.bonus=f.bonus||[]).push({uid:uid(),tipo:'efeito',ritual:true,lembrete:true,nome:`${x.nome}${nf} → ${quem0}`,ef:{...(lem||{})},dur:ret?'retido':durB,rit:x.id});
+      if(ret)f._ultimoBonus=f.bonus[f.bonus.length-1].uid;
+      msgs.push(sust?'Sustentado: gaste 1 '+(r0.det?'PD':'PE')+' no início de cada turno (aba Bônus)':'Lembrete na aba Bônus')}}
   if(ret){(f.retidos=f.retidos||[]).push({rit:id,nome:x.nome+nf,pe:total,bonus:f._ultimoBonus||null});delete f._ultimoBonus;perderSan(f,1);msgs.push(`Ritual retido: ${total} ${r0.det?'PD':'PE'} presos (saem do atual e do máximo), −1 SAN`)}
   const dano=comBonus(forma==='v'?(x.danoV||x.danoD||x.dano):forma==='d'?(x.danoD||x.dano):x.dano);
   // Dano e cura só são rolados se a pessoa pedir; senão ficam como lembrete para rolar na mesa.
@@ -89,6 +102,25 @@ function conjurar(f,id){
     Api.req('POST','/api/mesas/'+encodeURIComponent(f.mesa)+'/eventos',aviso).then(()=>toast('O mestre foi avisado.')).catch(e=>toast('Não foi possível avisar o mestre: '+e.message));
   saveF(f);toast(msgs.join(' · '),6000);return true;
 }
+/* Duração da forma escolhida: discente/verdadeiro podem trocar para sustentada, cena ou 1 dia. */
+function duracaoForma(x,forma){const t=forma==='v'?x.verdadeiro:forma==='d'?x.discente:'';
+  if(/sustentad/i.test(t||''))return 'Sustentada';const m=String(t||'').match(/dura[çc][ãa]o (cena|1 dia|permanente)/i);if(m)return m[1];
+  if(forma==='v'&&/como discente/i.test(t||''))return duracaoForma(x,'d');return x.duracao||''}
+function lembreteForma(x,forma){return forma==='v'?(x.lembreteV||x.lembreteD||x.lembrete):forma==='d'?(x.lembreteD||x.lembrete):x.lembrete}
+/* Ritual usado como reação: aplica a RD ao dano informado, mostra a Defesa e rola o teste com o bônus. */
+function usarReacao(f,x,forma,r0){const rc=x.reacao;const msgs=['Reação'];const nf=forma==='v'?' (verdadeiro)':forma==='d'?' (discente)':'';
+  const rd=rc.rd?(rc.rd[forma]||rc.rd.n):0;const dano=+((document.getElementById('cast-reacao-dano')||{}).value||0);
+  if(rd){const sobra=Math.max(0,dano-rd);
+    if(dano>0){aplicarDelta(f,'pv','-'+sobra);msgs.push(`dano ${dano} − RD ${rd} = ${sobra} sofrido${rc.rdNota?' ('+rc.rdNota+')':''}`)}
+    else msgs.push(`RD ${rd}${rc.rdTipo?' contra '+rc.rdTipo:''} contra esse dano${rc.rdNota?' '+rc.rdNota:''}`);
+    if(rc.rdNota&&/atordoad/.test(rc.rdNota)&&dano>0)addCond(f,'atordoado')}
+  if(rc.defesa){const c=calc(f);pushRoll({t:`${x.nome}${nf}: Defesa contra este ataque`,v:c.defesa+rc.defesa,d:`Defesa ${c.defesa} + ${rc.defesa}`})}
+  const rol=(document.querySelector('input[name="cast-reacao-rolar"]:checked')||{}).value;
+  if(rol){const c=calc(f);const p=c.per[rol];let dados=p.dados,bonus=p.bonus+(rc.bonusRolar||0);
+    if(rc.attrRolar){dados=dados-(c.A[p.attr]||0)+(c.A[rc.attrRolar]||0)}
+    rollTest(`${x.nome}: ${perNome(rol)}${rc.attrRolar?' com '+rc.attrRolar:''}${rc.bonusRolar?' +'+rc.bonusRolar:''}`,dados,bonus,{attr:rc.attrRolar||p.attr})}
+  if(!rd&&!rc.defesa&&!rol)pushRoll({t:`${x.nome}${nf} (reação)`,v:'—',d:rc.texto});
+  return msgs}
 /* Texto curto do que o mestre rola: teste de resistência, DT e efeito. */
 function avisoTexto(a){return [a.resistencia&&!/^\s*(—|-)?\s*$/.test(a.resistencia)?`${a.alvo}: teste de ${a.resistencia} contra DT ${a.dt}`:`${a.alvo}: sem teste de resistência`,
   a.dano?`Dano: ${a.dano}`:'',a.efeito?`Efeito: ${a.efeito}`:''].filter(Boolean).join(' · ')}
@@ -239,6 +271,21 @@ document.addEventListener('click',e=>{
    case 'interConcluir':concluirInterludio(f);break;
    case 'bonusNovo':(f.bonus=f.bonus||[]).push({uid:uid(),tipo:'fixo',nome:'Bônus',alvo:'defesa',valor:2,dur:'cena'});saveF();break;
    case 'rmBonus':f.bonus=f.bonus.filter(b=>b.uid!==ds.id);saveF();break;
+   case 'sustManter':{const b=f.bonus.find(x=>x.uid===ds.id);if(!b)return;const n=gastarPE(f,1,'Sustentar '+b.nome);if(n===false)return;saveF();toast(`${b.nome}: sustentado (−${n} ${calc(f).det?'PD':'PE'}).`);break}
+   case 'bCont':{const b=f.bonus.find(x=>x.uid===ds.id);if(!b||!b.cont)return;b.cont.atual=Math.max(0,Math.min(b.ef.cont.max,(+b.cont.atual||0)+ +ds.d));saveF();break}
+   case 'ritAcao':{const b=f.bonus.find(x=>x.uid===ds.id);const ac=b&&b.ef&&(b.ef.acoes||[])[+ds.k];if(!ac)return;const r=calc(f);
+     if(ac.dano){const v=rollDano(`${b.nome}: ${ac.nome}`,ac.dano,r.A);if(ac.curaMetade&&v){const c=Math.floor(v/2);toast(curaPV(f,String(c),b.nome))}}
+     else if(ac.danoEu){aplicarDelta(f,'pv','-'+ac.danoEu)}
+     else if(ac.san){const x=rollExpr(ac.san,r.A);perderSan(f,x.total);pushRoll({t:`${b.nome}: ${ac.nome}`,v:'−'+x.total+(r.det?' PD':' SAN'),d:x.txt})}
+     else if(ac.per){const p=r.per[ac.per];rollTest(`${b.nome}: ${perNome(ac.per)}`,p.dados,p.bonus,{attr:p.attr})}
+     saveF();break}
+   case 'dadoRit':{const b=f.bonus.find(x=>x.uid===ds.id);const d=b&&b.ef&&b.ef.dadosRit;if(!d||!b.dadosRit||b.dadosRit.resta<1)return;
+     const fc=+String(d.dado).split('d')[1];const v=rnd(fc);b.dadosRit.resta--;let extra='';
+     if(v===fc){perderSan(f,d.san);extra=` · tirou ${fc}: −${d.san} ${calc(f).det?'PD':'SAN'}`}
+     pushRoll({t:`${b.nome}: some ao teste`,v:'+'+v,d:`${d.dado} [${v}] · restam ${b.dadosRit.resta}${extra}`});
+     if(b.dadosRit.resta<1||calc(f).san<=0){f.bonus=f.bonus.filter(x=>x!==b);toast(`${b.nome} terminou.`)}
+     saveF();break}
+   case 'perInfo':perInfoModal(ds.id);break;
    case 'useBonus':{const b=f.bonus.find(x=>x.uid===ds.id);if(!b||b.usos<1)return;b.usos--;rollDano(`${b.nome} (restam ${b.usos})`,b.valor);saveF();break}
    case 'bonusUsos':{const b=f.bonus.find(x=>x.uid===ds.id);b.usos=Math.max(0,(+b.usos||0)+(+ds.d));saveF();break}
    case 'efAttr':{const b=f.bonus.find(x=>x.uid===ds.id);b.attrEscolhido=ds.a;saveF();break}

@@ -48,11 +48,12 @@ function calc(f){
   const pods=f.poderes.map(p=>({p,d:byId('poderes',p.ref)})).filter(x=>x.d);r.pods=pods;
   pods.forEach(({p,d})=>{add(d.mods,d.nome);if(f.afinidade&&d.elemento===f.afinidade)add(d.modsAfinidade,d.nome+' (afinidade)');flag({...d,escolha:p.escolha},d.nome);if(f.afinidade&&d.elemento===f.afinidade&&d.afin)flag({...d.afin,escolha:p.escolha,_afin:true},d.nome+' (afinidade)')});
   const inv=f.inventario;
-  inv.forEach(it=>{if(!it.equipado)return;add(it.mods,it.nome);modsDoItem(it).forEach(m=>{const e=m.efeitos||{};
-    if(e.defesa)mods.push({alvo:'defesa',valor:e.defesa,fonte:m.nome});if(e.deslocamento)mods.push({alvo:'deslocamento',valor:e.deslocamento,fonte:m.nome});
+  inv.forEach(it=>{if(!it.equipado)return;const n0=mods.length;add(it.mods,it.nome);modsDoItem(it).forEach(m=>{const e=m.efeitos||{};
+    if(e.defesa)mods.push({alvo:'defesa',valor:e.defesa,fonte:m.nome,equip:true});if(e.deslocamento)mods.push({alvo:'deslocamento',valor:e.deslocamento,fonte:m.nome});
     if(e.pericia&&e.pericia.id)mods.push({alvo:'per:'+e.pericia.id,valor:+e.pericia.valor||0,fonte:m.nome});
     else if(e.pericia&&typeof e.pericia==='object')Object.entries(e.pericia).forEach(([k,v])=>mods.push({alvo:'per:'+k,valor:v,fonte:m.nome}));
-    if(e.pv)mods.push({alvo:'pv',valor:e.pv,fonte:m.nome});if(e.pe)mods.push({alvo:'pe',valor:e.pe,fonte:m.nome});if(e.dt)mods.push({alvo:'dtRitual',valor:e.dt,fonte:m.nome})})});
+    if(e.pv)mods.push({alvo:'pv',valor:e.pv,fonte:m.nome});if(e.pe)mods.push({alvo:'pe',valor:e.pe,fonte:m.nome});if(e.dt)mods.push({alvo:'dtRitual',valor:e.dt,fonte:m.nome})});
+    mods.slice(n0).forEach(x=>x.equip=true)});
   const aliados=(f.aliados||[]).filter(a=>a.ativo&&a.ref).map(a=>({a,d:byId('aliados',a.ref)})).filter(x=>x.d);r.aliados=aliados;
   aliados.forEach(({a,d})=>{const b=d.bonusEf||{};add(b.mods,d.nome);if(b.per)Object.entries(b.per).forEach(([k,v])=>mods.push({alvo:'per:'+k,valor:v,fonte:d.nome}));if(b.deslocamento)mods.push({alvo:'deslocamento',valor:b.deslocamento,fonte:d.nome})});
   if(regraOn('idade'))(f.desvantagens||[]).forEach(id=>{const dv=D.desvantagensIdade.find(x=>x.id===id);if(dv)add(dv.mods,dv.nome)});
@@ -60,10 +61,17 @@ function calc(f){
   const ef={defesa:0,ataque:0,dano:0,margem:0,mult:0,pericias:0,attr:{},per:{},dadosPer:{},danoArma:[],rd:[],resistPar:0,testes:0,dt:0,testesAttr:{},desloc:0};
   // Efeitos de rituais só acumulam se forem em alvos diferentes (arma × agente) ou em estatísticas
   // diferentes; na mesma estatística e no mesmo alvo vale o maior. Equipamento e poderes sempre somam.
-  const contrib=[];const poe=(stat,v,b)=>{const rit=b.ritual!==false;contrib.push({stat:rit?alvoEf(b)+'|'+stat:stat,v,nome:b.nome,ritual:rit})};
+  // ef.acumula: o efeito soma com outros rituais (ex.: Armadura de Sangue); ef.semEquip: não soma com a Defesa de equipamento (vale o maior).
+  const contrib=[];const poe=(stat,v,b)=>{const rit=b.ritual!==false;const e={...((ritualDe(b)||{}).ef||{}),...(b.ef||{})};
+    if(e.semEquip&&stat==='defesa'){defSemEquip.push({v,nome:b.nome});return}
+    contrib.push({stat:rit?alvoEf(b)+'|'+stat:stat,v,nome:b.nome,ritual:rit&&!e.acumula})};
+  const defSemEquip=[];const imuneEf=new Set();
   (f.bonus||[]).forEach(b=>{
     if(b.alvo&&!isNaN(+b.valor)&&b.tipo==='fixo'){mods.push({alvo:b.alvo,valor:+b.valor,fonte:b.nome})}
-    const e=b.ef;if(!e)return;
+    let e=b.ef;if(!e)return;
+    if(b.cont&&e.cont){e={...e};Object.entries(e.cont.por||{}).forEach(([k,v])=>e[k]=(+b.cont.atual||0)*v)} /* ex.: Embaralhar, +2 Defesa por cópia restante */
+    if(e.imune)e.imune.forEach(id=>imuneEf.add(id));
+    if(e.dt)ef.dt+=+e.dt;
     ['defesa','ataque','margem','mult','pericias','resistPar'].forEach(k=>{if(e[k])poe(k,+e[k],b)});
     if(e.attr&&e.valor)poe('attr:'+(b.attrEscolhido||String(e.attr).split('|')[0]),+e.valor,b);
     if(e.pericia)poe('per:'+e.pericia.id,+e.pericia.valor,b);
@@ -101,7 +109,7 @@ function calc(f){
   r.danoAttrMunicao=flags.filter(x=>x.danoAttrMunicao).map(x=>x.danoAttrMunicao);
   r.dtElem={};flags.forEach(x=>{if(x.dtElem&&x.escolha)r.dtElem[x.escolha]=(r.dtElem[x.escolha]||0)+x.dtElem});
   r.ritDanoAttrs=flags.filter(x=>x.ritDanoAttr).map(x=>x.ritDanoAttr);
-  r.imuneCond=new Set(flags.flatMap(x=>x.imuneCond||[]));
+  r.imuneCond=new Set([...flags.flatMap(x=>x.imuneCond||[]),...imuneEf]);
   r.ritConcedidos=[...new Set(flags.flatMap(x=>x.ritConcedido||[]))];
   r.ataqueOcultismo=flags.some(x=>x.ataqueOcultismo);r.gladiador=maxF('gladiador');r.critMaxFogo=flags.some(x=>x.critMaxFogo);
   r.furtivo=flags.some(x=>x.furtivo);r.ataqueEspecial=flags.some(x=>x.ataqueEspecial);r.perito=flags.some(x=>x.perito);
@@ -169,7 +177,11 @@ function calc(f){
   r.sobrecarga=r.esp>r.carga;if(r.esp>2*r.carga)r.alertas.push('Carga acima do dobro do limite: o agente não consegue se mover.');
   const armad=inv.filter(i=>i.equipado&&i.tipo==='protecao');
   const prot=armad.reduce((s,i)=>s+(+i.defesa||0),0);
-  r.defesa=10+A.AGI+prot+m('defesa')+condEf.defesa+ef.defesa-(r.sobrecarga?5:0);
+  // Defesa de equipamento × efeitos que não acumulam com equipamento: vale o maior.
+  const defEquip=prot+mods.filter(x=>x.alvo==='defesa'&&x.equip).reduce((s,x)=>s+x.valor,0);
+  const defSE=defSemEquip.reduce((s,x)=>s+x.v,0);let defEq=defEquip;r.defSemEquip=null;
+  if(defSemEquip.length){defEq=Math.max(defEquip,defSE);r.defSemEquip={v:defSE,equip:defEquip,nomes:defSemEquip.map(x=>x.nome),vale:defSE>=defEquip?'ritual':'equipamento'}}
+  r.defesa=10+A.AGI+defEq+m('defesa')-mods.filter(x=>x.alvo==='defesa'&&x.equip).reduce((s,x)=>s+x.valor,0)+condEf.defesa+ef.defesa-(r.sobrecarga?5:0);
   let desl=9+m('deslocamento')+ef.desloc-(r.sobrecarga?3:0);
   if(condEf.desloc===0)desl=0;else if(condEf.desloc==='metade')desl=Math.floor(desl/2/1.5)*1.5;else if(typeof condEf.desloc==='number')desl=Math.min(desl,condEf.desloc);
   r.desloc=desl;
@@ -238,6 +250,7 @@ function calc(f){
 /* Bônus de rituais numa perícia: "+X em todos os testes" e "+X nesta perícia" de rituais diferentes não somam. */
 function ritPer(ef,id){const a=ef.per[id]||0,t=ef.pericias||0;if(!a||!t)return a+t;return ef.fonte['per:'+id]&&ef.fonte['per:'+id]===ef.fonte.pericias?a+t:Math.max(a,t)}
 /* Alvo de um efeito de ritual: a arma (Arma Atroz, Amaldiçoar Arma) ou o próprio agente. */
+function ritualDe(b){return b.ritual===false?null:(D.rituais||[]).find(x=>String(b.nome||'').startsWith(x.nome))}
 function alvoEf(b){if(b.alvoEf)return b.alvoEf;const rit=(D.rituais||[]).find(x=>String(b.nome||'').startsWith(x.nome));return rit&&/arma|muni/i.test(rit.alvo||'')?'arma':'agente'}
 /* Nome legível da estatística de um efeito, para os avisos de "não acumula". */
 function nomeStat(stat){const cat=stat.includes('|')?stat.split('|')[0]:'';const [k,sub]=stat.replace(/^[a-z]+\|/,'').split(/:(.*)/);const em=cat?(cat==='arma'?' da arma':' do agente'):'';
@@ -340,7 +353,7 @@ function gastarPE(f,n,motivo,op={}){const r=calc(f);const lim=op.ritual?r.peLimR
   if(total>lim)toast(`Atenção: ${total} ${nm} passa do limite por turno (${lim}).`);
   let resto=total;const tmp=Math.min(+f.peTemp||0,resto);f.peTemp=(+f.peTemp||0)-tmp;resto-=tmp;f.pe=r.pe-resto;return total}
 function perderSan(f,n,perm=0){const r=calc(f);if(r.det){f.pe=Math.max(0,r.pe-n-perm)}else f.san=Math.max(0,r.san-n);if(perm)f.sanPerm=(+f.sanPerm||0)+perm}
-function fimDeCena(f){f.pvTemp=0;f.peTemp=0;f.contadores={};f.bonus=(f.bonus||[]).filter(b=>b.dur!=='cena');f.inventario=f.inventario.filter(i=>!i.temporario);f.formaSuprema=false;saveF(f)}
+function fimDeCena(f){f.pvTemp=0;f.peTemp=0;f.contadores={};f.bonus=(f.bonus||[]).filter(b=>b.dur!=='cena'&&b.dur!=='sust'&&b.dur!=='rodadas');f.inventario=f.inventario.filter(i=>!i.temporario);f.formaSuprema=false;saveF(f)}
 function fimDeMissao(f){fimDeCena(f);f.bonus=(f.bonus||[]).filter(b=>b.dur!=='missao'&&b.dur!=='interludio');saveF(f)}
 /* Adiciona (ou acumula) um bônus em dado de interlúdio, como Ler e Exercitar. */
 function addBonusDado(f,b,r){

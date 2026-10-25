@@ -91,6 +91,11 @@ function renderGuia(){
    <li><b>Aliados ativos</b> somam bônus de perícia e dados. Afinidade ativa os efeitos extras dos poderes do mesmo elemento.</li></ul>`)}
   ${s('Interlúdio e Bônus',`<p>Na aba <b>Interlúdio</b>, escolha as ações (dormir, alimentar-se, exercitar, ler, relaxar…) e as opções de cada uma, depois clique em <b>Concluir interlúdio</b>. O app recupera PV, PE e Sanidade pela condição de descanso e guarda bônus como +1d6 de Ler. Poderes que criam novas ações (Meditação Ocultista, Ensaio, Sintonização) aparecem ali.</p>
    <p>A aba <b>Bônus</b> lembra tudo que está valendo: dados de interlúdio (com botão para rolar e gastar), efeitos de rituais em você, bônus temporários que você criar, aliados e itens. Os dados guardados também aparecem no resultado de cada rolagem compatível.</p>`)}
+  ${s('Perícias',`<p>Na aba Perícias, clique no <b>nome</b> de uma perícia para ver tudo o que ela permite fazer: cada uso, a DT, a ação gasta e o grau exigido (os usos que você ainda não pode fazer ficam marcados).</p>`)}
+  ${s('Reações, rituais sustentados e lembretes',`<p><b>Reação:</b> rituais como Alterar Destino, Sede de Adrenalina, Tela de Ruído e Salto Fantasma (discente) mostram um bloco “Reação” ao conjurar. Informe o dano sofrido para o app descontar a RD e tirar só o resto dos PV, ou escolha o teste para rolar com o bônus. Como reação, o efeito é imediato e não fica na aba Bônus.</p>
+   <p><b>Sustentado:</b> o ritual aparece na aba Bônus com “Manter (−1 PE)” para o início de cada turno e “Encerrar”. Só um ritual sustentado por vez: conjurar outro encerra o anterior.</p>
+   <p><b>Lembretes:</b> rituais que deixam algo para os próximos turnos (Chamas do Caos, Tentáculos de Lodo, Poeira da Podridão, Contato Paranormal, Embaralhar…) também vão para a aba Bônus, mesmo conjurados em outro alvo, com botões para rolar o dano de cada turno, contar cópias ou usar os dados.</p>
+   <p><b>Armadura de Sangue</b> soma com outros rituais, mas não com a Defesa da proteção: vale o maior dos dois.</p>`)}
   ${s('Rituais em outros personagens',`<p>Em “Conjurar…”, escolha o alvo: você, um aliado/NPC da sua ficha ou um inimigo. Fora de você, aparece o cartão <b>Para o mestre</b> com a DT, o teste de resistência e o efeito. O dano só é rolado pelo app se você marcar “Rolar o dano para mim”; deixe desmarcado para rolar os dados na mesa.</p>`)}
   ${s('Campanha (servidor próprio)',`<ol><li>Disponível quando o app roda no servidor com login. O mestre abre <b>Campanha</b>, cria uma e passa o código.</li>
    <li>Cada jogador entra com o código e, no Dossiê de cada agente, escolhe a campanha no campo <b>Campanha</b>.</li>
@@ -162,6 +167,7 @@ function castModal(id){
    <div class="meta"><span>${x.circulo}º círculo</span><span>DT ${r.dt+(r.dtElem[x.elemento]||0)}${r.dtElem[x.elemento]?' (Especialista em Elemento)':''}</span><span>Limite por turno ${r.peLimRit} ${r.det?'PD':'PE'}</span>${x.duracao?`<span>${h(x.duracao)}</span>`:''}</div>
    <div class="row" role="radiogroup" aria-label="Forma">${[['n','Normal',custo],dis&&['d','Discente',custo+ +dis],ver&&['v','Verdadeiro',custo+ +ver]].filter(Boolean).map(([k,l,c],i)=>`<label class="btn sm"><input type="radio" name="forma" value="${k}" data-c="${c}" ${i?'':'checked'} ${k!=='n'&&!pode(k)?'disabled':''}> ${l} · ${c+r.custoExtra} ${r.det?'PD':'PE'}</label>`).join('')}</div>
    ${r.custoExtra?`<p class="hint">Inclui +${r.custoExtra} por condição (alquebrado).</p>`:''}
+   ${x.reacao?reacaoBloco(x,r):''}
    ${(r.castExtra||[]).map(c=>`<label class="row" style="gap:6px"><input type="checkbox" id="cast-x-${c.id}"> ${h(c.nome)} (+${c.pe} ${r.det?'PD':'PE'})</label>`).join('')}
    ${r.flagelo?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-flagelo"> Pagar com PV (Poder do Flagelo: ${r.flagelo} PV por ${r.det?'PD':'PE'}; só voltam com descanso)</label>`:''}
    ${(r.ritDanoAttrs||[]).length&&(x.dano||(x.ef&&x.ef.cura))?`<p class="hint">Dano e cura recebem +${r.ritDanoAttrs.reduce((a,k)=>a+(r.A[k]||0),0)} (${r.ritDanoAttrs.join(' + ')}).</p>`:''}
@@ -177,6 +183,28 @@ function castModal(id){
    ${regraOn('reter_ritual')&&/cena/i.test(x.duracao||'')?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-ret"> Reter ritual: os ${r.det?'PD':'PE'} gastos ficam presos (saem do atual e do máximo) até você soltar; perde 1 SAN</label>`:''}
    <div class="row"><button class="btn acc" data-act="castGo" data-id="${x.id}">Conjurar</button></div></div>`);
 }
+/* Bloco "reação" do modal de conjurar: RD contra o dano sofrido, Defesa contra o ataque e teste com bônus. */
+function reacaoBloco(x,r){const rc=x.reacao;const fm=rc.formas||['n','d','v'];
+  const rd=rc.rd?Object.entries(rc.rd).map(([k,v])=>`${{n:'normal',d:'discente',v:'verdadeiro'}[k]} ${v}`).join(', '):'';
+  return `<fieldset class="alvos"><legend class="eyebrow">Reação</legend>
+   ${rc.sempre?`<p class="hint" style="margin:0">Este ritual é uma reação.</p>`:`<label class="row" style="gap:6px"><input type="checkbox" id="cast-reacao"> Conjurar como reação (${fm.map(k=>({n:'normal',d:'discente',v:'verdadeiro'})[k]).join(' ou ')})</label>`}
+   <p class="hint" style="margin:0">${h(rc.texto)}</p>
+   ${rc.rd?`<label class="row" style="gap:6px">Dano sofrido <input class="inp sm num" type="number" min="0" id="cast-reacao-dano" style="width:90px" placeholder="0"> <span class="hint">RD ${h(rd)}; o restante sai dos seus PV</span></label>`:''}
+   ${rc.defesa?`<p class="hint" style="margin:0">Defesa contra este ataque: ${r.defesa} + ${rc.defesa} = <b>${r.defesa+rc.defesa}</b></p>`:''}
+   ${(rc.rolar||[]).length?`<div class="row" role="radiogroup" aria-label="Teste da reação"><span class="hint">${rc.attrRolar?'Repetir com '+rc.attrRolar+':':'Rolar com +'+rc.bonusRolar+':'}</span><label class="btn sm"><input type="radio" name="cast-reacao-rolar" value="" checked> Não rolar</label>${rc.rolar.map(id=>`<label class="btn sm"><input type="radio" name="cast-reacao-rolar" value="${id}"> ${h(perNome(id))}</label>`).join('')}</div>`:''}
+   ${!rc.sempre?`<p class="hint" style="margin:0">Como reação, o efeito é imediato e não vai para a aba Bônus.</p>`:''}
+  </fieldset>`}
+/* Explicação de uma perícia: usos, requisitos de grau e DTs. */
+function perInfoModal(id){const f=F();const r=calc(f);const p=pericias().find(x=>x.id===id);if(!p)return;const x=r.per[id]||{};
+  const GR={'':0,Treinado:5,Veterano:10,Expert:15};
+  const usos=(p.usos||[]).map(([n,req,t])=>{const ok=!req||(x.grau||0)>=GR[req];return `<div class="card"><h4>${h(n)}${req?` <span class="badge ${ok?'acc':'warnb'}">${h(req)}</span>`:''}</h4><p>${h(t)}</p>${req&&!ok?`<p class="warnline">Precisa ser ${h(req.toLowerCase())} para este uso.</p>`:''}</div>`}).join('');
+  modal(p.nome,`<div class="modal-b">
+   <div class="meta"><span>${x.attr||p.attr}</span>${p.somenteTreinada?'<span>Somente treinada</span>':''}${p.carga?'<span>Penalidade de carga</span>':''}<span>Seu teste: ${x.dados<1?(2-x.dados)+'d20 (pior)':x.dados+'d20'} ${sgn(x.bonus||0)}</span></div>
+   ${p.desc?`<p>${h(p.desc)}</p>`:''}
+   ${p.somenteTreinada&&!x.grau?'<p class="warnline">Você não é treinado: não pode usar esta perícia.</p>':''}
+   ${usos?`<div class="cards">${usos}</div>`:'<p class="hint">Sem usos cadastrados (perícia homebrew).</p>'}
+   <details><summary class="hint">Regras gerais de perícias</summary>${(D.periciasGeral||[]).map(t=>`<p class="hint">${h(t)}</p>`).join('')}</details>
+   <div class="row"><button class="btn acc" data-act="rollPer" data-id="${p.id}">Rolar ${h(p.nome)}</button></div></div>`)}
 async function showExport(titulo,nome,obj){
   const txt=JSON.stringify(obj,null,2);let dl=null;try{if(window.claude&&window.claude.use)dl=await window.claude.use('downloads')}catch(e){dl=null}
   modal(titulo,`<div class="modal-b"><p class="hint" style="margin:0">Guarde ou compartilhe este texto. Ele pode ser colado em “Importar” em qualquer navegador.</p><textarea class="inp" id="exp-txt" rows="16" style="font-family:var(--f-mono);font-size:12px" readonly>${h(txt)}</textarea></div>`,
