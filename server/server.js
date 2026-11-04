@@ -108,7 +108,7 @@ function lerCorpo(req,max){return new Promise((ok,falha)=>{const partes=[];let n
 async function lerJSON(req){const b=await lerCorpo(req,MAX_JSON);try{return JSON.parse(b.toString('utf8')||'null')}catch(e){throw Object.assign(new Error('json'),{status:400})}}
 
 /* ---------------- arquivos do app ---------------- */
-const MIME={'.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.css':'text/css; charset=utf-8'};
+const MIME={'.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.svg':'image/svg+xml'};
 let paginaCache=null;
 function pagina(){ // o index.html é um fragmento (formato de artifact); aqui ganha o esqueleto de documento
   if(paginaCache&&process.env.NODE_ENV==='production')return paginaCache;
@@ -117,7 +117,7 @@ function pagina(){ // o index.html é um fragmento (formato de artifact); aqui g
 }
 function servirArquivo(res,url){
   const rel=path.normalize(decodeURIComponent(url)).replace(/^([/\\])+/,'');
-  if(!/^(js[/\\][\w.-]+\.js|data[/\\](dados|criaturas)\.json)$/.test(rel))return erro(res,404,'Não encontrado');
+  if(!/^(js[/\\][\w.-]+\.js|data[/\\](dados|criaturas)\.json|img[/\\][\w.-]+\.(png|webp|jpg|svg))$/.test(rel))return erro(res,404,'Não encontrado');
   const arq=path.join(RAIZ,rel);
   fs.readFile(arq,(e,buf)=>{if(e)return erro(res,404,'Não encontrado');enviar(res,200,buf,MIME[path.extname(arq)]||'application/octet-stream',{'Cache-Control':'no-cache'})});
 }
@@ -127,7 +127,7 @@ const ID_DOC=/^[A-Za-z0-9_\-:.]{1,120}$/;
 async function rotear(req,res){
   const url=new URL(req.url,'http://x');const p=url.pathname;const m=req.method;
   if(m==='GET'&&(p==='/'||p==='/index.html'))return enviar(res,200,pagina(),'text/html; charset=utf-8',{'Cache-Control':'no-cache'});
-  if(m==='GET'&&(p.startsWith('/js/')||p.startsWith('/data/')))return servirArquivo(res,p);
+  if(m==='GET'&&(p.startsWith('/js/')||p.startsWith('/data/')||p.startsWith('/img/')))return servirArquivo(res,p);
   if(m==='GET'&&p.startsWith('/_blob/')){const id=p.slice(7);if(!/^[a-f0-9]{32}$/.test(id))return erro(res,404,'Não encontrado');
     const img=await db.get(Q.imagem,id);if(!img)return erro(res,404,'Não encontrado');
     return enviar(res,200,paraBuffer(img.dados),img.tipo,{'Cache-Control':'private, max-age=31536000, immutable'})}

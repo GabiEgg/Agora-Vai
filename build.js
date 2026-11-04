@@ -95,13 +95,21 @@ const POD={
  com_valentao:{perAttr:{intimidacao:'FOR'}},
  ocu_olhar_sinistro:{perAttr:{ocultismo:'PRE'}},
  par_sangue_fervente:{escolheAttr:['AGI','FOR'],seMachucado:{attrValor:1},afin:{seMachucado:{attrValor:2}}},
- par_sangue_prazeroso:{seMachucado:{rd:'RD 5 (Sangue Prazeroso)'}},
  par_precognicao:{afin:{imuneCond:['desprevenido']}},
  par_instintos_sanguinarios:{afin:{imuneCond:['desprevenido']}},
  par_golpe_de_sorte:{afin:{mult:1}},
  par_resistir_a_elemento:{rdElem:10,afin:{rdElem:20}},
  par_encarar_a_morte:{peLimAcao:1,afin:{peLimAcao:3}},
  par_arma_de_sangue:{acao:{pe:2,item:'arma_sangue'}},
+ /* afinidade automatizada (2ª escolha do poder com afinidade no elemento) */
+ par_sangue_de_ferro:{afin:{imuneCond:['envenenado','doente']}},
+ par_sangue_prazeroso:{seMachucado:{rd:'RD 5 (Sangue Prazeroso)'},acaoAfin:{rotulo:'PV temporários (1×/cena)',pvTemp:'20'}},
+ par_potencial_reaproveitado:{acao:{rotulo:'Passei num teste de resistência',peTemp:'2'},acaoAfin:{peTemp:'3'}},
+ par_engolir_sangue:{acao:{rotulo:'Consumir',cura:'2d8+2',san:'1d4'},acaoAfin:{cura:'4d8+4'}},
+ par_ferro_maculado:{acao:{rotulo:'Amaldiçoar projétil e rolar o dano extra',pv:2,dano:'1d6',tipoDano:'sangue'},acaoAfin:{dano:'1d8'}},
+ par_sangue_corrosivo:{acao:{rotulo:'Rolar dano em quem o feriu',dano:'1d10',tipoDano:'sangue'},acaoAfin:{dano:'2d10'}},
+ par_grilhoes_de_lodo:{acao:{rotulo:'Ativar',pe:2,dano:'3d6',tipoDano:'morte'},acaoAfin:{dano:'6d6'}},
+ par_placas_sanguinolentas:{placas:true},
 };
 out.poderes.forEach(p=>{if(POD[p.id])Object.assign(p,POD[p.id])});
 // Itens: resistências quando equipados e efeitos de cena ao usar consumíveis.

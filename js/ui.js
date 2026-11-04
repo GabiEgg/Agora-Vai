@@ -10,7 +10,7 @@ function guardarCampos(){const ids=['mesa-nome','mesa-codigo','hb-q','cri-q',...
   const at=document.activeElement;return {v,foco:at&&at.id&&ids.includes(at.id)?at.id:null}}
 function restaurarCampos(g){Object.entries(g.v).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val});
   if(g.foco){const el=document.getElementById(g.foco);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}}
-function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g)}
+function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender()}
 function renderTela(){
   const navs=[['ficha','Fichas'],...(S.conta&&S.conta.usuario?[['campanha','Campanha']]:[]),...(souMestre()?[['escudo','Escudo do Mestre']]:[]),['mesa','Mesa'],['hb','Homebrew'],['guia','Guia']];
   document.getElementById('nav').innerHTML=navs.map(([k,l])=>`<button class="btn" aria-pressed="${S.view===k}" data-act="view" data-v="${k}">${l}${k==='hb'&&hbCount()?` <span class="badge hb">${hbCount()}</span>`:''}${k==='mesa'?` <span class="badge">${D.fontes.filter(x=>fonteOn(x.id)).length+pacotesHB().filter(pacoteOn).length}</span>`:''}</button>`).join('')+(S.conta?(S.conta.usuario?`<button class="btn" data-act="contaMenu" title="Conta no servidor">${h(S.conta.usuario)}</button>`:`<button class="btn acc" data-act="contaMenu">Entrar</button>`):'');
@@ -35,7 +35,7 @@ function renderFichas(){
       <span class="stamp">${r.est?'Estágio '+(f.estagio||1):'NEX '+f.nex+'%'}</span>
       <div class="row">${S.confirm==='del'?`<span class="confirm">Excluir esta ficha? <button class="btn sm danger" data-act="delOk">Excluir</button><button class="btn sm" data-act="cancel">Cancelar</button></span>`:
        `<button class="btn sm" data-act="dup">Duplicar</button><button class="btn sm" data-act="exportF">Exportar</button><button class="btn sm danger" data-act="del">Excluir</button>`}</div></div>
-    ${iniBanner(f,r)}${vitalsStrip(f,r)}
+    ${iniBanner(f,r)}${fxBarra(f)}${vitalsStrip(f,r)}
     <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}${k==='bonus'&&nb?` <span class="badge ${r.ef.naoAcumula.length?'warnb':'acc'}" ${r.ef.naoAcumula.length?'title="Há efeitos de rituais que não acumulam"':''}>${nb}${r.ef.naoAcumula.length?' !':''}</span>`:''}${k==='aliados'&&na?` <span class="badge">${na}</span>`:''}</button>`).join('')}</div>
     <div class="pane">${f.classe||['notas','aliados'].includes(S.tab)||S.tab==='dossie'?panes[S.tab](f,r):`<div class="empty">Escolha uma classe no Dossiê para liberar esta aba.</div>`}</div></section></div>`;
 }
@@ -95,6 +95,7 @@ function paneDossie(f,r){
     ${fld('Trilha',`<select class="inp" id="f-trilha" data-f="trilha" data-r ${!r.est&&f.nex<10?'disabled':''}>${opt('',!r.est&&f.nex<10?'Disponível em NEX 10%':'Escolha…',f.trilha)}${grupoFonte(trilhas,f.trilha)}</select>`)}
     ${r.t&&r.t.elementoEscolha?fld('Elemento da trilha',`<select class="inp" data-f="trilhaElemento" data-r>${opt('','Escolha…',f.trilhaElemento)}${['sangue','morte','conhecimento','energia'].map(k=>opt(k,ELEM[k],f.trilhaElemento)).join('')}</select>`):''}
     ${fld('Afinidade',`<select class="inp" data-f="afinidade" data-r ${!r.est&&f.nex<50?'title="Afinidade é escolhida em NEX 50%"':''}>${Object.entries(ELEM).filter(([k])=>k!=='medo').map(([k,v])=>opt(k,v,f.afinidade)).join('')}</select>`)}
+    ${!f._alheia?fld('Regras',`<div class="row"><select class="inp" data-regras-modo style="flex:1 1 160px">${opt('padrao','Gerais (aba Mesa)',f.regrasModo||'padrao')}${f.mesa?opt('campanha','Da campanha ligada',f.regrasModo||''):''}${opt('propria','Próprias deste agente',f.regrasModo||'')}</select>${f.regrasModo==='propria'?`<button class="btn sm" data-act="regrasEditar" data-id="${h(f.id)}">Editar</button>`:''}</div>${f.regrasModo==='campanha'&&f.mesa&&!cfgCampanha(f.mesa)?'<span class="hint">O mestre ainda não publicou as regras; por enquanto valem as gerais.</span>':''}`):''}
     ${S.conta&&S.conta.usuario&&!f._alheia?fld('Campanha',`<select class="inp" data-f="mesa" data-r>${opt('','Nenhuma (só eu vejo)',f.mesa||'')}${(S.mesas||[]).map(m=>opt(m.id,m.nome+(m.papel==='mestre'?' (você é o mestre)':' · mestre '+m.mestre),f.mesa||'')).join('')}</select>`):''}
     ${fld('Pontos de prestígio',numInp('pp',f.pp,'min="0"'))}
     ${fld('Patente',`<div class="inp ro" data-d="patente">${h(r.patente.nome)} · crédito ${h(r.patente.credito)}</div>`)}
@@ -176,6 +177,10 @@ function paneHab(f,r){
   const card=(nome,desc,extra='',locked=false,badge='',fim='')=>`<div class="card ${locked?'locked':''}"><h4>${h(nome)} ${badge}</h4>${extra}${desc?`<p>${h(desc)}</p>`:''}${fim}</div>`;
   const extraHab=(dono,x)=>{if(+x.nex>r.prog)return '';const k=r.hk(dono,x);let o2='';
     if(x.treinaOu2==='pericia'){const lista=x.escolhaPericias||pericias().map(p=>p.id);o2+=`<label class="fld"><span>Perícia escolhida</span><select class="inp" data-habesc="${h(k)}">${opt('','Escolha…',(f.habEscolhas||{})[k])}${lista.map(id=>opt(id,perNome(id),(f.habEscolhas||{})[k])).join('')}</select></label>`}
+    if(x.nome==='Versatilidade'&&dono===c){const esc=(f.habEscolhas||{})[k]||'';
+      const outras=cat('trilhas').filter(tr=>tr.classe===c.id&&tr.id!==f.trilha&&(tr.habilidades||[]).length);
+      o2+=`<label class="fld"><span>Escolha</span><select class="inp" data-habesc="${h(k)}">${opt('',`Um poder de ${c.nome} (padrão)`,esc)}${outras.map(tr=>opt('trilha:'+tr.id,`${tr.nome}: ${tr.habilidades[0].nome}`,esc)).join('')}</select></label>
+       <p class="hint">${r.versHab?`Você recebeu ${h(r.versHab.x.nome)}, da trilha ${h(r.versHab.t.nome)} (aparece na seção Trilha).`:`Conta como +1 poder no limite de poderes.`}</p>`}
     if(x.acao){const idx=Math.max(0,r.nTrilha-1);const pe=Array.isArray(x.acao.pe)?x.acao.pe[Math.min(idx,x.acao.pe.length-1)]:x.acao.pe;const cura=Array.isArray(x.acao.cura)?x.acao.cura[Math.min(idx,x.acao.cura.length-1)]:x.acao.cura;
       o2+=`<div class="row"><button class="btn sm acc" data-act="usarHab" data-k="${h(k)}">Usar${pe?` (−${pe} ${r.det?'PD':'PE'})`:''}${cura?' → cura '+h(cura):''}</button></div>`}
     return o2};
@@ -191,7 +196,10 @@ function paneHab(f,r){
    </div></div>
   <div class="sec"><div class="sec-h"><h2>Trilha${t?': '+h(t.nome):''}</h2>${t?fonteBadge(t):''}</div>
    ${t?`${t.desc?`<p class="hint">${h(t.desc)}</p>`:''}<div class="cards">${(t.habilidades||[]).map(x=>card(x.nome,x.desc,`<div class="meta">${r.est?'Estágio '+x.nex:'NEX '+x.nex+'%'}${(x.mods||[]).length?' · '+x.mods.map(m=>sgn(+m.valor)+' '+alvoNome(m.alvo)).join(', '):''}</div>`,+x.nex>r.prog,'',extraHab(t,x))).join('')}</div>`
-     :`<div class="empty">${!r.est&&f.nex<10?'A trilha é escolhida em NEX 10%.':'Escolha uma trilha no Dossiê.'}</div>`}</div>
+     :`<div class="empty">${!r.est&&f.nex<10?'A trilha é escolhida em NEX 10%.':'Escolha uma trilha no Dossiê.'}</div>`}
+   ${(()=>{const extras=[];if(r.versHab)extras.push({...r.versHab,via:'Versatilidade'});Object.values(r.dominar||{}).forEach(dm=>{if(dm.x)extras.push({...dm,via:'Dominar Habilidade Ritualística'})});
+     if(!extras.length)return '';
+     return `<div class="sec-h" style="margin-top:10px"><h2>De outras trilhas</h2></div><div class="cards">${extras.map(e=>card(e.x.nome,e.x.desc,`<div class="meta">${h(e.via)} · trilha ${h(e.t.nome)} · NEX ${e.x.nex}%${(e.x.mods||[]).length?' · '+e.x.mods.map(m=>sgn(+m.valor)+' '+alvoNome(m.alvo)).join(', '):''}</div>`,!!e.bloq,`<span class="badge acc">${h(e.via)}</span>`,e.bloq?`<p class="warnline">Vale a partir de NEX ${e.x.nex}%.</p>`:extraHab(e.t,e.x))).join('')}</div>`})()}</div>
   <div class="sec"><div class="sec-h"><h2>Poderes</h2><span class="chip ${r.poderes.usado>r.poderes.max?'over':''}">Poderes ${r.poderes.usado}/${r.poderes.max}</span>
     <div class="row"><button class="btn acc sm" data-act="pick" data-type="poderes">+ Poder</button><button class="btn sm" data-act="pick" data-type="transcender" title="Recebe um poder paranormal e perde a Sanidade deste NEX">+ Transcender</button></div></div>
    ${f.poderes.length?`<div class="cards">${f.poderes.map(p=>poderCard(p,f,r)).join('')}</div>`
@@ -200,18 +208,43 @@ function paneHab(f,r){
 function tipoPoderNome(t){if(t==='geral')return 'Poder geral';if(t==='paranormal')return 'Poder paranormal';const c=byId('classes',t);return c?'Poder de '+c.nome:t}
 function poderCard(p,f,r){
   const d=byId('poderes',p.ref);if(!d)return `<div class="card"><h4>Poder indisponível <span class="row"><button class="btn sm ghost danger" data-act="rmPoder" data-id="${p.uid}">Remover</button></span></h4><p class="hint">A fonte deste poder está desligada na aba Mesa ou ele foi removido.</p></div>`;
-  const afin=f.afinidade&&d.elemento===f.afinidade;const sanN=r.det?((D.extras.classesExtra[f.classe]||{}).pdNex||0):(r.c?+r.c.sanNex:0);
+  if(p.afinDe)return poderAfinCard(p,d,f,r);
+  const el=elemPoder(d,p);const afin=r.afinPod.has(p.uid);const temCopia=f.poderes.some(x=>x.afinDe===p.uid);const sanN=r.det?((D.extras.classesExtra[f.classe]||{}).pdNex||0):(r.c?+r.c.sanNex:0);
   const precisaEscolha=d.treinaOu2==='pericia'||d.escolheDadoPericia||d.escolheElemento;
   return `<div class="card ${d.elemento?'el el-'+d.elemento:''}"><h4>${h(d.nome)} ${elBadge(d.elemento)} ${fonteBadge(d)}<span class="row"><button class="btn sm ghost danger" data-act="rmPoder" data-id="${p.uid}" aria-label="Remover ${h(d.nome)}">✕</button></span></h4>
    <div class="meta"><span>${h(tipoPoderNome(d.tipo))}</span>${d.prereq?`<span>Pré-req.: ${h(d.prereq)}</span>`:''}${(d.mods||[]).map(m=>`<span>${sgn(+m.valor)} ${h(alvoNome(m.alvo))}</span>`).join('')}</div>
-   ${d.desc?`<p>${h(d.desc)}</p>`:''}${d.afinidade?`<p class="${afin?'afin':'hint'}"><b>Afinidade${afin?' (ativa)':''}:</b> ${h(d.afinidade)}</p>`:''}
+   ${d.desc?`<p>${h(d.desc)}</p>`:''}${d.afinidade?`<p class="${afin?'afin':'hint'}"><b>Afinidade${afin?' (ativa)':''}:</b> ${h(d.afinidade)}</p>
+     ${regraOn('afinidade_automatica')?'':!temCopia&&el&&f.afinidade===el?`<div class="row"><button class="btn sm" data-act="podAfin" data-id="${p.uid}">Escolher de novo para a afinidade</button><span class="hint">Conta como um novo poder.</span></div>`
+      :!temCopia&&el?`<p class="hint">Para o benefício de afinidade: ter afinidade com ${h(ELEM[el]||el)} e escolher este poder uma segunda vez.</p>`:''}`:''}
+   ${d.id==='par_expansao_de_conhecimento'?expansaoSel(p,f,'escolha','subEscolha')+(afin&&!temCopia&&regraOn('afinidade_automatica')?'<p class="hint" style="margin:6px 0 0"><b>Afinidade:</b> segundo poder</p>'+expansaoSel(p,f,'escolha2','subEscolha2'):''):''}
+   ${(()=>{const ac=acaoPoder(d,afin);return ac?`<div class="row"><button class="btn sm acc" data-act="usarPoder" data-id="${p.uid}">${h(ac.rotulo||'Usar')}${ac.pe?` (−${ac.pe} ${r.det?'PD':'PE'})`:''}${ac.pv?` (−${ac.pv} PV)`:''}${ac.pvTemp?' → PV temporários '+h(ac.pvTemp):''}${ac.peTemp?' → PE temporários '+h(ac.peTemp):''}${ac.cura?' → cura '+h(ac.cura):''}${ac.dano?' → dano '+h(ac.dano):''}</button></div>`:''})()}
+   ${d.id==='ocu_dominar_habilidade_ritualistica'?(()=>{const dm=r.dominar[p.uid];const outras=cat('trilhas').filter(tr=>tr.classe==='ocultista'&&tr.id!==f.trilha&&(tr.habilidades||[]).length);
+     return `<label class="fld"><span>Trilha</span><select class="inp" data-pod="${p.uid}" data-k="escolha">${opt('','Escolha…',p.escolha)}${outras.map(tr=>opt(tr.id,tr.nome,p.escolha)).join('')}</select></label>
+      ${!p.escolha?'<p class="warnline">Escolha a trilha para receber a habilidade.</p>':''}${dm&&dm.x?`<div class="afin"><b>${h(dm.x.nome)}</b> <span class="hint">(${h(dm.t.nome)}, NEX ${dm.x.nex}%)</span>${dm.bloq?` <span class="badge warnb">precisa de NEX ${dm.x.nex}%</span>`:''}<br>${h(dm.x.desc||'')}${dm.bloq?'':'<br><span class="hint">Aparece também na seção Trilha.</span>'}</div>`:dm&&!dm.x?`<p class="warnline">Você já tem todas as habilidades dessa trilha.</p>`:''}`})():''}
    ${precisaEscolha?`<label class="fld"><span>Escolha</span><select class="inp" data-pod="${p.uid}" data-k="escolha">${opt('','—',p.escolha)}${d.escolheElemento?Object.entries(ELEM).filter(([k])=>k&&k!=='medo').map(([k,v])=>opt(k,v,p.escolha)).join(''):pericias().map(x=>opt(x.id,x.nome,p.escolha)).join('')}</select></label>`:''}
    ${d.tipo==='paranormal'?`<div class="row" style="font-size:12px"><label class="row" style="gap:4px"><input type="checkbox" data-pod="${p.uid}" data-k="transcender" ${p.transcender?'checked':''}> Via Transcender (−${sanN} ${r.det?'PD':'SAN'})</label>
      ${regraOn('transcender_itens')?`<label class="row" style="gap:4px"><input type="checkbox" data-pod="${p.uid}" data-k="viaItem" ${p.viaItem?'checked':''}> Via item amaldiçoado (sem custo)</label>`:''}
      <label class="row" style="gap:4px"><input type="checkbox" data-pod="${p.uid}" data-k="extra" ${p.extra?'checked':''}> Não conta no limite</label></div>`
      :`<label class="row" style="gap:4px;font-size:12px"><input type="checkbox" data-pod="${p.uid}" data-k="extra" ${p.extra?'checked':''}> Não conta no limite (veio da origem, trilha etc.)</label>`}
-   ${d.acao?`<div class="row"><button class="btn sm acc" data-act="usarPoder" data-id="${p.uid}">Usar${d.acao.pe?` (−${d.acao.pe} ${r.det?'PD':'PE'})`:''}${d.acao.pvTemp?' → PV temporários '+h(d.acao.pvTemp):''}${d.acao.cura?' → cura '+h(d.acao.cura):''}</button></div>`:''}</div>`;
+</div>`;
 }
+/* Ação do poder: acaoAfin substitui campos quando a afinidade está ativa (ex.: Engolir Sangue cura mais). */
+function acaoPoder(d,afin){if(!d.acao&&!(afin&&d.acaoAfin))return null;return {...(d.acao||{}),...(afin&&d.acaoAfin||{})}}
+/* Expansão de Conhecimento: escolha de um poder de classe que não seja da sua classe. */
+function expansaoSel(p,f,k,kSub){const lista=cat('poderes').filter(x=>x.tipo!==f.classe&&byId('classes',x.tipo));const sub=p[k]&&byId('poderes',p[k]);
+  const precisa=sub&&(sub.treinaOu2==='pericia'||sub.escolheDadoPericia);
+  return `<label class="fld"><span>Poder de outra classe</span><select class="inp" data-pod="${p.uid}" data-k="${k}">${opt('','Escolha…',p[k])}${[...new Set(lista.map(x=>x.tipo))].map(t=>`<optgroup label="${h(tipoPoderNome(t))}">${lista.filter(x=>x.tipo===t).map(x=>opt(x.id,x.nome,p[k])).join('')}</optgroup>`).join('')}</select></label>
+   ${!p[k]?'<p class="warnline">Escolha o poder que você aprende.</p>':''}
+   ${sub?`<div class="afin"><b>${h(sub.nome)}</b> <span class="hint">${h(tipoPoderNome(sub.tipo))}${sub.prereq?' · pré-req.: '+h(sub.prereq)+' (confira se cumpre)':''}</span><br>${h(sub.desc||'')}${(sub.mods||[]).length?`<br><span class="hint">${sub.mods.map(m=>sgn(+m.valor)+' '+alvoNome(m.alvo)).join(', ')} (já somado na ficha)</span>`:''}${acaoPoder(sub,false)?`<div class="row"><button class="btn sm acc" data-act="usarPoder" data-id="${p.uid}${k==='escolha2'?'#exp2':'#exp'}">Usar ${h(sub.nome)}</button></div>`:''}</div>
+     ${precisa?`<label class="fld"><span>Escolha do poder aprendido</span><select class="inp" data-pod="${p.uid}" data-k="${kSub}">${opt('','—',p[kSub])}${pericias().map(x=>opt(x.id,x.nome,p[kSub])).join('')}</select></label>`:''}`:''}`}
+/* 2ª escolha de um poder paranormal, para o benefício de afinidade. */
+function poderAfinCard(p,d,f,r){const b=f.poderes.find(x=>x.uid===p.afinDe);const bd=b&&byId('poderes',b.ref);const el=bd?elemPoder(bd,b):'';const ativa=!!b&&r.afinPod.has(b.uid);
+  const sanN=r.det?((D.extras.classesExtra[f.classe]||{}).pdNex||0):(r.c?+r.c.sanNex:0);
+  return `<div class="card ${el?'el el-'+el:''}"><h4>${h(d.nome)}: afinidade ${elBadge(el)}<span class="row"><button class="btn sm ghost danger" data-act="rmPoder" data-id="${p.uid}" aria-label="Remover a afinidade de ${h(d.nome)}">✕</button></span></h4>
+   <p class="${ativa?'afin':'warnline'}"><b>${ativa?'Ativa':'Inativa'}:</b> ${h(d.afinidade||'')}${ativa?'':!b?' (a primeira escolha deste poder foi removida)':` (precisa de afinidade com ${h(ELEM[el]||el||'o elemento')})`}</p>
+   ${d.id==='par_expansao_de_conhecimento'&&ativa?expansaoSel(p,f,'escolha','subEscolha'):''}
+   <div class="row" style="font-size:12px"><label class="row" style="gap:4px"><input type="checkbox" data-pod="${p.uid}" data-k="transcender" ${p.transcender?'checked':''}> Via Transcender (−${sanN} ${r.det?'PD':'SAN'})</label>
+    <label class="row" style="gap:4px"><input type="checkbox" data-pod="${p.uid}" data-k="extra" ${p.extra?'checked':''}> Não conta no limite</label></div></div>`}
 
 /* ---------- Rituais ---------- */
 function paneRit(f,r){
@@ -326,7 +359,7 @@ function acoesInterludio(f,r){
   const extra=[];
   if(r.flags.some(x=>x.interludioAcao==='meditar'))extra.push({id:'meditar',nome:'Meditação',desc:'Recupera PE igual ao dobro do limite de PE (Meditação Ocultista).',opcoes:[['precaria','Precária',.5],['normal','Normal',1],['confortavel','Confortável',1.5],['luxuosa','Luxuosa',2]].map(([id,nome,m])=>({id,nome,desc:'×'+m,efeito:{meditar:m}}))});
   if(r.flags.some(x=>x.interludioAcao==='ensaiar'))extra.push({id:'ensaiar',nome:'Ensaiar combate',desc:'+1 na margem de ameaça (+2 em NEX 40%, +3 em 65%, +4 em 99%) até o próximo interlúdio.'});
-  r.pods.forEach(({p,d})=>{if(d.interludio)extra.push({id:'pod_'+d.id,nome:d.nome,desc:d.desc,pe:d.interludio.pe})});
+  r.pods.filter(x=>!x.afinCopia).forEach(({p,d})=>{if(d.interludio)extra.push({id:'pod_'+d.id,nome:d.nome,desc:d.desc,pe:d.interludio.pe})});
   f.inventario.forEach((it,i)=>{if(it.interludioPE)extra.push({id:'item_'+it.uid,nome:'Usar '+it.nome,desc:it.desc,itemIdx:i})});
   if(regraOn('aprendizado_campo'))extra.push({id:'estudar',nome:'Estudar ritual (aprendizado em campo)',desc:'Ocultismo DT 20/25/30/35 conforme o círculo. Se passar, escolha o ritual na aba Rituais.'});
   if(regraOn('transcender_itens'))extra.push({id:'transc_item',nome:'Transcender com item',desc:'Responda à entidade e receba um poder paranormal do elemento do item (sem perda de Sanidade). Escolha o poder em Habilidades.'});
@@ -337,7 +370,7 @@ function acoesInterludio(f,r){
 function paneInterludio(f,r){
   const acoes=acoesInterludio(f,r);const I=f.interludio||(f.interludio={acoes:[],participantes:0});
   const livre=id=>(id==='exercitar'&&r.flags.some(x=>x.exercitarGratis))||(id==='alimentar'&&r.flags.some(x=>x.alimentarGratis));
-  const usadas=I.acoes.filter(a=>!livre(a.id)).length;const max=+S.cfg.acoesInterludio||2;
+  const usadas=I.acoes.filter(a=>!livre(a.id)).length;const max=+cfgR().acoesInterludio||2;
   const escolhida=id=>I.acoes.find(a=>a.id===id);
   const ativos=(f.bonus||[]).filter(b=>b.tipo==='dado');
   return `<div class="sec"><div class="sec-h"><h2>Interlúdio</h2><span class="chip ${usadas>max?'over':usadas===max?'ok':''}">Ações ${usadas}/${max}</span>
@@ -372,7 +405,7 @@ function paneBonus(f,r){
     return o};
   const susta=b=>b.dur==='sust'?`<div class="row"><span class="badge warnb">Sustentado</span><button class="btn sm acc" data-act="sustManter" data-id="${b.uid}">Manter (−1 ${r.det?'PD':'PE'})</button><button class="btn sm" data-act="rmBonus" data-id="${b.uid}">Encerrar</button></div>`:'';
   const lembretes=[];
-  r.pods.forEach(({p,d})=>{if(d.acao)lembretes.push(`<button class="btn sm" data-act="usarPoder" data-id="${p.uid}">${h(d.nome)}</button>`)});
+  r.pods.filter(x=>!x.afinCopia&&!x.via).forEach(({p,d})=>{if(acaoPoder(d,r.afinPod.has(p.uid)))lembretes.push(`<button class="btn sm" data-act="usarPoder" data-id="${p.uid}">${h(d.nome)}</button>`)});
   return `<div class="sec"><div class="sec-h"><h2>Bônus ativos</h2><div class="row"><button class="btn sm" data-act="bonusNovo">+ Bônus temporário</button><button class="btn sm ghost" data-act="fimCena">Fim de cena</button><button class="btn sm ghost" data-act="fimMissao">Fim de missão</button></div></div>
    <p class="hint">Um lembrete de tudo que está valendo agora. Bônus numéricos já entram nas contas; dados de bônus (como +1d6 de Ler) aparecem no resultado das rolagens para você somar com um clique.</p></div>
   <div class="sec"><div class="sec-h"><h2>Dados de bônus</h2></div>
@@ -408,13 +441,13 @@ function itemBonusTxt(it){
 }
 function paneNotas(f){
   const ta=(k,l)=>fld(l,`<textarea class="inp" data-f="${k}" rows="5">${h(f[k])}</textarea>`);
-  return `<div class="grid g2">${ta('historia','História')}${ta('aparencia','Aparência')}${ta('personalidade','Personalidade')}${ta('anotacoes','Anotações da missão')}</div>`;
+  return `<div class="grid g2">${ta('historia','História')}${ta('aparencia','Aparência')}${ta('personalidade','Personalidade')}${ta('anotacoes','Anotações da missão')}</div>${fxNotasExtra(f)}`;
 }
 
 /* ============================== MESA (fontes e regras) ============================== */
 function renderMesa(){
   const t=S.mesaTab;const tabs=[['fontes','Livros e suplementos'],['regras','Regras opcionais'],['auto','Automação']];
-  let body='';const trava=mesaSincronizada()?'disabled ':'';
+  let body='';const trava=(!S.mesaAlvo||S.mesaAlvo==='g')&&mesaSincronizada()?'disabled ':'';
   if(t==='fontes'){
     const pk=pacotesHB();
     body=`<p class="hint">Ligue os livros e suplementos usados na sua mesa. Origens, classes, trilhas, poderes, rituais, itens, aliados e regras de cada um só aparecem quando ele está ligado. Vale para todas as fichas.</p>
@@ -427,14 +460,14 @@ function renderMesa(){
      Object.entries(grupos).map(([fid,list])=>`<div class="sec-h" style="margin-top:6px"><h2>${h(FONTE(fid).nome)}</h2></div><div class="toggles">${list.map(x=>x.sempre?tgl('r-'+x.id,x.nome,x.desc,true,'disabled','sempre'):
        tgl('r-'+x.id,x.nome,x.desc,regraOn(x.id),`${trava}data-act="tglRegra" data-id="${x.id}"`,x.efeito?'automático':'referência',x.requer?'Complementa: '+regraRotulo(x.requer):'')).join('')}</div>`).join('');
   }else{
-    const a=S.cfg.auto;
+    const a=cfgR().auto;
     body=`<div class="toggles">
      ${tgl('a-cp','Custo do Paranormal automático','Ao conjurar, rola Ocultismo (DT 20 + custo) e desconta a Sanidade (ou PD) perdida, incluindo a perda permanente ao falhar por 5 ou mais.',a.custoParanormal,trava+'data-act="tglAuto" data-id="custoParanormal"')}
      ${tgl('a-tr','Transcender automático','Poderes paranormais escolhidos com “Transcender” reduzem a Sanidade máxima (ou os PD) do agente.',a.transcender,trava+'data-act="tglAuto" data-id="transcender"')}
      ${tgl('a-ml','Lembrete do preço das maldições','Ao rolar um teste do atributo ligado a um item amaldiçoado equipado, mostra um botão para descontar 2 de Sanidade por maldição se falhar.',a.maldicao,trava+'data-act="tglAuto" data-id="maldicao"')}
      ${tgl('a-dm','Aviso de dano massivo','Ao perder metade ou mais dos PV de uma vez, lembra do teste de Fortitude.',a.massivo,trava+'data-act="tglAuto" data-id="massivo"')}
     </div>
-    <div class="grid g4" style="margin-top:10px">${fld('Ações por interlúdio',`<input class="inp num" type="number" min="1" max="6" data-cfg="acoesInterludio" value="${+S.cfg.acoesInterludio||2}" ${trava}>`)}</div>`;
+    <div class="grid g4" style="margin-top:10px">${fld('Ações por interlúdio',`<input class="inp num" type="number" min="1" max="6" data-cfg="acoesInterludio" value="${+cfgR().acoesInterludio||2}" ${trava}>`)}</div>`;
   }
   return `<div class="sheet"><div class="sheet-head"><div class="name"><span class="eyebrow">Configuração da campanha</span><h2 class="bigh">Mesa</h2></div></div>
    <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${t===k}" data-act="mesaTab" data-v="${k}">${l}</button>`).join('')}</div>

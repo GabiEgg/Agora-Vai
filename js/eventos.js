@@ -18,7 +18,7 @@ function upload(onDone){
 function concluirInterludio(f){
   const r=calc(f);const I=f.interludio;const lim=r.peLim;const out=[];const nm=r.det?'PD':'PE';
   const livre=id=>(id==='exercitar'&&r.flags.some(x=>x.exercitarGratis))||(id==='alimentar'&&r.flags.some(x=>x.alimentarGratis));
-  const usadas=I.acoes.filter(a=>!livre(a.id)).length;if(usadas>(+S.cfg.acoesInterludio||2))out.push(`Atenção: ${usadas} ações (limite ${S.cfg.acoesInterludio||2}).`);
+  const usadas=I.acoes.filter(a=>!livre(a.id)).length;if(usadas>(+cfgR().acoesInterludio||2))out.push(`Atenção: ${usadas} ações (limite ${cfgR().acoesInterludio||2}).`);
   f.bonus=(f.bonus||[]).filter(b=>b.dur!=='interludio');
   const acoes=acoesInterludio(f,r);const get=id=>I.acoes.find(a=>a.id===id);
   const optMult=(id,k)=>{const a=get(id);const def=acoes.find(x=>x.id===id);const o=def&&def.opcoes&&def.opcoes.find(x=>x.id===(a&&a.opcao))||(def&&def.opcoes||[]).find(x=>x.id==='normal');return o?(o.efeito||{})[k]:1};
@@ -76,6 +76,9 @@ function conjurar(f,id){
   const rolar=marcado('cast-rolar');
   const reacao=x.reacao&&(x.reacao.sempre||marcado('cast-reacao'));
   if(reacao){msgs.push(...usarReacao(f,x,forma,r0));saveF(f);toast(msgs.join(' · '),7000);return true}
+  const placas=r0.pods.find(z=>z.d.placas&&!z.afinCopia);
+  if(placas&&x.elemento==='sangue'){const v=(+x.circulo||1)+(r0.afinPod.has(placas.p.uid)?2:0);f.bonus=(f.bonus||[]).filter(b=>b.nome!=='Placas Sanguinolentas');
+    f.bonus.push({uid:uid(),tipo:'fixo',nome:'Placas Sanguinolentas',alvo:'defesa',valor:v,dur:'rodadas'});msgs.push(`Placas Sanguinolentas: +${v} Defesa até o seu próximo turno`)}
   const durF=duracaoForma(x,forma);const sust=/sustentad/i.test(durF);
   if(sust){const ant=(f.bonus||[]).filter(b=>b.dur==='sust');
     if(ant.length){f.bonus=f.bonus.filter(b=>b.dur!=='sust');msgs.push('Só um ritual sustentado por vez: '+ant.map(b=>b.nome).join(', ')+' encerrado')}}
@@ -242,22 +245,27 @@ document.addEventListener('click',e=>{
    case 'pickAdd':{const ty=pickState.type,id=ds.id;let nome='';
      if(ty==='poderes'||ty==='transcender'){const d=byId('poderes',id);if(d.id==='ger_transcender'){openPick('transcender');return}
        if(f.poderes.some(p=>p.ref===id)&&!d.repetivel){toast('Este poder já está na ficha.');return}
-       f.poderes.push({uid:uid(),ref:id,transcender:d.tipo==='paranormal'&&S.cfg.auto.transcender});nome=d.nome;
+       f.poderes.push({uid:uid(),ref:id,transcender:d.tipo==='paranormal'&&cfgR().auto.transcender});nome=d.nome;
        if(d.aliado)toast('Este poder concede um aliado: adicione-o na aba Aliados & NPCs.')}
      else if(ty==='rituais'){if(f.rituais.includes(id))return;f.rituais.push(id);nome=byId('rituais',id).nome}
      else if(ty==='aliados'){const d=byId('aliados',id);(f.aliados=f.aliados||[]).push({uid:uid(),ref:id,nome:d.nome,ativo:true,escolhas:[]});nome=d.nome}
      else if(ty==='mods'){const it=f.inventario[pickState.ctx];(it.modsAplicadas=it.modsAplicadas||[]).push(id);nome=byId('modificacoes',id).nome;closeModal();saveF();toast('Aplicado: '+nome);break}
      else{const it=itemFrom(byId('itens',id));f.inventario.push(it);nome=it.nome}
      saveF();toast('Adicionado: '+nome);renderPick();render();return}
-   case 'rmPoder':f.poderes=f.poderes.filter(p=>p.uid!==ds.id);saveF();break;
-   case 'usarPoder':{const p=f.poderes.find(x=>x.uid===ds.id);const d=byId('poderes',p.ref);const ac=d.acao||{};const msgs=[];
+   case 'rmPoder':f.poderes=f.poderes.filter(p=>p.uid!==ds.id&&p.afinDe!==ds.id);saveF();break;
+   case 'podAfin':{const b=f.poderes.find(x=>x.uid===ds.id);if(!b||f.poderes.some(x=>x.afinDe===b.uid))return;const d=byId('poderes',b.ref);
+     f.poderes.push({uid:uid(),ref:b.ref,afinDe:b.uid,transcender:!!(d&&d.tipo==='paranormal'&&cfgR().auto.transcender)});saveF();toast(`${d?d.nome:'Poder'}: benefício de afinidade adicionado (conta como novo poder).`);break}
+   case 'usarPoder':{const r0=calc(f);const px=r0.pods.find(x=>x.p.uid===ds.id);if(!px)return;const p=px.p;const d=px.d;const afinOn=r0.afinPod.has(p.uid);const ac=acaoPoder(d,afinOn)||{};const msgs=[];
      if(ac.pe&&!isNaN(+ac.pe)){if(gastarPE(f,+ac.pe,d.nome)===false)return}
-     if(ac.item==='arma_sangue'){const afin=f.afinidade==='sangue';f.inventario=f.inventario.filter(i=>i.ref!=='arma_sangue');
+     if(ac.pv){if(r0.pv<=+ac.pv){toast(`PV insuficientes: ${d.nome} custa ${ac.pv} PV.`);return}aplicarDelta(f,'pv','-'+ac.pv)}
+     if(ac.san){const x=rollExpr(ac.san,r0.A);perderSan(f,x.total);msgs.push(`−${x.total} ${r0.det?'PD':'SAN'}`)}
+     if(ac.dano){const tp=ac.tipoDano?[ac.tipoDano]:tiposDe(ac.dano);rollDano(`${d.nome}${afinOn?' (afinidade)':''}: dano`,ac.dano,r0.A,{tipos:tp,origem:d.nome,autor:f.nome})}
+     if(ac.item==='arma_sangue'){const afin=afinOn;f.inventario=f.inventario.filter(i=>i.ref!=='arma_sangue');
        f.inventario.push({uid:uid(),ref:'arma_sangue',nome:'Arma de Sangue',tipo:'arma',cat:0,esp:0,qtd:1,equipado:true,dano:afin?'1d10':'1d6',critico:'x2',alcance:'corpo',forma:'corpo',tipoDano:'Sangue',proficiencia:'simples',empunhadura:'leve',temporario:!afin,desc:'Garras, chifres ou lâmina de sangue cristalizado. Não precisa ser empunhada.'+(afin?' Permanente (afinidade).':' Some no fim da cena.'),mods:[],modsAplicadas:[]});
        msgs.push(`Arma de Sangue no inventário (${afin?'1d10, permanente':'1d6, até o fim da cena'})`)}
      if(ac.pvTemp)msgs.push(darTemp(f,'pv',ac.pvTemp,d.nome));if(ac.peTemp)msgs.push(darTemp(f,'pe',ac.peTemp,d.nome));if(ac.cura)msgs.push(curaPV(f,ac.cura,d.nome));
      saveF();toast(msgs.join(' · ')||d.nome+' usado.');break}
-   case 'usarHab':{const r=calc(f);const x=r.habs.find(h=>(r.t&&r.hk(r.t,h)===ds.k)||(r.c&&r.hk(r.c,h)===ds.k));if(!x||!x.acao)return;const ac=x.acao;const idx=Math.max(0,r.nTrilha-1);
+   case 'usarHab':{const r=calc(f);const donos=[r.t,r.c,r.versHab&&r.versHab.t,...Object.values(r.dominar||{}).map(z=>z.t)].filter(Boolean);const x=r.habs.find(h=>donos.some(dn=>r.hk(dn,h)===ds.k));if(!x||!x.acao)return;const ac=x.acao;const idx=Math.max(0,r.nTrilha-1);
      const pe=Array.isArray(ac.pe)?ac.pe[Math.min(idx,ac.pe.length-1)]:ac.pe;const cura=Array.isArray(ac.cura)?ac.cura[Math.min(idx,ac.cura.length-1)]:ac.cura;
      if(pe&&gastarPE(f,pe,ac.nome||x.nome)===false)return;saveF();
      if(cura){const v=rollExpr(cura,r.A);pushRoll({t:`${ac.nome||x.nome}: cura`,v:v.total,d:v.txt,acts:[{l:'Aplicar em mim',a:'curaEmMim',v:v.total}]})}
@@ -353,14 +361,14 @@ document.addEventListener('change',e=>{
   if(t.id==='pick-all'){pickState.all=t.checked;renderPick();return}
   if(t.type==='checkbox'&&ds.act){
     switch(ds.act){
-     case 'tglFonte':S.cfg.fontes[ds.id]=t.checked;saveCfg();break;
-     case 'tglPacote':S.cfg.pacotes[ds.id]=t.checked;saveCfg();break;
-     case 'tglRegra':{S.cfg.regras[ds.id]=t.checked;const rg=D.regras.find(x=>x.id===ds.id);
+     case 'tglFonte':{const C=cfgAlvo(S.mesaAlvo);C.fontes[ds.id]=t.checked;salvarAlvoRegras();break}
+     case 'tglPacote':{const C=cfgAlvo(S.mesaAlvo);(C.pacotes=C.pacotes||{})[ds.id]=t.checked;salvarAlvoRegras();break}
+     case 'tglRegra':{const C=cfgAlvo(S.mesaAlvo);C.regras[ds.id]=t.checked;const rg=D.regras.find(x=>x.id===ds.id);
        if(t.checked&&rg&&rg.requer&&!regraOn(rg.requer)){const base=D.regras.find(x=>x.id===rg.requer);
-         if(base&&fonteOn(base.fonte)){S.cfg.regras[rg.requer]=true;toast(`${base.nome} também foi ligada, porque esta regra a complementa.`)}
+         if(base&&fonteOn(base.fonte)){C.regras[rg.requer]=true;toast(`${base.nome} também foi ligada, porque esta regra a complementa.`)}
          else if(base)toast(`Esta regra complementa “${base.nome}”, de ${FONTE(base.fonte).nome}. Ligue esse suplemento para usar as duas juntas.`,6000)}
-       saveCfg();break}
-     case 'tglAuto':S.cfg.auto[ds.id]=t.checked;saveCfg();break;
+       salvarAlvoRegras();break}
+     case 'tglAuto':{const C=cfgAlvo(S.mesaAlvo);C.auto[ds.id]=t.checked;salvarAlvoRegras();break}
      case 'desv':{const l=f.desvantagens=f.desvantagens||[];const i=l.indexOf(ds.id);if(i>=0)l.splice(i,1);else l.push(ds.id);saveF();break}
      case 'forma':{f.formaSuprema=t.checked;if(t.checked){perderSan(f,6);const r=calc(f);f.pv=Math.min(r.pvMax,(f.pv??r.pvMax)+20);f.pe=Math.min(r.peMax,(f.pe??r.peMax)+10);toast('Forma suprema: −6 SAN, +20 PV, +10 PE, +10 Defesa.')}
        else{const r=calc(f);if((f.pv??r.pvMax)<=20){f.pv=0;toast('Forma suprema desfeita: ficou com 0 PV e morrendo.')}else if(f.pv!=null)f.pv-=20;if(f.pe!=null)f.pe=Math.max(0,f.pe-10)}saveF();break}
@@ -372,7 +380,7 @@ document.addEventListener('change',e=>{
   }
   if(ds.habesc){(f.habEscolhas=f.habEscolhas||{})[ds.habesc]=t.value;saveF();render();return}
   if(ds.pod){const p=f.poderes.find(x=>x.uid===ds.pod);if(p){p[ds.k]=t.type==='checkbox'?t.checked:t.value;saveF();render()}return}
-  if(ds.cfg){S.cfg[ds.cfg]=+t.value||2;saveCfg();return}
+  if(ds.cfg){cfgAlvo(S.mesaAlvo)[ds.cfg]=+t.value||2;salvarAlvoRegras();return}
   if(ds.f!=null&&(t.hasAttribute('data-r')||t.type==='checkbox')){bindF(t);
     if(ds.f==='classe'){f.trilha='';f.escolhas=[]}
     if(ds.f==='origem'){f.origemOpcao=0;f.origemEscolha=''}

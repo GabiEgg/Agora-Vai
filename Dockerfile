@@ -5,6 +5,7 @@ RUN npm ci --omit=dev --no-audit --no-fund
 COPY build.js index.html ./
 COPY js ./js
 COPY data ./data
+COPY img ./img
 COPY server ./server
 RUN mkdir -p /dados
 # Sem Turso, o banco é um arquivo em /dados: começa como root só para liberar o volume;

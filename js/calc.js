@@ -14,13 +14,15 @@ function origemDe(f){const o=byId('origens',f.origem);if(!o)return {o:null,per:[
   const op=o.opcoes&&o.opcoes[+f.origemOpcao||0];
   return {o,op,per:op?op.pericias:(o.pericias||[]),mods:(o.mods||[]).concat(op?op.mods||[]:[])}}
 /* Itens: categoria efetiva com modificações e maldições. */
+/* Elemento do poder (Resistir a Elemento conta como poder do elemento escolhido). */
+const elemPoder=(d,p)=>d.escolheElemento?(p&&p.escolha)||'':d.elemento;
 function modsDoItem(it){return (it.modsAplicadas||[]).map(id=>byId('modificacoes',id)).filter(Boolean)}
 const TIPOS_GERAIS=['acessorio','explosivo','operacional','medicamento','geral'];
 function catItem(it,r){const ms=modsDoItem(it);let c=+it.cat||0;let mald=0;ms.forEach(m=>{if(m.maldicao){c+=mald?1:2;mald++}else c+=1});
   if(r){if(r.catRedGeral&&TIPOS_GERAIS.includes(it.tipo))c-=r.catRedGeral;if(it.favorita&&r.favorita)c-=r.favorita}
   return Math.max(0,c)}
 function espItem(it){const ms=modsDoItem(it);return Math.max(0,(+it.esp||0)+ms.reduce((s,m)=>s+((m.efeitos||{}).esp||0),0))}
-function aplicaMod(m,it){const a=m.aplica;if(a==='arma')return it.tipo==='arma';if(a==='corpo')return it.tipo==='arma'&&it.forma==='corpo';
+function aplicaMod(m,it){const a=m.aplica;if(m.id==='mod_aprimorado_acessorio'&&it.ref==='it_mochila_militar'&&regraOn('mochila_aprimorada'))return true;if(a==='arma')return it.tipo==='arma';if(a==='corpo')return it.tipo==='arma'&&it.forma==='corpo';
   if(a==='fogo')return it.tipo==='arma'&&(it.forma==='fogo'||it.forma==='disparo');if(a==='granada')return it.tipo==='explosivo';return it.tipo===a}
 
 function condicoesAtivas(f,r){
@@ -31,7 +33,9 @@ function condicoesAtivas(f,r){
   return set;
 }
 
-function calc(f){
+/* Calcula com as regras desta ficha (gerais, próprias ou da campanha). */
+function calc(f){const p=S._cfgCtx;S._cfgCtx=cfgFicha(f);try{return calc0(f)}finally{S._cfgCtx=p}}
+function calc0(f){
   const M=modos(f);const {c,det}=M;const prog=progresso(f,M);const lv=nivelDe(f,M);
   const og=origemDe(f);const o=og.o;const t=byId('trilhas',f.trilha);
   const r={c,o,og,t,lv,prog,det,pat:M.pat,est:M.est,nivelSep:M.nivelSep,alertas:[]};
@@ -43,15 +47,45 @@ function calc(f){
   let nTrilha=0;
   if(c)(c.habilidades||[]).forEach(x=>{if(+x.nex<=prog){habs.push(x);add(x.mods,x.nome);flag({...x,escolha:(f.habEscolhas||{})[hk(c,x)]},x.nome)}});
   if(t)(t.habilidades||[]).forEach(x=>{if(+x.nex<=prog){nTrilha++;habs.push(x);add(x.mods,x.nome);flag({...x,escolha:(f.habEscolhas||{})[hk(t,x)]},x.nome)}});
+  /* Versatilidade (NEX 50%): um poder de classe a mais ou a primeira habilidade de outra trilha da classe. */
+  r.versPoder=false;r.versHab=null;
+  const vers=c&&(c.habilidades||[]).find(x=>x.nome==='Versatilidade'&&+x.nex<=prog);
+  if(vers){const esc=(f.habEscolhas||{})[hk(c,vers)]||'';const t2=esc.startsWith('trilha:')?byId('trilhas',esc.slice(7)):null;const x2=t2&&t2.id!==(t&&t.id)&&(t2.habilidades||[])[0];
+    if(x2){habs.push(x2);add(x2.mods,x2.nome);flag({...x2,escolha:(f.habEscolhas||{})[hk(t2,x2)]},x2.nome);r.versHab={t:t2,x:x2}}else r.versPoder=true}
   r.nTrilha=nTrilha;
   r.habs=habs;
-  const pods=f.poderes.map(p=>({p,d:byId('poderes',p.ref)})).filter(x=>x.d);r.pods=pods;
-  pods.forEach(({p,d})=>{add(d.mods,d.nome);if(f.afinidade&&d.elemento===f.afinidade)add(d.modsAfinidade,d.nome+' (afinidade)');flag({...d,escolha:p.escolha},d.nome);if(f.afinidade&&d.elemento===f.afinidade&&d.afin)flag({...d.afin,escolha:p.escolha,_afin:true},d.nome+' (afinidade)')});
+  /* Poderes. Afinidade (livro, p. 114): com afinidade no elemento, o poder paranormal pode ser escolhido
+     uma segunda vez para receber o benefício "Afinidade". Essa 2ª escolha é uma cópia com afinDe = uid da 1ª.
+     Expansão de Conhecimento concede poderes de outra classe (escolha na 1ª cópia e, com afinidade, na 2ª). */
+  const pods0=f.poderes.map(p=>({p,d:byId('poderes',p.ref)})).filter(x=>x.d);
+  r.afinPod=new Set();const pods=[];
+  pods0.forEach(x=>{if(x.p.afinDe){const b=pods0.find(y=>y.p.uid===x.p.afinDe&&!y.p.afinDe);x.afinCopia=true;x.base=b||null;
+      x.ativa=!!b&&!!f.afinidade&&elemPoder(b.d,b.p)===f.afinidade;if(x.ativa)r.afinPod.add(b.p.uid)}
+    pods.push(x)});
+  /* Regra da casa "Afinidade automática": o benefício vale já na 1ª escolha. */
+  if(regraOn('afinidade_automatica')&&f.afinidade)pods0.forEach(x=>{if(!x.afinCopia&&x.d.afinidade&&elemPoder(x.d,x.p)===f.afinidade&&!r.afinPod.has(x.p.uid)){x.autoAfin=true;r.afinPod.add(x.p.uid)}});
+  pods0.filter(x=>x.d.id==='par_expansao_de_conhecimento'&&(!x.afinCopia||x.ativa)).forEach(x=>{const sub=x.p.escolha&&byId('poderes',x.p.escolha);
+    if(sub)pods.push({p:{uid:x.p.uid+'#exp',ref:sub.id,escolha:x.p.subEscolha,extra:true},d:sub,via:x.p.uid});
+    const sub2=x.autoAfin&&x.p.escolha2&&byId('poderes',x.p.escolha2);
+    if(sub2)pods.push({p:{uid:x.p.uid+'#exp2',ref:sub2.id,escolha:x.p.subEscolha2,extra:true},d:sub2,via:x.p.uid})});
+  r.pods=pods;
+  pods.forEach(x=>{const {p,d}=x;
+    if(x.afinCopia){if(x.ativa){add(d.modsAfinidade,d.nome+' (afinidade)');if(d.afin)flag({...d.afin,escolha:x.base.p.escolha,_afin:true},d.nome+' (afinidade)')}return}
+    add(d.mods,d.nome);flag({...d,escolha:p.escolha},d.nome);
+    if(x.autoAfin){add(d.modsAfinidade,d.nome+' (afinidade)');if(d.afin)flag({...d.afin,escolha:p.escolha,_afin:true},d.nome+' (afinidade)')}});
+  /* Dominar Habilidade Ritualística: a próxima habilidade (respeitando o NEX) de outra trilha de ocultista;
+     conta a já recebida por Versatilidade e as cópias anteriores do poder para a mesma trilha. */
+  r.dominar={};{const cont={};if(r.versHab)cont[r.versHab.t.id]=1;
+    pods.filter(({d})=>d.id==='ocu_dominar_habilidade_ritualistica').forEach(({p})=>{const t3=p.escolha&&byId('trilhas',p.escolha);if(!t3||t3.id===(t&&t.id))return;
+      const i=cont[t3.id]||0;cont[t3.id]=i+1;const x3=(t3.habilidades||[])[i];if(!x3){r.dominar[p.uid]={t:t3,x:null};return}
+      if(+x3.nex>prog){r.dominar[p.uid]={t:t3,x:x3,bloq:true};return}
+      habs.push(x3);add(x3.mods,x3.nome);flag({...x3,escolha:(f.habEscolhas||{})[hk(t3,x3)]},x3.nome);r.dominar[p.uid]={t:t3,x:x3}})}
   const inv=f.inventario;
   inv.forEach(it=>{if(!it.equipado)return;const n0=mods.length;add(it.mods,it.nome);modsDoItem(it).forEach(m=>{const e=m.efeitos||{};
     if(e.defesa)mods.push({alvo:'defesa',valor:e.defesa,fonte:m.nome,equip:true});if(e.deslocamento)mods.push({alvo:'deslocamento',valor:e.deslocamento,fonte:m.nome});
     if(e.pericia&&e.pericia.id)mods.push({alvo:'per:'+e.pericia.id,valor:+e.pericia.valor||0,fonte:m.nome});
     else if(e.pericia&&typeof e.pericia==='object')Object.entries(e.pericia).forEach(([k,v])=>mods.push({alvo:'per:'+k,valor:v,fonte:m.nome}));
+    if(e.bonusPericia&&it.ref==='it_mochila_militar'&&regraOn('mochila_aprimorada'))mods.push({alvo:'carga',valor:e.bonusPericia,fonte:m.nome+' (mochila)'});
     if(e.pv)mods.push({alvo:'pv',valor:e.pv,fonte:m.nome});if(e.pe)mods.push({alvo:'pe',valor:e.pe,fonte:m.nome});if(e.dt)mods.push({alvo:'dtRitual',valor:e.dt,fonte:m.nome})});
     mods.slice(n0).forEach(x=>x.equip=true)});
   const aliados=(f.aliados||[]).filter(a=>a.ativo&&a.ref).map(a=>({a,d:byId('aliados',a.ref)})).filter(x=>x.d);r.aliados=aliados;
@@ -232,8 +266,8 @@ function calc(f){
   const baseAttr=(c&&c.estagios)||regraOn('nex0')&&c&&c.regra==='nex0'?3:4;
   const aum=M.est?((+f.estagio||1)>=3?1:0):aumentosAttr(f.nex);
   r.attr={usado:pts+zeros,max:baseAttr+aum+zeros,zeros,teto:M.est?3:(f.nex>=5?5:3)};
-  const contaPoder=pods.filter(x=>!x.p.extra).length;
-  r.poderes={usado:contaPoder,max:(M.est?0:poderesPermitidos(f.nex))+(regraOn('idade')&&f.faixa==='adulto'?1:0)};
+  const contaPoder=pods.filter(x=>!x.p.extra&&!x.via).length;
+  r.poderes={usado:contaPoder,max:(M.est?0:poderesPermitidos(f.nex))+(regraOn('idade')&&f.faixa==='adulto'?1:0)+(r.versPoder?1:0)};
   let ritMax=0;if(c&&+c.ritInicial>0){const nexs=NEX_LIST.filter(n=>n>5&&n<=f.nex);
     ritMax=+c.ritInicial+(regraOn('aprendizado_campo')?0:regraOn('aprendizado_lento')?nexs.filter(n=>(n/5)%2===1).length:nexs.length*(+c.ritNex||0))}
   ritMax+=pods.filter(x=>x.d.aprendeRitual).length;flags.forEach(x=>{if(x.ritExtra)ritMax+=x.ritExtra==='saberAmpliado'?r.circ:(+x.ritExtra||1)});
@@ -308,7 +342,7 @@ function rollTest(label,dados,bonus,ctx={}){
   const f=F();
   if(f&&ctx.attr){
     (f.bonus||[]).forEach(b=>{if(b.tipo==='dado'&&(+b.usos||0)>0&&(!b.attrs||b.attrs.includes(ctx.attr)||b.qualquer))roll.acts.push({l:`+${b.valor} ${b.nome} (${b.usos})`,a:'useBonus',id:b.uid})});
-    if(S.cfg.auto.maldicao){const r=calc(f);const its=r.precoMaldicao[ctx.attr];if(its&&its.length)roll.acts.push({l:`Falhou? Preço da maldição (−${2*its.length} SAN)`,a:'precoMald',n:its.length})}
+    if(cfgR().auto.maldicao){const r=calc(f);const its=r.precoMaldicao[ctx.attr];if(its&&its.length)roll.acts.push({l:`Falhou? Preço da maldição (−${2*its.length} SAN)`,a:'precoMald',n:its.length})}
   }
   if(ctx.arma!=null)roll.acts.push({l:roll.crit?'Rolar dano crítico':'Rolar dano',a:'dmgFrom',i:ctx.arma,crit:roll.crit});
   if(ctx.arma!=null&&f)roll.acts.push(...acoesAtaque({arma:ctx.arma,origem:(f.inventario[ctx.arma]||{}).nome,autor:f.nome}));
@@ -341,7 +375,7 @@ function aplicarDelta(f,k,txt,opts={}){
     if((k==='pv'||k==='pe')&&(+f[tk]||0)>0&&!opts.ignoraTemp){const abs=Math.min(+f[tk],dano);f[tk]=+f[tk]-abs;dano-=abs;if(k==='pv'&&abs){S._abs=S._abs||{};S._abs[f.id]=(S._abs[f.id]||0)+abs}if(abs)msg+=`${abs} absorvido(s) pelos ${nome} temporários. `}
     const novo=k==='pv'?Math.max(-r.pvMax,cur-dano):Math.max(0,cur-dano);f[k]=novo;
     msg+=`−${dano} ${nome}${x.txt.includes('d')?' ('+x.txt+')':''} → ${novo}/${max}`;
-    if(k==='pv'&&S.cfg.auto.massivo&&v>=Math.ceil(r.pvMax/2)&&r.pvMax&&cur>0&&novo>0)msg+=' · Dano massivo: Fortitude DT 15 ou cai a 0 PV.';
+    if(k==='pv'&&cfgR().auto.massivo&&v>=Math.ceil(r.pvMax/2)&&r.pvMax&&cur>0&&novo>0)msg+=' · Dano massivo: Fortitude DT 15 ou cai a 0 PV.';
     if(k==='pv'&&cur>0&&novo<=0)msg+=' · Morrendo.';
     if(k==='pe'&&r.det&&opts.mental){if(dano>cur)addCond(f,'enlouquecendo');else if(novo<r.peMax/2)addCond(f,'perturbado')}
     if(k==='san'&&cur>=r.sanMax/2&&novo<r.sanMax/2&&novo>0)msg+=' · Perturbado: role um efeito de insanidade.';

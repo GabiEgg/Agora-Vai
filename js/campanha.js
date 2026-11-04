@@ -4,7 +4,7 @@
 async function carregarMesas(){
   if(!(S.conta&&S.conta.usuario))return;
   try{S.mesas=await Api.req('GET','/api/mesas')}catch(e){S.mesas=[]}
-  render();publicarRegras();if(mesaSincronizada())sincronizarRegras(S.cfg.syncMesa,true);
+  render();publicarRegras();buscarRegrasDasFichas();if(mesaSincronizada())sincronizarRegras(S.cfg.syncMesa,true);
 }
 const mesaAtual=()=>(S.mesas||[]).find(m=>m.id===S.mesaAberta);
 async function abrirMesa(id){
@@ -52,8 +52,13 @@ function regrasIguais(a,b){return !!a&&!!b&&chavesOn(a.fontes)===chavesOn(b.font
 let _pubT=null;
 function publicarRegras(){
   if(S._semPublicar||!(S.conta&&S.conta.usuario))return;const ms=(S.mesas||[]).filter(m=>m.papel==='mestre');if(!ms.length)return;
-  clearTimeout(_pubT);_pubT=setTimeout(()=>{const c=regrasDe(S.cfg);ms.forEach(m=>Api.req('PUT',`/api/mesas/${encodeURIComponent(m.id)}/regras`,c).catch(()=>{}))},1200);
+  clearTimeout(_pubT);_pubT=setTimeout(()=>{ms.forEach(m=>Api.req('PUT',`/api/mesas/${encodeURIComponent(m.id)}/regras`,regrasDe((S.cfg.mesasCfg||{})[m.id]||S.cfg)).catch(()=>{}))},1200);
 }
+/* Salva o alvo editado na aba Mesa: regras gerais/de campanha ficam na configuração; as de um agente, na ficha. */
+function salvarAlvoRegras(){const a=S.mesaAlvo||'g';if(a.startsWith('f:')){const f=S.fichas[a.slice(2)];if(f){saveF(f);return}}saveCfg()}
+/* Busca as regras publicadas das campanhas em que algum agente usa "Da campanha ligada". */
+function buscarRegrasDasFichas(){const ids=new Set(Object.values(S.fichas||{}).filter(f=>f.regrasModo==='campanha'&&f.mesa).map(f=>f.mesa));
+  ids.forEach(id=>{const m=(S.mesas||[]).find(x=>x.id===id);if(m&&m.papel!=='mestre')buscarRegras(id).then(()=>render()).catch(()=>{})})}
 async function buscarRegras(id){const r=await Api.req('GET',`/api/mesas/${encodeURIComponent(id)}/regras`);S.regrasMesa=S.regrasMesa||{};S.regrasMesa[id]=r;return r}
 async function buscarRegrasJogador(){
   const ms=(S.mesas||[]).filter(m=>m.papel!=='mestre');S._regrasBusca=Date.now();
@@ -71,8 +76,20 @@ async function sincronizarRegras(id,silencioso){
   if(regrasIguais(regrasDe(S.cfg),r.cfg)){if(!silencioso)toast('Suas regras já são iguais às do mestre.');return true}
   aplicarRegras(r.cfg);toast(`Regras de “${m.nome}” aplicadas: livros, regras opcionais e automações iguais às do mestre.`,6000);render();return true;
 }
+function alvoRegrasHtml(){
+  const fs=Object.values(realFichas()).filter(f=>f.regrasModo==='propria');const ms=(S.mesas||[]).filter(m=>m.papel==='mestre');
+  let a=S.mesaAlvo||'g';if(a.startsWith('f:')&&cfgAlvo(a)===S.cfg)a=S.mesaAlvo='g';if(a.startsWith('m:')&&!ms.some(m=>'m:'+m.id===a))a=S.mesaAlvo='g';
+  const mc=S.cfg.mesasCfg||{};
+  const ops=[['g','Regras gerais (fichas sem regras próprias)'],...ms.map(m=>['m:'+m.id,`Campanha “${m.nome}” (você é mestre)${mc[m.id]?'':' · usa as gerais'}`]),...fs.map(f=>['f:'+f.id,`Agente: ${f.nome||'sem nome'}`])];
+  let extra='';
+  if(a.startsWith('m:')){const id=a.slice(2);extra=mc[id]?`<p class="hint">Estas regras valem só para esta campanha: são as que os jogadores dela copiam e as que o Escudo usa. <button class="btn sm ghost" data-act="regrasJuntar" data-id="${h(id)}">Voltar a usar as regras gerais</button></p>`
+    :`<p class="hint">Esta campanha usa as regras gerais. <button class="btn sm acc" data-act="regrasSeparar" data-id="${h(id)}">Dar regras próprias a esta campanha</button></p>`}
+  else if(a.startsWith('f:'))extra=`<p class="hint">Estas regras valem só para este agente. <button class="btn sm ghost" data-act="regrasFichaGeral" data-id="${h(a.slice(2))}">Voltar às regras gerais</button></p>`;
+  else extra='<p class="hint">Para um agente ter regras próprias (ou seguir as da campanha dele), use o campo <b>Regras</b> no Dossiê do agente.</p>';
+  return `<div class="card" style="margin-bottom:12px"><div class="row"><b>Editando</b><select class="inp" data-mesa-alvo style="flex:1 1 220px" aria-label="Quais regras editar">${ops.map(([k,l])=>opt(k,l,a)).join('')}</select></div>${extra}</div>`;
+}
 function regrasCampanhaHtml(){
-  if(!(S.conta&&S.conta.usuario))return '';
+  if(!(S.conta&&S.conta.usuario))return alvoRegrasHtml();
   const jog=(S.mesas||[]).filter(m=>m.papel!=='mestre');const mest=(S.mesas||[]).filter(m=>m.papel==='mestre');
   if(jog.length&&(!S._regrasBusca||Date.now()-S._regrasBusca>15000))buscarRegrasJogador().then(()=>{if(S.view==='mesa')render()});
   const linhas=jog.map(m=>{const r=(S.regrasMesa||{})[m.id];const sync=S.cfg.syncMesa===m.id;
@@ -81,11 +98,24 @@ function regrasCampanhaHtml(){
       <button class="btn sm acc" data-act="regrasSync" data-id="${h(m.id)}" ${r&&!r.cfg?'disabled':''}>Usar as regras do mestre</button>
       <label class="chk"><input type="checkbox" data-act="regrasAuto" data-id="${h(m.id)}" ${sync?'checked':''}> Manter sincronizado</label></div>`}).join('');
   return `${jog.length?`<div class="card" style="margin-bottom:12px"><h4>Regras das suas campanhas</h4><p class="hint">Copie os livros, as regras opcionais e as automações que o mestre usa. Com “Manter sincronizado”, mudanças do mestre chegam sozinhas e os interruptores abaixo ficam travados. Pacotes de homebrew não são copiados.</p>${linhas}</div>`:''}
-   ${mest.length?`<p class="hint">Você é mestre de ${mest.map(m=>'“'+h(m.nome)+'”').join(', ')}: o que estiver ligado aqui fica disponível para os jogadores copiarem.</p>`:''}`;
+   ${alvoRegrasHtml()}`;
 }
 /* Mantém sincronizado: ao carregar as campanhas e a cada minuto. O mestre publica ao carregar. */
-setInterval(()=>{if(document.visibilityState==='visible'&&mesaSincronizada())sincronizarRegras(S.cfg.syncMesa,true)},60000);
+setInterval(()=>{if(document.visibilityState!=='visible')return;if(mesaSincronizada())sincronizarRegras(S.cfg.syncMesa,true);buscarRegrasDasFichas()},60000);
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act="regrasSync"]');if(t)sincronizarRegras(t.dataset.id)});
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset.act!=='regrasAuto')return;
   if(t.checked){S.cfg.syncMesa=t.dataset.id;sincronizarRegras(t.dataset.id).then(()=>{saveCfg();render()})}
   else{delete S.cfg.syncMesa;saveCfg();render()}});
+
+/* Regras por campanha (mestre) e por agente. */
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const ds=t.dataset;
+  if(ds.act==='regrasSeparar'){S.cfg.mesasCfg=S.cfg.mesasCfg||{};S.cfg.mesasCfg[ds.id]=regrasCopia(S.cfg);saveCfg();toast('Esta campanha agora tem regras próprias (começam iguais às gerais).');render()}
+  else if(ds.act==='regrasJuntar'){if(S.cfg.mesasCfg)delete S.cfg.mesasCfg[ds.id];saveCfg();toast('A campanha voltou a usar as regras gerais.');render()}
+  else if(ds.act==='regrasFichaGeral'){const f=S.fichas[ds.id];if(f){f.regrasModo='padrao';saveF(f)}S.mesaAlvo='g';render()}
+  else if(ds.act==='regrasEditar'){S.mesaAlvo='f:'+ds.id;S.view='mesa';S.mesaTab=S.mesaTab||'fontes';render()}});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.hasAttribute('data-mesa-alvo')){S.mesaAlvo=t.value;render();return}
+  if(t.hasAttribute('data-regras-modo')){const f=F();if(!f||f._alheia)return;const v=t.value;
+    if(v==='propria'&&!f.regrasCfg)f.regrasCfg=regrasCopia(cfgFicha(f));
+    f.regrasModo=v;saveF(f);if(v==='campanha')buscarRegrasDasFichas();
+    toast(v==='propria'?'Este agente agora tem regras próprias (começam iguais às que ele usava). Edite em Mesa.':v==='campanha'?'Este agente segue as regras da campanha ligada.':'Este agente usa as regras gerais.',5000);render()}});

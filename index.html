@@ -311,6 +311,28 @@ label.btn:has(input:disabled){opacity:.45;cursor:not-allowed}
 .ini-aviso.ok{background:var(--sunk);color:var(--ink);border-bottom:1px solid var(--line)}
 .ini-aviso.ok .hint{color:var(--muted)}
 .ini-aviso ol{margin:4px 0 0;padding-left:20px}
+/* Efeitos de afinidade (experimental): fundo animado e paleta do elemento do agente aberto. */
+#fx{position:fixed;inset:0;z-index:0;pointer-events:none}
+#fx canvas{display:block}
+body[data-elem]:not([data-elem=""]) .wrap{position:relative;z-index:1}
+body[data-elem]:not([data-elem=""]){color-scheme:dark}
+body[data-elem]:not([data-elem=""]) .sheet{-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+body[data-elem="sangue"]{--bg:#0c0102;--paper:rgba(28,7,9,.74);--sunk:rgba(20,4,6,.72);--ink:#f6e3e4;--muted:#c79a9e;--line:#4c1419;--accent:#d61f2f;--accent-ink:#fff1f2;--focus:#ff5a68}
+body[data-elem="morte"]{--bg:#050505;--paper:rgba(18,18,18,.74);--sunk:rgba(11,11,11,.72);--ink:#e6e6e6;--muted:#9a9a9a;--line:#2b2b2b;--accent:#8c8c8c;--accent-ink:#050505;--focus:#cfcfcf}
+body[data-elem="conhecimento"]{--bg:#0f0b02;--paper:rgba(27,21,5,.74);--sunk:rgba(19,15,3,.72);--ink:#f7eccb;--muted:#c9b57a;--line:#4a3b10;--accent:#e9b93a;--accent-ink:#1a1405;--focus:#ffd45c}
+body[data-elem="energia"]{--fx-energia:#a855f7;--bg:#08040f;--paper:rgba(20,11,34,.74);--sunk:rgba(14,7,24,.72);--ink:#f1e8ff;--muted:#b9a5d8;--line:color-mix(in srgb,var(--fx-energia) 30%,#1e1530);--accent:var(--fx-energia);--accent-ink:#0b0612;--focus:var(--fx-energia)}
+body[data-elem]:not([data-elem=""]){background:var(--bg)}
+.peri-bar{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:6px 18px;border-bottom:1px solid var(--line);font-size:13px}
+.peri-bar input[type=color]{width:34px;height:24px;padding:0;border:1px solid var(--line);border-radius:4px;background:none}
+.peri-glitch{animation:peri .9s steps(6)}
+@keyframes peri{0%{color:var(--accent);text-shadow:2px 0 #0ff,-2px 0 #f0f}50%{text-shadow:-3px 0 #0ff,3px 0 #f0f}100%{text-shadow:none}}
+.anfitriao{margin:16px 0 0;text-align:center}
+.anfitriao img{max-width:min(320px,100%);height:auto;filter:drop-shadow(0 0 18px color-mix(in srgb,var(--accent) 60%,transparent))}
+.anfitriao figcaption{font-family:var(--f-display);font-size:20px;color:var(--accent);margin-top:6px}
+.anfitriao.sem-img img{display:none}
+.riso{position:fixed;z-index:9999;pointer-events:none;font-family:var(--f-display);font-weight:700;color:var(--accent);text-shadow:0 0 8px var(--accent),0 0 2px #fff;white-space:nowrap;transform:translate(-50%,-50%);animation:riso 2.4s ease-out forwards;opacity:0}
+@keyframes riso{0%{opacity:0;transform:translate(-50%,-50%) scale(.6) rotate(0)}12%{opacity:1;transform:translate(-50%,-80%) scale(1.1) rotate(var(--rot))}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),-420%) scale(1) rotate(calc(var(--rot) * -1));filter:blur(3px)}}
+@media (prefers-reduced-motion: reduce){.riso{animation:riso-fade 2s forwards!important}@keyframes riso-fade{0%,30%{opacity:1}100%{opacity:0}}}
 .cri-list{display:grid;gap:8px}
 .ini-extra{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .ini-extra:empty{display:none}
@@ -376,4 +398,5 @@ label.btn:has(input:disabled){opacity:.45;cursor:not-allowed}
 <script src="js/escudo.js" charset="utf-8"></script>
 <script src="js/combate.js" charset="utf-8"></script>
 <script src="js/mapas.js" charset="utf-8"></script>
+<script src="js/afinidade.js" charset="utf-8"></script>
 <script src="js/eventos.js" charset="utf-8"></script>

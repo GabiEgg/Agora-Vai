@@ -64,17 +64,36 @@ const emptyHB=()=>Object.fromEntries(HB_TYPES.map(([k])=>[k,[]]));
 const cfgPadrao=()=>({fontes:{core:true},pacotes:{},regras:{},auto:{custoParanormal:true,transcender:true,maldicao:true,massivo:true},acoesInterludio:2,imgs:{}});
 const S={conta:null,mesas:[],mesaAberta:null,mesaDados:null,mesaEventos:[],alheia:null,fichas:{},hb:emptyHB(),cfg:cfgPadrao(),active:null,view:'ficha',tab:'dossie',hbType:'origens',hbSel:null,hbQ:'',open:{},confirm:null,rolls:[],assets:null,mesaTab:'fontes'};
 
-function fonteOn(id){return id==='core'||!!S.cfg.fontes[id]}
-function pacoteOn(p){return S.cfg.pacotes[p||'Minha mesa']!==false}
+/* Regras em vigor. Há três níveis:
+   - gerais (S.cfg): aba Mesa, valem para fichas sem regras próprias;
+   - de campanha que você mestra (S.cfg.mesasCfg[mesaId]): o que os jogadores dela copiam;
+   - de um agente: f.regrasModo 'propria' (f.regrasCfg) ou 'campanha' (as que o mestre publicou).
+   cfgR() escolhe conforme a tela: a ficha ativa, a campanha aberta no Escudo ou o alvo editado na aba Mesa;
+   calc(f) usa as regras da ficha calculada (S._cfgCtx). */
+const regrasCopia=c=>({fontes:{core:true,...(c.fontes||{})},regras:{...(c.regras||{})},auto:{...cfgPadrao().auto,...(c.auto||{})},acoesInterludio:+c.acoesInterludio||2,pacotes:{...(c.pacotes||S.cfg.pacotes||{})}});
+function cfgCampanha(id){const m=(S.mesas||[]).find(x=>x.id===id);if(!m)return null;
+  if(m.papel==='mestre')return (S.cfg.mesasCfg||{})[id]||S.cfg;
+  const r=(S.regrasMesa||{})[id];if(!r||!r.cfg)return null;return r._c||(r._c=regrasCopia(r.cfg))}
+function cfgFicha(f){if(!f)return S.cfg;
+  if(f.regrasModo==='propria'&&f.regrasCfg)return f.regrasCfg;
+  if(f.regrasModo==='campanha'&&f.mesa)return cfgCampanha(f.mesa)||S.cfg;
+  /* ficha de jogador vista pelo mestre: sem regras próprias, vale a da campanha */
+  if(f.mesa&&!S.fichas[f.id]){const m=(S.mesas||[]).find(x=>x.id===f.mesa);if(m&&m.papel==='mestre')return (S.cfg.mesasCfg||{})[f.mesa]||S.cfg}
+  return S.cfg}
+function cfgAlvo(a){a=a||'g';if(a.startsWith('f:')){const f=S.fichas[a.slice(2)];return f&&f.regrasModo==='propria'&&f.regrasCfg?f.regrasCfg:S.cfg}
+  if(a.startsWith('m:'))return (S.cfg.mesasCfg||{})[a.slice(2)]||S.cfg;return S.cfg}
+function cfgR(){return S._cfgCtx||(S.view==='mesa'?cfgAlvo(S.mesaAlvo):S.view==='escudo'&&S.mesaAberta?((S.cfg.mesasCfg||{})[S.mesaAberta]||S.cfg):cfgFicha(F()))}
+function fonteOn(id){return id==='core'||!!cfgR().fontes[id]}
+function pacoteOn(p){const c=cfgR();return (c.pacotes||S.cfg.pacotes)[p||'Minha mesa']!==false}
 function regraDisp(id){const r=D&&D.regras.find(x=>x.id===id);return !!r&&fonteOn(r.fonte)}
-function regraOn(id){return !!S.cfg.regras[id]&&regraDisp(id)}
+function regraOn(id){return !!cfgR().regras[id]&&regraDisp(id)}
 function efeitoRegra(k){return D.regras.some(r=>regraOn(r.id)&&r.efeito&&r.efeito[k])}
 const pacotesHB=()=>{const s=new Set();HB_TYPES.forEach(([k])=>(S.hb[k]||[]).forEach(x=>s.add(x.pacote||'Minha mesa')));return [...s]};
 
 /* Catálogo: conteúdo das fontes ativas + homebrew dos pacotes ativos (homebrew com mesmo id substitui). */
 const _catCache={};let _catKey='';
 function cat(type){
-  const key=JSON.stringify([S.cfg.fontes,S.cfg.pacotes,S.cfg.regras])+'|'+S._hbv;
+  const c=cfgR();const key=JSON.stringify([c.fontes,c.pacotes||S.cfg.pacotes,c.regras])+'|'+S._hbv;
   if(key!==_catKey){for(const k in _catCache)delete _catCache[k];_catKey=key}
   if(_catCache[type])return _catCache[type];
   const base=(D[type]||[]).filter(x=>fonteOn(x.fonte)&&(!x.regra||regraOn(x.regra)));
