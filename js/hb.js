@@ -12,18 +12,22 @@ const HB_SCHEMA={
  modificacoes:[['nome','Nome'],['aplica','Aplica-se a','aplica'],['maldicao','É uma maldição','bool'],['elemento','Elemento da maldição','elem'],['desc','Efeito','area']],
  aliados:[['nome','Nome'],['desc','Descrição','area'],['bonus','Bônus (texto)','area'],['habilidade','Habilidade (texto)','area'],['habPE','Custo da habilidade (PE)','num'],['habDado','Dado da habilidade (ex.: 1d8)'],['habCura','Cura da habilidade (ex.: 1d8+1)']],
  condicoes:[['nome','Nome'],['tipo','Tipo','tipoCond'],['desc','Descrição','area'],['efeitos.defesa','Modificador de Defesa','num'],['efeitos.dados.todos','Dados em todos os testes (ex.: −1)','num'],['efeitos.custoPE','PE extra por habilidade','num'],['danoTurno','Dano no início do turno (ex.: 1d6)']],
- pericias:[['nome','Nome'],['attr','Atributo','attr'],['somenteTreinada','Somente treinada','bool'],['carga','Sofre penalidade de carga','bool']]};
+ pericias:[['nome','Nome'],['attr','Atributo','attr'],['somenteTreinada','Somente treinada','bool'],['carga','Sofre penalidade de carga','bool']],
+ criaturas:[['nome','Nome']]};
 const HB_DEFAULT={origens:{pericias:[],poderNome:'',poderDesc:'',mods:[]},classes:{pvBase:16,pvNex:3,peBase:3,peNex:3,sanBase:16,sanNex:4,periciasFixas:[],periciasEscolha:'',periciasLivres:4,grau:3,ritInicial:0,ritNex:0,proficiencias:'',desc:'',habilidades:[]},
  trilhas:{classe:'',desc:'',habilidades:[{nex:10,nome:'',desc:''},{nex:40,nome:'',desc:''},{nex:65,nome:'',desc:''},{nex:99,nome:'',desc:''}]},poderes:{tipo:'geral',elemento:'',prereq:'',desc:'',afinidade:'',mods:[]},
  rituais:{elemento:'',circulo:1,execucao:'Padrão',alcance:'',alvo:'',duracao:'',resistencia:'',desc:'',discente:'',verdadeiro:''},itens:{tipo:'geral',cat:0,esp:1,dano:'',critico:'',alcance:'',tipoDano:'',proficiencia:'',defesa:0,desc:'',mods:[]},
- modificacoes:{aplica:'arma',maldicao:false,elemento:'',desc:'',efeitos:{}},aliados:{desc:'',bonus:'',habilidade:'',habPE:1},condicoes:{tipo:'',desc:'',efeitos:{}},pericias:{attr:'INT',somenteTreinada:false,carga:false}};
-const HB_NOVO={origens:'origem',classes:'classe',trilhas:'trilha',poderes:'poder',rituais:'ritual',itens:'item',modificacoes:'modificação',aliados:'aliado',condicoes:'condição',pericias:'perícia'};
+ modificacoes:{aplica:'arma',maldicao:false,elemento:'',desc:'',efeitos:{}},aliados:{desc:'',bonus:'',habilidade:'',habPE:1},condicoes:{tipo:'',desc:'',efeitos:{}},pericias:{attr:'INT',somenteTreinada:false,carga:false},
+ criaturas:{tipo:'criatura',elemento:'',elemento2:'',vd:20,tamanho:'Médio',presenca:'',percepcao:'1d20',sentidos:'',iniciativa:'1d20',defesa:12,fortitude:'1d20',reflexos:'1d20',vontade:'1d20',pv:20,resistencias:'',vulnerabilidades:'',imunidades:'',atributos:{AGI:1,FOR:1,INT:1,PRE:1,VIG:1},pericias:'',deslocamento:'9m',acoes:[{ataque:true,nome:'Ataque',alcance:'Corpo a corpo',teste:'1d20+5',dano:'1d6+1'}],enigma:'',desc:''}};
+const HB_NOVO={origens:'origem',classes:'classe',trilhas:'trilha',poderes:'poder',rituais:'ritual',itens:'item',modificacoes:'modificação',aliados:'aliado',condicoes:'condição',pericias:'perícia',criaturas:'criatura ou NPC'};
 const hbCur=()=>S.hbSel&&(S.hb[S.hbType]||[]).find(x=>x.id===S.hbSel);
 
 function renderHB(){
   const t=S.hbType;const hbl=S.hb[t]||[];const q=slug(S.hbQ);
-  const baseAll=(D[t]||[]).filter(b=>!hbl.some(x=>x.id===b.id));const base=q?baseAll.filter(x=>slug(x.nome).includes(q)):baseAll;
-  const cur=hbCur();const baseSel=!cur&&S.hbSel&&(D[t]||[]).find(b=>b.id===S.hbSel);
+  if(t==='criaturas'&&!S.cri)carregarCriaturas().catch(()=>{});
+  const catBase=t==='criaturas'?(S.cri||[]):(D[t]||[]);
+  const baseAll=catBase.filter(b=>!hbl.some(x=>x.id===b.id));const base=q?baseAll.filter(x=>slug(x.nome).includes(q)):baseAll;
+  const cur=hbCur();const baseSel=!cur&&S.hbSel&&catBase.find(b=>b.id===S.hbSel);
   const grupos={};base.slice(0,400).forEach(x=>(grupos[x.fonte]=grupos[x.fonte]||[]).push(x));
   return `<div class="sheet"><div class="sheet-head"><div class="name"><span class="eyebrow">Conteúdo da sua mesa</span><h2 class="bigh">Homebrew</h2></div>
    <div class="row"><button class="btn sm" data-act="exportHB">Exportar pacotes</button><button class="btn sm" data-act="importar">Importar pacote</button></div></div>
@@ -31,9 +35,9 @@ function renderHB(){
    <div class="pane"><div class="hb-layout"><div class="sec">
      <button class="btn pri" data-act="hbNew">+ Criar ${HB_NOVO[t]}</button>
      <input class="inp" id="hb-q" placeholder="Buscar no catálogo…" value="${h(S.hbQ)}">
-     <div class="hb-list"><div class="grp">Seu homebrew</div>${hbl.length?hbl.map(x=>`<button data-act="hbSel" data-id="${h(x.id)}" aria-current="${S.hbSel===x.id}"><span>${h(x.nome||'Sem nome')}</span><span class="badge ${pacoteOn(x.pacote)?'hb':''}">${h(x.pacote||'Minha mesa')}</span>${(D[t]||[]).some(b=>b.id===x.id)?'<span class="badge acc">ajuste</span>':''}</button>`).join(''):'<p class="hint" style="padding:4px 8px;margin:0">Nada criado ainda.</p>'}
+     <div class="hb-list"><div class="grp">Seu homebrew</div>${hbl.length?hbl.map(x=>`<button data-act="hbSel" data-id="${h(x.id)}" aria-current="${S.hbSel===x.id}"><span>${h(x.nome||'Sem nome')}</span><span class="badge ${pacoteOn(x.pacote)?'hb':''}">${h(x.pacote||'Minha mesa')}</span>${catBase.some(b=>b.id===x.id)?'<span class="badge acc">ajuste</span>':''}</button>`).join(''):'<p class="hint" style="padding:4px 8px;margin:0">Nada criado ainda.</p>'}
       ${Object.entries(grupos).map(([fid,list])=>`<div class="grp">${h(FONTE(fid).sigla)}${fonteOn(fid)?'':' · desligado'}</div>${list.map(x=>`<button data-act="hbSel" data-id="${h(x.id)}" aria-current="${S.hbSel===x.id}"><span>${h(x.nome)}</span></button>`).join('')}`).join('')}</div></div>
-    <div class="sec">${cur?hbForm(t,cur):baseSel?hbBaseView(t,baseSel):`<div class="empty">Crie um conteúdo novo ou selecione algo do catálogo para ver e ajustar.<br>Tudo que você cria fica num <b>pacote</b> com nome, que pode ser ligado e desligado na aba Mesa e exportado para outras pessoas.</div>`}</div>
+    <div class="sec">${cur?(t==='criaturas'?criForm(cur):hbForm(t,cur)):baseSel?(t==='criaturas'?criBaseView(baseSel):hbBaseView(t,baseSel)):`<div class="empty">Crie um conteúdo novo ou selecione algo do catálogo para ver e ajustar.<br>Tudo que você cria fica num <b>pacote</b> com nome, que pode ser ligado e desligado na aba Mesa e exportado para outras pessoas.</div>`}</div>
    </div></div></div>`;
 }
 function hbBaseView(t,x){
@@ -112,6 +116,9 @@ function renderGuia(){
    <li><b>Jogadores atacando pelo app:</b> durante o combate, a rolagem de ataque da arma mostra “Atacar” com cada inimigo. O app compara com a Defesa da criatura (sem mostrá-la ao jogador) e, se acertar, rola o dano e já manda para o alvo com as resistências descontadas. A rolagem de dano de uma arma ou ritual também mostra os inimigos como alvo. <b>Rituais:</b> no Conjurar, marque os “Alvos no combate” (um ou vários). O app rola o dano ou a cura, rola o teste de resistência da criatura contra a sua DT (passou: metade ou anula, conforme o ritual), desconta resistências e marca o ritual como efeito na criatura quando ele tem duração. No Escudo, os ataques das criaturas funcionam do mesmo jeito contra os agentes. Dano ou cura que o mestre mandar aparece como aviso na ficha, com o botão Aplicar.</li>
    <li><b>Efeitos:</b> marque condições nas criaturas pelo “+ efeito”; nos agentes valem as condições e efeitos ativos da ficha. A cada turno o app anota quem estava sob quais efeitos.</li>
    <li>Ao <b>encerrar o combate</b> aparece o resumo: dano causado e sofrido, cura feita e recebida, abates, turnos, turnos sob cada efeito e a linha do tempo. Os jogadores também podem ver o resumo.</li></ol>`)}
+  ${s('Criaturas, NPCs e fichas da campanha',`<ol><li>Em <b>Homebrew → Criaturas e NPCs</b> ficam todas as criaturas dos livros. Use “Usar como modelo” ou “+ Criar criatura ou NPC” para montar uma ficha completa: identidade, presença perturbadora, defesas e resistências, atributos e testes (no formato 2d20+10), ataques, habilidades e Enigma de Medo. Ela entra no bestiário do Escudo enquanto o pacote estiver ligado.</li>
+   <li>No Escudo, a aba <b>Fichas</b> junta os NPCs e monstros da campanha em grupos (Culto, Aliados, Chefes…). Cada um tem nome próprio na campanha, descrição do mestre e quantas informações você quiser (segredos, falas, fraquezas). “Iniciativa” (ou “Todos na iniciativa”) põe no combate já com PV, Defesa e resistências. A seta ▸ mostra a descrição e as informações; o grupo muda direto no cartão.</li>
+   <li>Não precisa abrir o Escudo: no Homebrew (e no Bestiário) há “Adicionar às fichas”, com a campanha e o grupo.</li></ol>`)}
   ${s('Mapas',`<ol><li>No Escudo, aba <b>Mapas</b>, crie um mapa com nome e tamanho.</li>
    <li>No modo <b>Editar</b>, use <b>Cômodo</b> e arraste para criar um cômodo com paredes (cômodos encostados dividem a parede), ou pinte piso, parede e porta casa a casa.</li>
    <li>No modo <b>Usar</b>, clique num cômodo para dar nome e colocar criaturas do bestiário, itens ou anotações. “Combate” coloca as criaturas na iniciativa.</li>
@@ -265,7 +272,7 @@ function importar(o){
   const addF=f=>{if(!f||!f.atributos)throw 0;const nf=migrar(f);delete nf._exemplo;S.fichas[nf.id]=nf;S.active=nf.id;Store.touch('f-'+nf.id)};
   if(o.tipo==='ficha'){addF(o.ficha);const n=o.homebrew?mergeHB(o.homebrew):0;S.view='ficha';return `Ficha importada${n?` com ${n} itens de homebrew`:''}.`}
   if(o.tipo==='homebrew'){const n=mergeHB(o.homebrew);return `${n} itens de homebrew importados. Confira os pacotes na aba Mesa.`}
-  if(o.tipo==='backup'){Object.values(o.fichas||{}).forEach(addF);const n=mergeHB(o.homebrew||{});if(o.cfg){S.cfg={...cfgPadrao(),...o.cfg};saveCfg()}if(Array.isArray(o.mapas)&&o.mapas.length){const ids=new Set(S.mapas.map(x=>x.id));o.mapas.forEach(x=>{if(x&&x.id&&x.cel&&!ids.has(x.id))S.mapas.push(x)});Store.touch('mapas')}S.view='ficha';return `Backup restaurado: ${Object.keys(o.fichas||{}).length} fichas e ${n} itens de homebrew.`}
+  if(o.tipo==='backup'){Object.values(o.fichas||{}).forEach(addF);const n=mergeHB(o.homebrew||{});if(o.cfg){S.cfg={...cfgPadrao(),...o.cfg};saveCfg()}if(o.escFichas&&typeof o.escFichas==='object'){for(const k in o.escFichas)if(!S.escFichas[k])S.escFichas[k]=o.escFichas[k];Store.touch('escudo')}if(Array.isArray(o.mapas)&&o.mapas.length){const ids=new Set(S.mapas.map(x=>x.id));o.mapas.forEach(x=>{if(x&&x.id&&x.cel&&!ids.has(x.id))S.mapas.push(x)});Store.touch('mapas')}S.view='ficha';return `Backup restaurado: ${Object.keys(o.fichas||{}).length} fichas e ${n} itens de homebrew.`}
   if(o.atributos){addF(o);return 'Ficha importada.'}
   throw 0;
 }

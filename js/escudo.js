@@ -2,7 +2,7 @@
    Aparece para quem é mestre de alguma campanha. Reúne o combate (iniciativa compartilhada
    e criaturas em cena), os agentes ligados, os avisos de rituais, o bestiário dos livros e
    uma referência rápida. Os jogadores veem um aviso na ficha quando o mestre pede iniciativa. */
-const ESC_TABS=[['combate','Combate'],['mapas','Mapas'],['agentes','Agentes'],['avisos','Avisos'],['bestiario','Bestiário'],['ref','Referência']];
+const ESC_TABS=[['combate','Combate'],['fichas','Fichas'],['mapas','Mapas'],['agentes','Agentes'],['avisos','Avisos'],['bestiario','Bestiário'],['ref','Referência']];
 const souMestre=()=>(S.mesas||[]).some(m=>m.papel==='mestre');
 const mesasMestre=()=>(S.mesas||[]).filter(m=>m.papel==='mestre');
 
@@ -11,13 +11,14 @@ let _criP=null;
 function carregarCriaturas(){
   if(S.cri)return Promise.resolve(S.cri);
   if(!_criP)_criP=fetch('data/criaturas.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})
-    .then(j=>{S.cri=(j.criaturas||[]).concat(hbCriaturas());render();return S.cri}).catch(e=>{_criP=null;toast('Não foi possível carregar o bestiário.');throw e});
+    .then(j=>{S.cri=j.criaturas||[];render();return S.cri}).catch(e=>{_criP=null;toast('Não foi possível carregar o bestiário.');throw e});
   return _criP;
 }
 /* Criaturas homebrew (se algum pacote tiver uma lista "criaturas"). */
-function hbCriaturas(){return (S.hb&&S.hb.criaturas||[]).map(x=>({...x,_hb:true}))}
-const criaturasOn=()=>(S.cri||[]).filter(x=>x._hb||fonteOn(x.fonte||'core'));
-const criPorId=id=>(S.cri||[]).find(x=>x.id===id);
+function hbCriaturas(){return cat('criaturas')}
+/* Bestiário em uso: criaturas dos livros ligados + as de homebrew (pacotes ligados), que substituem as de mesmo id. */
+const criaturasOn=()=>{const hb=hbCriaturas();const ids=new Set(hb.map(x=>x.id));return (S.cri||[]).filter(x=>!ids.has(x.id)&&fonteOn(x.fonte||'core')).concat(hb)};
+const criPorId=id=>(S.hb.criaturas||[]).find(x=>x.id===id)||(S.cri||[]).find(x=>x.id===id);
 
 async function abrirEscudo(){
   S.view='escudo';S.escTab=S.escTab||'combate';
@@ -54,7 +55,7 @@ function renderEscudo(){
   const m=mesaAtual()||ms[0];
   const sel=ms.length>1?`<select class="inp sm" data-act-change="escMesa" aria-label="Campanha">${ms.map(x=>opt(x.id,x.nome,m.id)).join('')}</select>`:`<b>${h(m.nome)}</b>`;
   const tabs=`<div class="tabs" role="tablist">${ESC_TABS.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${S.escTab===k}" data-act="escTab" data-v="${k}">${l}${k==='avisos'&&(S.mesaEventos||[]).length?` <span class="badge acc">${S.mesaEventos.length}</span>`:''}</button>`).join('')}</div>`;
-  const pane={combate:escCombate,mapas:escMapas,agentes:escAgentes,avisos:escAvisos,bestiario:escBestiario,ref:escRef}[S.escTab]||escCombate;
+  const pane={combate:escCombate,fichas:escFichas,mapas:escMapas,agentes:escAgentes,avisos:escAvisos,bestiario:escBestiario,ref:escRef}[S.escTab]||escCombate;
   return `<div class="sheet"><div class="sheet-head"><div class="name"><span class="eyebrow">Só você vê esta tela</span><h2 class="bigh">Escudo do Mestre</h2></div>
     <div class="row"><span class="hint">Campanha</span> ${sel} <span class="hint">código <b class="codigo">${h(m.codigo||'')}</b></span><button class="btn sm" data-act="escAtualizar">Atualizar</button></div></div>
    ${tabs}<div class="pane">${pane(m)}</div></div>`;
@@ -159,28 +160,29 @@ function escBestiario(){
   let list=criaturasOn();
   if(bf.e)list=list.filter(c=>c.elemento===bf.e||c.elemento2===bf.e||(bf.e==='_'&&!c.elemento));
   if(bf.t)list=list.filter(c=>(c.tipo||'criatura')===bf.t);
-  if(bf.f)list=list.filter(c=>(c.fonte||'')===bf.f);
+  if(bf.f)list=list.filter(c=>(c.fonte||'hb')===bf.f);
   if(q)list=list.filter(c=>slug(c.nome+' '+(c.acoes||[]).map(a=>a.nome).join(' ')).includes(q));
   list=list.slice().sort((a,b)=>(a.vd??999)-(b.vd??999)||a.nome.localeCompare(b.nome));
-  const fontes=[...new Set(criaturasOn().map(c=>c.fonte))];
+  const fontes=[...new Set(criaturasOn().map(c=>c.fonte||'hb'))];
   const chip=(k,v,l,cls='')=>`<button class="btn sm ${cls}" aria-pressed="${(bf[k]||'')===v}" data-act="criF" data-k="${k}" data-v="${v}">${l}</button>`;
   return `<div class="sec"><div class="sec-h"><h2>Bestiário</h2><span class="hint">${list.length} de ${criaturasOn().length}</span></div>
    <input class="inp" id="cri-q" data-keep placeholder="Buscar criatura, NPC ou habilidade…" value="${h(S.bq||'')}" aria-label="Buscar no bestiário">
    <div class="chips filtros">${chip('e','','Todos')}${['sangue','morte','conhecimento','energia','medo'].map(e=>chip('e',e,ELEM[e],'el el-'+e)).join('')}${chip('e','_','Sem elemento')}</div>
    <div class="chips filtros">${chip('t','','Todos os tipos')}${Object.entries(TIPO_CRI).map(([k,l])=>chip('t',k,l)).join('')}</div>
-   ${fontes.length>1?`<div class="chips filtros">${chip('f','','Todas as fontes')}${fontes.map(fid=>chip('f',fid,FONTE(fid).sigla)).join('')}</div>`:''}
+   ${fontes.length>1?`<div class="chips filtros">${chip('f','','Todas as fontes')}${fontes.map(fid=>chip('f',fid,fid==='hb'?'Homebrew':FONTE(fid).sigla)).join('')}</div>`:''}
    <p class="hint">Testes no formato “3d20+10”: role 3d20, fique com o maior e some 10. Clique em qualquer teste ou dano para rolar. “Combate” coloca a criatura na iniciativa com a vida dela.</p>
    ${list.length?`<div class="cri-list">${list.slice(0,150).map(criCard).join('')}</div>${list.length>150?'<p class="hint">Mostrando 150. Refine a busca.</p>':''}`:'<div class="empty">Nada encontrado.</div>'}</div>`;
 }
 function criResumo(c){return [c.vd!=null?'VD '+c.vd:'',c.tamanho,c.pv!=null?c.pv+' PV':'',c.defesa!=null?'Defesa '+c.defesa:''].filter(Boolean).join(' · ')}
 function criCard(c){const aberto=(S.criAbertas||{})[c.id];
   return `<div class="card cri ${aberto?'on':''}"><h4><button class="linkbtn" data-act="criTgl" data-id="${h(c.id)}" aria-expanded="${!!aberto}">${h(c.nome)}</button> ${elBadge(c.elemento)}${elBadge(c.elemento2)}${c.tipo&&c.tipo!=='criatura'?` <span class="badge">${h(c.tipo)}</span>`:''} ${fonteBadge(c)}
-    <span class="row"><button class="btn sm" data-act="criAdd" data-id="${h(c.id)}" ${S.mesaAberta?'':'disabled'}>Combate</button></span></h4>
+    <span class="row"><button class="btn sm" data-act="efAddDe" data-src="best" data-id="${h(c.id)}" data-m="${h(S.mesaAberta||'')}" ${S.mesaAberta?'':'disabled'}>Fichas</button><button class="btn sm" data-act="criAdd" data-id="${h(c.id)}" ${S.mesaAberta?'':'disabled'}>Combate</button></span></h4>
     <div class="meta"><span>${h(criResumo(c))}</span></div>${aberto?criFicha(c):''}</div>`}
 function criFicha(c){
   const rb=(label,expr)=>expr&&/d20/.test(expr)?`<button class="rollchip" data-act="criRoll" data-id="${h(c.id)}" data-l="${h(label)}" data-x="${h(expr)}">${h(label)} ${h(expr)}</button>`:expr?`<span class="chip">${h(label)} ${h(expr)}</span>`:'';
   const at=c.atributos||{};
   const linhas=[
+    c.desc?`<p>${h(c.desc)}</p>`:'',
     c.presenca?`<p><b>Presença perturbadora</b> ${h(c.presenca)}</p>`:'',
     `<div class="chips">${rb('Iniciativa',c.iniciativa)}${rb('Percepção',c.percepcao)}${rb('Fortitude',c.fortitude)}${rb('Reflexos',c.reflexos)}${rb('Vontade',c.vontade)}</div>`,
     c.sentidos?`<p class="hint">Sentidos: ${h(c.sentidos)}</p>`:'',
@@ -251,7 +253,7 @@ document.addEventListener('click',async e=>{
   const val=id=>{const el=document.getElementById(id);return el?el.value.trim():''};
   const erroT=err=>toast(err.message||String(err));
   switch(a){
-   case 'escTab':S.escTab=ds.v;if(ds.v==='bestiario')carregarCriaturas().catch(()=>{});render();return;
+   case 'escTab':S.escTab=ds.v;if(ds.v==='bestiario'||ds.v==='fichas')carregarCriaturas().catch(()=>{});render();return;
    case 'escAtualizar':S._mesaKey=null;S._iniKey=null;await atualizarMesa(true);await atualizarIni();render();return;
    case 'iniPedir':try{await iniPost({acao:'pedir'});await atualizarIni();toast('Pedido enviado: os jogadores veem o aviso na ficha.')}catch(err){erroT(err)}return;
    case 'iniProx':try{await iniProximo()}catch(err){erroT(err)}return;

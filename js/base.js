@@ -59,7 +59,7 @@ let D=null; // conteúdo de data/dados.json
 const FONTE=id=>(D&&D.fontes.find(f=>f.id===id))||{id,sigla:id,nome:id};
 
 /* ============================== ESTADO ============================== */
-const HB_TYPES=[['origens','Origens'],['classes','Classes'],['trilhas','Trilhas'],['poderes','Poderes'],['rituais','Rituais'],['itens','Itens'],['modificacoes','Modificações'],['aliados','Aliados'],['condicoes','Condições'],['pericias','Perícias']];
+const HB_TYPES=[['origens','Origens'],['classes','Classes'],['trilhas','Trilhas'],['poderes','Poderes'],['rituais','Rituais'],['itens','Itens'],['modificacoes','Modificações'],['aliados','Aliados'],['condicoes','Condições'],['pericias','Perícias'],['criaturas','Criaturas e NPCs']];
 const emptyHB=()=>Object.fromEntries(HB_TYPES.map(([k])=>[k,[]]));
 const cfgPadrao=()=>({fontes:{core:true},pacotes:{},regras:{},auto:{custoParanormal:true,transcender:true,maldicao:true,massivo:true},acoesInterludio:2,imgs:{}});
 const S={conta:null,mesas:[],mesaAberta:null,mesaDados:null,mesaEventos:[],alheia:null,fichas:{},hb:emptyHB(),cfg:cfgPadrao(),active:null,view:'ficha',tab:'dossie',hbType:'origens',hbSel:null,hbQ:'',open:{},confirm:null,rolls:[],assets:null,mesaTab:'fontes'};
@@ -145,7 +145,7 @@ const F=()=>S.alheia||S.fichas[S.active];
 const LKEY='dossie-paranormal-v1';
 const Store={mode:'local',col:null,timers:{},chains:{},
   loadLocal(){try{return JSON.parse(localStorage.getItem(LKEY)||'null')}catch(e){return null}},
-  saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({fichas:realFichas(),hb:S.hb,cfg:S.cfg,active:S.active,mapas:S.mapas||[]}))}catch(e){}},
+  saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({fichas:realFichas(),hb:S.hb,cfg:S.cfg,active:S.active,mapas:S.mapas||[],escFichas:S.escFichas||{}}))}catch(e){}},
   touch(docId){this.saveLocal();if(this.mode!=='db')return;clearTimeout(this.timers[docId]);this.timers[docId]=setTimeout(()=>this.flush(docId),700)},
   flush(docId){this.chains[docId]=(this.chains[docId]||Promise.resolve()).then(()=>this.write(docId)).catch(()=>{})},
   async write(docId,tent=0){
@@ -154,6 +154,7 @@ const Store={mode:'local',col:null,timers:{},chains:{},
       if(docId==='homebrew')await ref.set({hb:S.hb});
       else if(docId==='config')await ref.set({cfg:S.cfg});
       else if(docId==='mapas')await ref.set({mapas:S.mapas||[]});
+      else if(docId==='escudo')await ref.set({escFichas:S.escFichas||{}});
       else{const f=S.fichas[docId.slice(2)];if(!f||f._exemplo)await ref.delete();else await ref.set({ficha:f});}
       setStatus('db');
     }catch(e){
@@ -180,10 +181,11 @@ const Store={mode:'local',col:null,timers:{},chains:{},
   async carregar(col){
     this.col=col;
     const snap=await this.col.get();
-    const remote={};let remoteHB=null,remoteCfg=null,remoteMapas=null;
-    snap.docs.forEach(d=>{const v=d.data()||{};if(d.id==='homebrew')remoteHB=v.hb;else if(d.id==='config')remoteCfg=v.cfg;else if(d.id==='mapas')remoteMapas=v.mapas;else if(d.id.startsWith('f-')&&v.ficha)remote[v.ficha.id]=v.ficha});
+    const remote={};let remoteHB=null,remoteCfg=null,remoteMapas=null,remoteEsc=null;
+    snap.docs.forEach(d=>{const v=d.data()||{};if(d.id==='homebrew')remoteHB=v.hb;else if(d.id==='config')remoteCfg=v.cfg;else if(d.id==='mapas')remoteMapas=v.mapas;else if(d.id==='escudo')remoteEsc=v.escFichas;else if(d.id.startsWith('f-')&&v.ficha)remote[v.ficha.id]=v.ficha});
     this.mode='db';
     if(Array.isArray(remoteMapas))S.mapas=remoteMapas;else if((S.mapas||[]).length)this.flush('mapas');
+    if(remoteEsc&&typeof remoteEsc==='object')S.escFichas=remoteEsc;else if(Object.keys(S.escFichas||{}).length)this.flush('escudo');
     if(Object.keys(remote).length||remoteHB||remoteCfg){
       if(Object.keys(remote).length){S.fichas={};for(const k in remote)S.fichas[k]=migrar(remote[k])}
       if(remoteHB){S.hb={...emptyHB(),...remoteHB};S._hbv++}

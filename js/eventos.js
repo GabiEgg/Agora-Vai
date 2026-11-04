@@ -183,7 +183,7 @@ document.addEventListener('click',e=>{
    case 'delOk':{const id=f.id;delete S.fichas[id];Store.touch('f-'+id);S.active=Object.keys(S.fichas)[0]||null;S.confirm=null;break}
    case 'cancel':S.confirm=null;break;
    case 'exportF':showExport('Exportar ficha',slug(f.nome||'ficha')+'.json',{tipo:'ficha',versao:2,ficha:(({_exemplo,...x})=>x)(f),homebrew:hbUsadoPor(f)});return;
-   case 'backup':showExport('Backup completo','cristopher-backup.json',{tipo:'backup',versao:2,fichas:realFichas(),homebrew:S.hb,cfg:S.cfg,mapas:S.mapas||[]});return;
+   case 'backup':showExport('Backup completo','cristopher-backup.json',{tipo:'backup',versao:2,fichas:realFichas(),homebrew:S.hb,cfg:S.cfg,mapas:S.mapas||[],escFichas:S.escFichas||{}});return;
    case 'exportHB':showExport('Pacotes de homebrew','homebrew-ordem.json',{tipo:'homebrew',versao:2,homebrew:S.hb});return;
    case 'importar':showImport();return;
    case 'attr':{const r=calc(f);const v=f.atributos[ds.a]+(+ds.d);const min=regraOn('atributos_negativos')?-3:0;
@@ -336,9 +336,9 @@ document.addEventListener('click',e=>{
    case 'hbType':S.hbType=ds.v;S.hbSel=null;S.confirm=null;break;
    case 'hbSel':S.hbSel=ds.id;S.confirm=null;break;
    case 'hbNew':{const pk=(S.hb[S.hbType]||[]).slice(-1)[0];const x={id:'hb_'+uid(),nome:'',pacote:(pk&&pk.pacote)||pacotesHB()[0]||'Minha mesa',...clone(HB_DEFAULT[S.hbType])};if(S.hbType==='trilhas')x.classe=(F()&&F().classe)||'';S.hb[S.hbType].push(x);S.hbSel=x.id;saveHB();break}
-   case 'hbOverride':case 'hbClone':{const b=D[S.hbType].find(x=>x.id===ds.id);const {fonte,...x}=clone(b);x.pacote=pacotesHB()[0]||'Minha mesa';if(a==='hbClone'){x.id='hb_'+uid();x.nome=b.nome+' (variante)'}S.hb[S.hbType].push(x);S.hbSel=x.id;saveHB();break}
+   case 'hbOverride':case 'hbClone':{const b=(S.hbType==='criaturas'?(S.cri||[]):D[S.hbType]).find(x=>x.id===ds.id);if(!b)return;const {fonte,...x}=clone(b);x.pacote=pacotesHB()[0]||'Minha mesa';if(a==='hbClone'){x.id='hb_'+uid();x.nome=b.nome+' (variante)'}S.hb[S.hbType].push(x);S.hbSel=x.id;saveHB();break}
    case 'hbDel':S.confirm='hbDel';break;
-   case 'hbDelOk':{const id=S.hbSel;S.hb[S.hbType]=S.hb[S.hbType].filter(x=>x.id!==id);S.hbSel=(D[S.hbType]||[]).some(b=>b.id===id)?id:null;S.confirm=null;saveHB();break}
+   case 'hbDelOk':{const id=S.hbSel;S.hb[S.hbType]=S.hb[S.hbType].filter(x=>x.id!==id);S.hbSel=(S.hbType==='criaturas'?(S.cri||[]):(D[S.hbType]||[])).some(b=>b.id===id)?id:null;S.confirm=null;saveHB();break}
    case 'hbModAdd':{const x=hbCur();(x.mods=x.mods||[]).push({alvo:'defesa',valor:1});saveHB();break}
    case 'hbHabAdd':{const x=hbCur();(x.habilidades=x.habilidades||[]).push({nex:10,nome:'',desc:''});saveHB();break}
    case 'hbHabDel':hbCur().habilidades.splice(+ds.i,1);saveHB();break;
@@ -412,7 +412,7 @@ function refresh(){
   try{const res=await fetch('data/dados.json');if(!res.ok)throw new Error(res.status);D=await res.json()}
   catch(e){app.innerHTML='<div class="empty">Não foi possível carregar o conteúdo dos livros. Recarregue a página.</div>';return}
   const saved=Store.loadLocal();
-  if(saved){for(const k in saved.fichas||{})S.fichas[k]=migrar(saved.fichas[k]);S.hb={...emptyHB(),...(saved.hb||{})};S.mapas=Array.isArray(saved.mapas)?saved.mapas:[];
+  if(saved){for(const k in saved.fichas||{})S.fichas[k]=migrar(saved.fichas[k]);S.hb={...emptyHB(),...(saved.hb||{})};S.mapas=Array.isArray(saved.mapas)?saved.mapas:[];S.escFichas=saved.escFichas&&typeof saved.escFichas==='object'?saved.escFichas:{};
     if(saved.cfg)S.cfg={...cfgPadrao(),...saved.cfg,auto:{...cfgPadrao().auto,...(saved.cfg.auto||{})}};S.active=saved.active}
   if(!Object.keys(S.fichas).length){const e=exemplo();S.fichas[e.id]=e;S.active=e.id}
   if(!S.fichas[S.active])S.active=Object.keys(S.fichas)[0];

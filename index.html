@@ -333,6 +333,31 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .riso{position:fixed;z-index:9999;pointer-events:none;font-family:var(--f-display);font-weight:700;color:var(--accent);text-shadow:0 0 8px var(--accent),0 0 2px #fff;white-space:nowrap;transform:translate(-50%,-50%);animation:riso 2.4s ease-out forwards;opacity:0}
 @keyframes riso{0%{opacity:0;transform:translate(-50%,-50%) scale(.6) rotate(0)}12%{opacity:1;transform:translate(-50%,-80%) scale(1.1) rotate(var(--rot))}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),-420%) scale(1) rotate(calc(var(--rot) * -1));filter:blur(3px)}}
 @media (prefers-reduced-motion: reduce){.riso{animation:riso-fade 2s forwards!important}@keyframes riso-fade{0%,30%{opacity:1}100%{opacity:0}}}
+.cri-ed{display:grid;gap:8px}
+.cri-ed .eyebrow{margin:8px 0 0}
+.grid.g5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.cri-ed-acoes{display:grid;gap:8px}
+.cri-ed-acao{border:1px solid var(--line);border-radius:var(--r);padding:8px;display:grid;gap:6px;background:var(--sunk)}
+.cri-ed-acao .inp.sm{width:auto}
+.ef-item .ef-corpo{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
+.ef-topo{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 8px;align-items:start}
+.ef-seta{border:1px solid var(--line);background:var(--sunk);border-radius:4px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1;color:var(--ink)}
+.ef-seta:hover{border-color:var(--accent)}
+.ef-tit{min-width:0}.ef-tit .meta{margin-top:2px}
+.ef-acoes{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ef-acoes .inp.sm{width:auto;max-width:140px}
+.ef-desc{margin:0;white-space:pre-wrap}
+.ef-dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 10px;font-size:13px}
+.ef-dl dt{font-weight:600;color:var(--accent)}.ef-dl dd{margin:0;white-space:pre-wrap}
+.ef-grupo>.sec-h{align-items:center;gap:8px}
+.ef-gnotas{display:grid;gap:8px;padding:10px 12px;margin:0 0 10px;border-left:3px solid var(--accent);background:var(--sunk);border-radius:0 var(--r) var(--r) 0}
+.ef-addhb{padding:8px 10px;border:1px dashed var(--line);border-radius:var(--r);margin:6px 0}
+.ef-addhb .inp.sm{width:auto}
+@media (max-width:520px){.ef-dl{grid-template-columns:minmax(0,1fr)}}
+.ef-info{display:grid;gap:4px;border-left:2px solid var(--accent);padding-left:8px}
+.ef-infos{display:grid;gap:8px}
+.ef-stats summary{cursor:pointer;color:var(--muted);font-size:13px}
+@media (max-width:640px){.grid.g5{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .cri-list{display:grid;gap:8px}
 .ini-extra{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .ini-extra:empty{display:none}
@@ -399,4 +424,5 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 <script src="js/combate.js" charset="utf-8"></script>
 <script src="js/mapas.js" charset="utf-8"></script>
 <script src="js/afinidade.js" charset="utf-8"></script>
+<script src="js/criaturas.js" charset="utf-8"></script>
 <script src="js/eventos.js" charset="utf-8"></script>
