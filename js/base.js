@@ -83,7 +83,7 @@ function cfgFicha(f){if(!f)return S.cfg;
 function cfgAlvo(a){a=a||'g';if(a.startsWith('f:')){const f=S.fichas[a.slice(2)];return f&&f.regrasModo==='propria'&&f.regrasCfg?f.regrasCfg:S.cfg}
   if(a.startsWith('m:'))return (S.cfg.mesasCfg||{})[a.slice(2)]||S.cfg;return S.cfg}
 function cfgR(){return S._cfgCtx||(S.view==='mesa'?cfgAlvo(S.mesaAlvo):S.view==='escudo'&&S.mesaAberta?((S.cfg.mesasCfg||{})[S.mesaAberta]||S.cfg):cfgFicha(F()))}
-function fonteOn(id){return id==='core'||!!cfgR().fontes[id]}
+function fonteOn(id){if(id==='core')return true;const F=D&&D.fontes.find(x=>x.id===id);if(F&&F.viaRegra)return !!cfgR().regras[F.viaRegra];return !!cfgR().fontes[id]}
 function pacoteOn(p){const c=cfgR();return (c.pacotes||S.cfg.pacotes)[p||'Minha mesa']!==false}
 function regraDisp(id){const r=D&&D.regras.find(x=>x.id===id);return !!r&&fonteOn(r.fonte)}
 function regraOn(id){return !!cfgR().regras[id]&&regraDisp(id)}

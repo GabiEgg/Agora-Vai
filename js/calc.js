@@ -22,7 +22,7 @@ function catItem(it,r){const ms=modsDoItem(it);let c=+it.cat||0;let mald=0;ms.fo
   if(r){if(r.catRedGeral&&TIPOS_GERAIS.includes(it.tipo))c-=r.catRedGeral;if(it.favorita&&r.favorita)c-=r.favorita}
   return Math.max(0,c)}
 function espItem(it){const ms=modsDoItem(it);return Math.max(0,(+it.esp||0)+ms.reduce((s,m)=>s+((m.efeitos||{}).esp||0),0))}
-function aplicaMod(m,it){const a=m.aplica;if(m.id==='mod_aprimorado_acessorio'&&it.ref==='it_mochila_militar'&&regraOn('mochila_aprimorada'))return true;if(a==='arma')return it.tipo==='arma';if(a==='corpo')return it.tipo==='arma'&&it.forma==='corpo';
+function aplicaMod(m,it){const a=m.aplica;if(m.id==='mod_aprimorado_acessorio'&&it.ref==='it_mochila_militar'&&regraOn('mochila_aprimorada'))return true;if(a==='arma')return it.tipo==='arma';if(a==='paranormal')return it.tipo==='paranormal';if(a==='corpo')return it.tipo==='arma'&&it.forma==='corpo';
   if(a==='fogo')return it.tipo==='arma'&&(it.forma==='fogo'||it.forma==='disparo');if(a==='granada')return it.tipo==='explosivo';if(a==='lancachamas')return it.ref==='it_lanca_chamas'||/lança-chamas/i.test(it.nome||'');return it.tipo===a}
 
 function condicoesAtivas(f,r){
@@ -298,6 +298,7 @@ function calc0(f){
   if(temPod('ger_corpo_fechado'))r.bloqueioOpc.push('Corpo Fechado: pode bloquear uma segunda vez na mesma rodada');
   if(habN('Revidar'))r.bloqueioOpc.push(`Revidar: depois de bloquear, reação e 2 ${r.det?'PD':'PE'} para atacar o agressor corpo a corpo`);
   inv.filter(i=>eq(i)&&i.bloqueioSacrificio).forEach(i=>r.bloqueioOpc.push(`${i.nome}: 2 ${r.det?'PD':'PE'} e sacrificar o item para +${i.bloqueioSacrificio} de RD${r.bloqueio!=null?` (RD ${r.bloqueio+i.bloqueioSacrificio})`:''}`));
+  ['bloqueio','esquiva'].forEach(k=>f.poderes.forEach(p=>{const d=byId('poderes',p.ref);if(d&&d[k+'Opc'])r[k+'Opc'].push(d.nome+': '+d[k+'Opc'])}));
   inv.filter(i=>eq(i)&&(i.modsAplicadas||[]).includes('mald_repulsora_arma')).forEach(i=>r.bloqueioOpc.push(`Repulsora (${i.nome}): ao bloquear, 2 ${r.det?'PD':'PE'} para +5 adicional`));
   const semReacao=['inconsciente','paralisado','atordoado','surpreendido','pasmo'].filter(c=>r.conds&&r.conds.has(c));
   r.semReacao=semReacao.map(c=>(byId('condicoes',c)||{nome:c}).nome);

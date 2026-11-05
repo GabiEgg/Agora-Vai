@@ -13,7 +13,7 @@ function restaurarCampos(g){Object.entries(g.v).forEach(([id,val])=>{const el=do
 function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender()}
 function renderTela(){
   const navs=[['ficha','Fichas'],...(S.conta&&S.conta.usuario?[['campanha','Campanha']]:[]),...(souMestre()?[['escudo','Escudo do Mestre']]:[]),['mesa','Mesa'],['hb','Homebrew'],['guia','Guia']];
-  document.getElementById('nav').innerHTML=navs.map(([k,l])=>`<button class="btn" aria-pressed="${S.view===k}" data-act="view" data-v="${k}">${l}${k==='hb'&&hbCount()?` <span class="badge hb">${hbCount()}</span>`:''}${k==='mesa'?` <span class="badge">${D.fontes.filter(x=>fonteOn(x.id)).length+pacotesHB().filter(pacoteOn).length}</span>`:''}</button>`).join('')+(S.conta?(S.conta.usuario?`<button class="btn" data-act="contaMenu" title="Conta no servidor">${h(S.conta.usuario)}</button>`:`<button class="btn acc" data-act="contaMenu">Entrar</button>`):'');
+  document.getElementById('nav').innerHTML=navs.map(([k,l])=>`<button class="btn" aria-pressed="${S.view===k}" data-act="view" data-v="${k}">${l}${k==='hb'&&hbCount()?` <span class="badge hb">${hbCount()}</span>`:''}${k==='mesa'?` <span class="badge">${D.fontes.filter(x=>!x.viaRegra&&fonteOn(x.id)).length+pacotesHB().filter(pacoteOn).length}</span>`:''}</button>`).join('')+(S.conta?(S.conta.usuario?`<button class="btn" data-act="contaMenu" title="Conta no servidor">${h(S.conta.usuario)}</button>`:`<button class="btn acc" data-act="contaMenu">Entrar</button>`):'');
   const app=document.getElementById('app');
   app.innerHTML=S.view==='hb'?renderHB():S.view==='mesa'?renderMesa():S.view==='guia'?renderGuia():S.view==='campanha'?renderCampanha():S.view==='escudo'?renderEscudo():renderFichas();
   if(S.view==='ficha'&&S.tab==='dossie')drawStar();
@@ -208,8 +208,21 @@ function paneHab(f,r){
      return `<div class="sec-h" style="margin-top:10px"><h2>De outras trilhas</h2></div><div class="cards">${extras.map(e=>card(e.x.nome,e.x.desc,`<div class="meta">${h(e.via)} · trilha ${h(e.t.nome)} · NEX ${e.x.nex}%${(e.x.mods||[]).length?' · '+e.x.mods.map(m=>sgn(+m.valor)+' '+alvoNome(m.alvo)).join(', '):''}</div>`,!!e.bloq,`<span class="badge acc">${h(e.via)}</span>`,e.bloq?`<p class="warnline">Vale a partir de NEX ${e.x.nex}%.</p>`:extraHab(e.t,e.x))).join('')}</div>`})()}</div>
   <div class="sec"><div class="sec-h"><h2>Poderes</h2><span class="chip ${r.poderes.usado>r.poderes.max?'over':''}">Poderes ${r.poderes.usado}/${r.poderes.max}</span>
     <div class="row"><button class="btn acc sm" data-act="pick" data-type="poderes">+ Poder</button><button class="btn sm" data-act="pick" data-type="transcender" title="Recebe um poder paranormal e perde a Sanidade deste NEX">+ Transcender</button></div></div>
-   ${f.poderes.length?`<div class="cards">${f.poderes.map(p=>poderCard(p,f,r)).join('')}</div>`
+   ${f.poderes.length?podGrupos(f,r)
      :'<div class="empty">Nenhum poder ainda. Poderes chegam em NEX 15%, 30%, 45%, 60%, 75% e 90%. Para um poder paranormal, use “Transcender”: a perda de Sanidade (ou de PD) é aplicada sozinha.</div>'}</div>`;
+}
+/* Poderes da ficha agrupados por tipo (classe, gerais, paranormais por elemento), com filtro (S.filtroPod). */
+function podGrupos(f,r){
+  const it=f.poderes.map(p=>{const d=byId('poderes',p.ref)||{};const t=d.tipo||'';const k=t==='paranormal'?'p:'+(d.elemento||''):t==='geral'?'geral':t?'classe':'outros';return {p,k,el:d.elemento||''}});
+  const ord=k=>k==='classe'?0:k==='geral'?1:k.startsWith('p:')?2+ordEl(k.slice(2)):20;
+  const nome=k=>k==='classe'?'Poderes de classe':k==='geral'?'Poderes gerais':k.startsWith('p:')?'Paranormais · '+(k.slice(2)?ELEM[k.slice(2)]:'Qualquer elemento'):'Outros';
+  const ks=[...new Set(it.map(x=>x.k))].sort((a,b)=>ord(a)-ord(b));
+  const fil=k=>k==='classe'||k==='geral'?k:k.startsWith('p:')?'par':'outros';
+  const tipos=[...new Set(ks.map(fil))];let cur=S.filtroPod||'';if(cur&&!tipos.includes(cur)&&!ks.includes(cur))cur='';
+  const els=ks.filter(k=>k.startsWith('p:'));
+  const chips=ks.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar poderes"><button class="btn sm" aria-pressed="${!cur}" data-act="filtroPod" data-v="">Todos</button>${tipos.includes('classe')?`<button class="btn sm" aria-pressed="${cur==='classe'}" data-act="filtroPod" data-v="classe">De classe</button>`:''}${tipos.includes('geral')?`<button class="btn sm" aria-pressed="${cur==='geral'}" data-act="filtroPod" data-v="geral">Gerais</button>`:''}${tipos.includes('par')?`<button class="btn sm" aria-pressed="${cur==='par'}" data-act="filtroPod" data-v="par">Paranormais</button>`:''}${els.length>1?els.map(k=>`<button class="btn sm el el-${k.slice(2)||'x'}" aria-pressed="${cur===k}" data-act="filtroPod" data-v="${k}">${k.slice(2)?ELEM[k.slice(2)]:'Qualquer'}</button>`).join(''):''}</div>`:'';
+  const vis=ks.filter(k=>!cur||k===cur||fil(k)===cur);
+  return chips+vis.map(k=>{const l=it.filter(x=>x.k===k);return `${ks.length>1?`<div class="grp-h"><h3>${h(nome(k))}</h3><span class="hint">${l.length} poder${l.length>1?'es':''}</span></div>`:''}<div class="cards">${l.map(x=>poderCard(x.p,f,r)).join('')}</div>`}).join('');
 }
 function tipoPoderNome(t){if(t==='geral')return 'Poder geral';if(t==='paranormal')return 'Poder paranormal';const c=byId('classes',t);return c?'Poder de '+c.nome:t}
 function poderCard(p,f,r){
@@ -457,7 +470,7 @@ function renderMesa(){
   if(t==='fontes'){
     const pk=pacotesHB();
     body=`<p class="hint">Ligue os livros e suplementos usados na sua mesa. Origens, classes, trilhas, poderes, rituais, itens, aliados e regras de cada um só aparecem quando ele está ligado. Vale para todas as fichas.</p>
-     <div class="toggles">${D.fontes.map(x=>tgl(`fonte-${x.id}`,x.nome,x.desc,fonteOn(x.id),x.fixa?'disabled':`${trava}data-act="tglFonte" data-id="${x.id}"`,x.sigla,contaFonte(x.id))).join('')}</div>
+     <div class="toggles">${D.fontes.filter(x=>!x.viaRegra).map(x=>tgl(`fonte-${x.id}`,x.nome,x.desc,fonteOn(x.id),x.fixa?'disabled':`${trava}data-act="tglFonte" data-id="${x.id}"`,x.sigla,contaFonte(x.id))).join('')}</div>
      <div class="sec-h" style="margin-top:8px"><h2>Pacotes de homebrew</h2></div>
      ${pk.length?`<div class="toggles">${pk.map(p=>tgl('pk-'+slug(p),p,'Conteúdo criado na aba Homebrew.',pacoteOn(p),`data-act="tglPacote" data-id="${h(p)}"`,'★',HB_TYPES.reduce((s,[k])=>s+(S.hb[k]||[]).filter(x=>(x.pacote||'Minha mesa')===p).length,0))).join('')}</div>`:'<p class="hint">Você ainda não criou homebrew. Na aba Homebrew, cada criação pertence a um pacote com nome; os pacotes aparecem aqui para ligar e desligar.</p>'}`;
   }else if(t==='regras'){

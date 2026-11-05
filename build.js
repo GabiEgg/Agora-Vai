@@ -12,6 +12,7 @@ const FONTES=[
  {id:'as06',sigla:'AS#06',nome:'Arquivos Secretos #06 — Indústrias Panacea',desc:'Origens Panacea, medicamentos, doenças, venenos, evolução modular.',arquivos:['as06','cri_as06']},
  {id:'as07',sigla:'AS#07',nome:'Arquivos Secretos #07 — Ritos Fúnebres',desc:'Origens, Vampirismo, Monstruoso para especialista e ocultista, regras debaixo d’água.',arquivos:['as07','cri_as07']},
  {id:'as09',sigla:'AS#09',nome:'Arquivos Secretos #09 — Hell Hunters',desc:'Origens, Incursor, Piloto de Drone, armamento e regras de perigo.',arquivos:['as09','cri_as09']},
+ {id:'casa',sigla:'Casa',nome:'Homebrew da mesa',desc:'Conteúdo criado pelo grupo. Liga e desliga pela regra opcional “Conteúdo homebrew da mesa”.',viaRegra:'conteudo_homebrew',arquivos:['casa']},
  {id:'mp',sigla:'MP',nome:'Marcadores de página',desc:'Origens, itens amaldiçoados, a modificação Cano Dispersante, o ritual Barganha Insana e criaturas dos marcadores de página.',arquivos:['mp','cri_mp']},
 ];
 const PERICIAS=[
