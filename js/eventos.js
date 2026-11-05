@@ -193,7 +193,7 @@ document.addEventListener('click',e=>{
    case 'fimMissao':fimDeMissao(f);toast('Fim de missão: bônus de missão (Ler, Exercitar…) encerrados.');break;
    case 'zeraPerm':f.sanPerm=0;saveF();break;
    case 'escolha':f.escolhas[+ds.i]=f.escolhas[+ds.i]===ds.id?null:ds.id;saveF();break;
-   case 'rollPer':{const r=calc(f);const p=pericias().find(x=>x.id===ds.id);const x=r.per[p.id];const roll=rollTest(`${f.nome}: ${p.nome}${x.bloq?' (exige treino)':''}`,x.dados,x.bonus,{attr:x.attr});
+   case 'rollPer':{const r=calc(f);const p=pericias().find(x=>x.id===ds.id);const x=r.per[p.id];const roll=rollTest(`${f.nome}: ${p.nome}${x.bloq?' (exige treino)':''}`,x.dados,x.bonus,{attr:x.attr,per:p.id});
      if(r.perito&&(f.perito||[]).includes(p.id)){const k=f.nex>=85?3:f.nex>=55?2:f.nex>=25?1:0;roll.acts.unshift({l:`Perito +1d${[6,8,10,12][k]} (${2+k} ${r.det?'PD':'PE'})`,a:'perito',dado:'1d'+[6,8,10,12][k],pe:2+k});renderRolls()}
      return}
    case 'atk':{const it=f.inventario[+ds.i];const r=calc(f);const ai=armaInfo(it,r,f);
@@ -205,6 +205,7 @@ document.addEventListener('click',e=>{
      const iD=roll.acts.findIndex(x=>x.a==='dmgFrom');roll.acts.splice(iD<0?roll.acts.length:iD,0,...extra);renderRolls();return}
    case 'dmg':{const it=f.inventario[+ds.i];const r=calc(f);rollDano(`Dano: ${it.nome}${it.tipoDano?' ('+it.tipoDano+')':''}`,danoExpr(armaInfo(it,r,f),false),r.A,{tipos:tiposDe(it.tipoDano),origem:it.nome,autor:f.nome});return}
    case 'rollAct':{const roll=S.rolls[0];const ac=roll&&roll.acts[+ds.k];if(!ac)return;
+     if(ac.a==='bonusTeste'){if(ac.pe&&gastarPE(f,ac.pe,ac.nome)===false)return;roll.v+=ac.v;roll.d+=` + ${ac.v} ${ac.nome}`;roll.acts=roll.acts.filter(z=>z.a!=='bonusTeste'||z.nome!==ac.nome);saveF();renderRolls();return}
      if(ac.a==='danoAlvo'){roll.acts.splice(+ds.k,1);renderRolls();enviarDano(ac).then(()=>{if(S.view==='escudo')atualizarIni();else{S._iniJogKey=null;atualizarIniJogador()}}).catch(err=>{toast(err.message);roll.acts.splice(+ds.k,0,ac);renderRolls()});return}
      if(ac.a==='useBonus'){const b=(f.bonus||[]).find(x=>x.uid===ac.id);if(!b||b.usos<1)return;const x=rollExpr(b.valor);b.usos--;roll.v+=x.total;roll.d+=` + ${b.nome} ${x.txt}`;roll.acts.splice(+ds.k,1);saveF();renderRolls();if(S.tab==='bonus'||S.tab==='interludio')render();return}
      if(ac.a==='precoMald'){perderSan(f,2*ac.n);roll.acts.splice(+ds.k,1);saveF();toast(`Preço da maldição: −${2*ac.n} ${calc(f).det?'PD':'SAN'}.`);break}

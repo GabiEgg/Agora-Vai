@@ -1,5 +1,5 @@
 /* ============================== HOMEBREW ============================== */
-const MOD_APLICA={arma:'Qualquer arma',corpo:'Arma corpo a corpo',fogo:'Arma de fogo ou disparo',municao:'Munição',protecao:'Proteção',acessorio:'Acessório',granada:'Granada',medicamento:'Medicamento'};
+const MOD_APLICA={arma:'Qualquer arma',corpo:'Arma corpo a corpo',fogo:'Arma de fogo ou disparo',municao:'Munição',protecao:'Proteção',acessorio:'Acessório',granada:'Granada',lancachamas:'Lança-chamas',medicamento:'Medicamento'};
 const HB_SCHEMA={
  origens:[['nome','Nome'],['pericias','Perícias treinadas','perlist'],['poderNome','Nome do poder'],['poderDesc','Descrição do poder','area'],['mods','Modificadores','mods']],
  classes:[['nome','Nome'],['desc','Descrição','area'],['pvBase','PV iniciais (+VIG)','num'],['pvNex','PV por NEX (+VIG)','num'],['peBase','PE iniciais (+PRE)','num'],['peNex','PE por NEX (+PRE)','num'],

@@ -12,6 +12,7 @@ const FONTES=[
  {id:'as06',sigla:'AS#06',nome:'Arquivos Secretos #06 — Indústrias Panacea',desc:'Origens Panacea, medicamentos, doenças, venenos, evolução modular.',arquivos:['as06','cri_as06']},
  {id:'as07',sigla:'AS#07',nome:'Arquivos Secretos #07 — Ritos Fúnebres',desc:'Origens, Vampirismo, Monstruoso para especialista e ocultista, regras debaixo d’água.',arquivos:['as07','cri_as07']},
  {id:'as09',sigla:'AS#09',nome:'Arquivos Secretos #09 — Hell Hunters',desc:'Origens, Incursor, Piloto de Drone, armamento e regras de perigo.',arquivos:['as09','cri_as09']},
+ {id:'mp',sigla:'MP',nome:'Marcadores de página',desc:'Origens, itens amaldiçoados, a modificação Cano Dispersante, o ritual Barganha Insana e criaturas dos marcadores de página.',arquivos:['mp','cri_mp']},
 ];
 const PERICIAS=[
  ['acrobacia','Acrobacia','AGI',0,1],['adestramento','Adestramento','PRE',1,0],['artes','Artes','PRE',1,0],['atletismo','Atletismo','FOR',0,0],
@@ -55,6 +56,8 @@ const AJUSTES={
  monstruoso_especialista:[{peAttrElem:PE_EL},{},{attrBonus:{PRE:-1},attrElem:UM},{attrBonus:{PRE:-1},attrElem:UM}],
  monstruoso_ocultista:[{peAttrElem:PE_EL,dtAttrElem:PE_EL,attrElem:UM},{},{attrBonus:{PRE:-1}},{attrBonus:{PRE:-1},attrElem:UM}],
 };
+/* Bloqueio e esquiva: atributo somado à RD do bloqueio e bônus de itens. */
+{const tr=t=>out.trilhas.find(x=>x.id===t);const cg=tr('tropa');if(cg)cg.habilidades[0].bloqueioAttr='VIG';const mo=tr('monstruoso');if(mo)mo.habilidades[0].bloqueioAttrElem={energia:'AGI'};}
 out.trilhas.forEach(t=>{const aj=AJUSTES[t.id];if(!aj)return;t.elementoEscolha=true;t.habilidades.forEach((h,i)=>Object.assign(h,aj[i]||{}))});
 // Efeitos automáticos de habilidades de trilha, classe e poderes (lidos por js/calc.js).
 // Cada chave é um "efeito" que o cálculo entende; o texto da habilidade continua o mesmo.
@@ -122,6 +125,8 @@ const ITEM={
  it_aplicador_de_adrenalina:{efUso:{testesAttr:{FOR:2,AGI:2,VIG:2},deslocamento:3}},
 };
 out.itens.forEach(i=>{if(ITEM[i.id])Object.assign(i,ITEM[i.id])});
+{const it=id=>out.itens.find(x=>x.id===id);const bc=it('it_bracadeira_reforcada');if(bc)bc.mods=[{alvo:'bloqueio',valor:2}];const bp=it('it_bastao_policial');if(bp)bp.mods=[{alvo:'esquiva',valor:1}];
+ const fc=it('it_faca_tatica');if(fc)fc.bloqueioSacrificio=20;const mt=it('it_machado_tatico');if(mt)mt.bloqueioSacrificio=20;}
 // Rituais: efeitos extras na aba Bônus, lembretes do conjurador e uso como reação (lidos por js/calc.js e js/eventos.js).
 // ef/efD/efV: chaves extras somadas ao efeito em você (nota, imune, pericias, cont, dadosRit, dt).
 // lembrete/lembreteD/lembreteV: vai para a aba Bônus mesmo quando o alvo é outro (ações por turno, áreas).

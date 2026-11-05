@@ -23,7 +23,7 @@ function catItem(it,r){const ms=modsDoItem(it);let c=+it.cat||0;let mald=0;ms.fo
   return Math.max(0,c)}
 function espItem(it){const ms=modsDoItem(it);return Math.max(0,(+it.esp||0)+ms.reduce((s,m)=>s+((m.efeitos||{}).esp||0),0))}
 function aplicaMod(m,it){const a=m.aplica;if(m.id==='mod_aprimorado_acessorio'&&it.ref==='it_mochila_militar'&&regraOn('mochila_aprimorada'))return true;if(a==='arma')return it.tipo==='arma';if(a==='corpo')return it.tipo==='arma'&&it.forma==='corpo';
-  if(a==='fogo')return it.tipo==='arma'&&(it.forma==='fogo'||it.forma==='disparo');if(a==='granada')return it.tipo==='explosivo';return it.tipo===a}
+  if(a==='fogo')return it.tipo==='arma'&&(it.forma==='fogo'||it.forma==='disparo');if(a==='granada')return it.tipo==='explosivo';if(a==='lancachamas')return it.ref==='it_lanca_chamas'||/lança-chamas/i.test(it.nome||'');return it.tipo===a}
 
 function condicoesAtivas(f,r){
   const imune=r.imuneCond||new Set();const set=new Map();const add=(id,orig)=>{if(set.has(id)||imune.has(id))return;const c=byId('condicoes',id);if(!c)return;set.set(id,{c,orig});(c.inclui||[]).forEach(x=>add(x,c.nome))};
@@ -144,7 +144,8 @@ function calc0(f){
   r.dtElem={};flags.forEach(x=>{if(x.dtElem&&x.escolha)r.dtElem[x.escolha]=(r.dtElem[x.escolha]||0)+x.dtElem});
   r.ritDanoAttrs=flags.filter(x=>x.ritDanoAttr).map(x=>x.ritDanoAttr);
   r.imuneCond=new Set([...flags.flatMap(x=>x.imuneCond||[]),...imuneEf]);
-  r.ritConcedidos=[...new Set(flags.flatMap(x=>x.ritConcedido||[]))];
+  r.bonusTeste=flags.filter(x=>x.bonusTeste).map(x=>x.bonusTeste);
+  r.ritConcedidos=[...new Set(flags.flatMap(x=>x.ritConcedido||[]).concat(f.inventario.filter(i=>i.equipado&&i.ritConcedido).flatMap(i=>i.ritConcedido)))];
   r.ataqueOcultismo=flags.some(x=>x.ataqueOcultismo);r.gladiador=maxF('gladiador');r.critMaxFogo=flags.some(x=>x.critMaxFogo);
   r.furtivo=flags.some(x=>x.furtivo);r.ataqueEspecial=flags.some(x=>x.ataqueEspecial);r.perito=flags.some(x=>x.perito);
   r.catRedGeral=maxF('catRedGeral');r.castExtra=flags.flatMap(x=>x.castExtra||[]);
@@ -279,6 +280,27 @@ function calc0(f){
     modsDoItem(it).forEach(mm=>{if(mm.maldicao&&mm.elemento)els.push(mm.elemento)});
     els.forEach(e=>(D.extras.precoMaldicao[e]||[]).forEach(a=>{(pm[a]=pm[a]||[]).push(it.nome)}))});
   r.precoMaldicao=pm;
+  /* Reações defensivas (livro, cap. 4): Esquiva (treinado em Reflexos) soma o bônus de Reflexos à Defesa;
+     Bloqueio (treinado em Fortitude) dá RD igual ao bônus de Fortitude contra um ataque corpo a corpo. */
+  const rx=r.per.reflexos||{},fo=r.per.fortitude||{};
+  const attrBlq=flags.filter(x=>x.bloqueioAttr||(x.bloqueioAttrElem&&f.trilhaElemento&&x.bloqueioAttrElem[f.trilhaElemento])).map(x=>x.bloqueioAttr||x.bloqueioAttrElem[f.trilhaElemento]);
+  r.esquiva=rx.grau?r.defesa+rx.bonus+m('esquiva'):null;
+  r.bloqueio=fo.grau?Math.max(0,fo.bonus)+m('bloqueio')+attrBlq.reduce((s,a)=>s+Math.max(0,A[a]||0),0):null;
+  /* O que entra na conta e o que depende de escolha/situação (mostrado no Dossiê). */
+  const temPod=id=>pods.find(x=>x.d.id===id&&!x.afinCopia);const habN=n=>habs.some(hh=>hh.nome===n);const eq=i=>i.equipado;
+  r.esquivaFontes=[];r.bloqueioFontes=[];r.esquivaOpc=[];r.bloqueioOpc=[];
+  mods.filter(x=>x.alvo==='esquiva').forEach(x=>r.esquivaFontes.push(`${sgn(x.valor)} ${x.fonte}${/Bastão policial/.test(x.fonte)?' (esquivando com ele)':''}`));mods.filter(x=>x.alvo==='bloqueio').forEach(x=>r.bloqueioFontes.push(`${sgn(x.valor)} ${x.fonte}`));
+  attrBlq.forEach(a=>r.bloqueioFontes.push(`+${Math.max(0,A[a]||0)} ${a} (${a==='VIG'?'Casca Grossa':'Ser Amaldiçoado: Energia'})`));
+  const cp=temPod('par_campo_protetor');if(cp&&r.esquiva!=null)r.esquivaOpc.push(`Campo Protetor: 1 ${r.det?'PD':'PE'} para +5 (Esquiva ${r.esquiva+5})${r.afinPod.has(cp.p.uid)?', +5 em Reflexos e Reflexos que reduziria à metade anula o dano':''}`);
+  if(temPod('ger_esquiva_tatica'))r.esquivaOpc.push('Esquiva Tática: pode esquivar uma segunda vez na mesma rodada');
+  if(inv.some(i=>eq(i)&&i.ref==='it_faixas_da_videncia_marcador'))r.esquivaOpc.push('Faixas da Vidência: o +10 só vale contra ataques de dentro do alcance médio');
+  if((f.desvantagens||[]).includes('gota')&&regraOn('idade'))r.esquivaOpc.push('Gota: cada esquiva causa 1d6 de dano a você');
+  if(temPod('ger_corpo_fechado'))r.bloqueioOpc.push('Corpo Fechado: pode bloquear uma segunda vez na mesma rodada');
+  if(habN('Revidar'))r.bloqueioOpc.push(`Revidar: depois de bloquear, reação e 2 ${r.det?'PD':'PE'} para atacar o agressor corpo a corpo`);
+  inv.filter(i=>eq(i)&&i.bloqueioSacrificio).forEach(i=>r.bloqueioOpc.push(`${i.nome}: 2 ${r.det?'PD':'PE'} e sacrificar o item para +${i.bloqueioSacrificio} de RD${r.bloqueio!=null?` (RD ${r.bloqueio+i.bloqueioSacrificio})`:''}`));
+  inv.filter(i=>eq(i)&&(i.modsAplicadas||[]).includes('mald_repulsora_arma')).forEach(i=>r.bloqueioOpc.push(`Repulsora (${i.nome}): ao bloquear, 2 ${r.det?'PD':'PE'} para +5 adicional`));
+  const semReacao=['inconsciente','paralisado','atordoado','surpreendido','pasmo'].filter(c=>r.conds&&r.conds.has(c));
+  r.semReacao=semReacao.map(c=>(byId('condicoes',c)||{nome:c}).nome);
   return r;
 }
 /* Bônus de rituais numa perícia: "+X em todos os testes" e "+X nesta perícia" de rituais diferentes não somam. */
@@ -344,6 +366,9 @@ function rollTest(label,dados,bonus,ctx={}){
     (f.bonus||[]).forEach(b=>{if(b.tipo==='dado'&&(+b.usos||0)>0&&(!b.attrs||b.attrs.includes(ctx.attr)||b.qualquer))roll.acts.push({l:`+${b.valor} ${b.nome} (${b.usos})`,a:'useBonus',id:b.uid})});
     if(cfgR().auto.maldicao){const r=calc(f);const its=r.precoMaldicao[ctx.attr];if(its&&its.length)roll.acts.push({l:`Falhou? Preço da maldição (−${2*its.length} SAN)`,a:'precoMald',n:its.length})}
   }
+  /* bônus de origem que a pessoa escolhe somar (Saindo da Jaula, Destemido, Antes Só…) */
+  if(f&&ctx.attr&&ctx.arma==null){const rb=calc(f);(rb.bonusTeste||[]).forEach(bt=>{if(bt.attrs&&!bt.attrs.includes(ctx.attr))return;if(ctx.per&&(bt.exceto||[]).includes(ctx.per))return;
+    roll.acts.push({l:`${bt.nome}: +${bt.valor}${bt.pe?` (${bt.pe} ${rb.det?'PD':'PE'})`:''}`,a:'bonusTeste',v:bt.valor,pe:bt.pe,nome:bt.nome})})}
   if(ctx.arma!=null)roll.acts.push({l:roll.crit?'Rolar dano crítico':'Rolar dano',a:'dmgFrom',i:ctx.arma,crit:roll.crit});
   if(ctx.arma!=null&&f)roll.acts.push(...acoesAtaque({arma:ctx.arma,origem:(f.inventario[ctx.arma]||{}).nome,autor:f.nome}));
   pushRoll(roll);return roll;

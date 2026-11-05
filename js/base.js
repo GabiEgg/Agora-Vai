@@ -129,7 +129,7 @@ function migrar(f){
   n.poderes.forEach(p=>{if(!p.uid)p.uid=uid();const d=(D.poderes||[]).find(x=>x.id===p.ref);if(d&&d.tipo==='paranormal'&&p.transcender==null)p.transcender=true});
   n.inventario.forEach(i=>{if(!i.uid)i.uid=uid();if(!i.modsAplicadas)i.modsAplicadas=[];
     // itens adicionados antes de uma atualização: completa campos de regra que o catálogo ganhou depois
-    const c=i.ref&&(D.itens||[]).find(x=>x.id===i.ref);if(c)['rd','efUso','equipavel','acao','cura','bonusPericia','escolhePericia','consumivel','municao','agil','arremesso','somaFor'].forEach(k=>{if(i[k]==null&&c[k]!=null)i[k]=clone(c[k])})});
+    const c=i.ref&&(D.itens||[]).find(x=>x.id===i.ref);if(c)['rd','ritConcedido','efUso','equipavel','acao','cura','bonusPericia','escolhePericia','consumivel','municao','agil','arremesso','somaFor'].forEach(k=>{if(i[k]==null&&c[k]!=null)i[k]=clone(c[k])})});
   return n;
 }
 function exemplo(){const f=novaFicha();Object.assign(f,{nome:'Lia Moreira',conceito:'Ficha de exemplo — edite à vontade ou exclua',idade:'27',

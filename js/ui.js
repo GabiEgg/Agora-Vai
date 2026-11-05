@@ -109,13 +109,19 @@ function paneDossie(f,r){
    <div class="sec"><div class="sec-h"><h2>Números</h2></div>
     <div class="statline">
      <div class="stat"><b data-d="defesa">${r.defesa}</b><span>Defesa</span></div>
+     <div class="stat ${r.esquiva==null?'off':''}" title="${r.esquiva==null?'Precisa ser treinado em Reflexos':'Reação: Defesa + bônus de Reflexos contra um ataque'}"><b>${r.esquiva??'—'}</b><span>Esquiva</span></div>
+     <div class="stat ${r.bloqueio==null?'off':''}" title="${r.bloqueio==null?'Precisa ser treinado em Fortitude':'Reação: RD igual ao bônus de Fortitude contra um ataque corpo a corpo'}"><b>${r.bloqueio==null?'—':'RD '+r.bloqueio}</b><span>Bloqueio</span></div>
      <div class="stat"><b data-d="desloc">${r.desloc}m</b><span>Deslocamento</span></div>
      <div class="stat"><b data-d="peLim">${r.peLim}</b><span>${r.det?'PD':'PE'} por turno</span></div>
      <div class="stat"><b data-d="dt">${r.dt}</b><span>DT de rituais</span></div>
      <div class="stat"><b data-d="carga">${r.esp}/${r.carga}</b><span>Carga</span></div>
      <div class="stat"><b>${r.lv}</b><span>${r.est?'Estágio':'Nível'}</span></div>
     </div>
-    ${r.rd.length?`<p class="hint"><b>Resistências:</b> ${r.rd.map(h).join(' · ')}</p>`:''}
+    <div class="res-linha">${['fortitude','reflexos','vontade'].map(k=>{const x=r.per[k];return `<button class="chip res" data-act="rollPer" data-id="${k}" title="Rolar ${perNome(k)}">${perNome(k)} <b>${x.dados<1?(2-x.dados)+'d20 pior':x.dados+'d20'}${sgn(x.bonus)}</b></button>`}).join('')}</div>
+    ${r.semReacao.length?`<p class="warnline">Sem reações agora (${r.semReacao.map(h).join(', ')}): não pode esquivar nem bloquear.</p>`:''}
+    ${r.esquivaFontes.length||r.esquivaOpc.length?`<p class="hint"><b>Esquiva:</b> ${[...r.esquivaFontes.map(x=>x+' (já somado)'),...r.esquivaOpc].map(h).join(' · ')}</p>`:''}
+    ${r.bloqueioFontes.length||r.bloqueioOpc.length?`<p class="hint"><b>Bloqueio:</b> ${[...r.bloqueioFontes.map(x=>x+' (já somado)'),...r.bloqueioOpc].map(h).join(' · ')}</p>`:''}
+    <p class="hint"><b>Resistências a dano:</b> ${r.rd.length?r.rd.map(h).join(' · '):'nenhuma'}</p>
     ${r.resistPar?`<p class="hint"><b>Resistência paranormal:</b> +${r.resistPar} em testes de resistência contra efeitos paranormais.</p>`:''}
     ${r.peLimRit>r.peLim||r.peLimAcao?`<p class="hint"><b>Limite de ${r.det?'PD':'PE'} por turno:</b> ${r.peLim}${r.peLimRit>r.peLim?` · ${r.peLimRit} para conjurar rituais`:''}${r.peLimAcao?` · ${r.peLim+r.peLimAcao} em cenas de ação (Encarar a Morte)`:''}</p>`:''}
     ${r.machucadoEf.length?`<p class="hint"><b>Enquanto machucado:</b> ${r.machucadoEf.map(h).join(' · ')}</p>`:''}
@@ -132,7 +138,7 @@ function grupoFonte(list,sel){
   return Object.entries(g).map(([k,v])=>`<optgroup label="${h(k)}">${v.map(x=>opt(x.id,x.nome,sel)).join('')}</optgroup>`).join('');
 }
 function modAlvos(){return [['pv','PV'],['pvNex','PV por nível'],['pe','PE / PD'],['peNex','PE por nível'],['san','SAN'],['sanNex','SAN por nível'],
-  ['defesa','Defesa'],['deslocamento','Deslocamento (m)'],['carga','Espaços de carga'],['peLimite','Limite de PE por turno'],['dtRitual','DT de rituais'],['resist','Testes de resistência']]
+  ['defesa','Defesa'],['deslocamento','Deslocamento (m)'],['carga','Espaços de carga'],['peLimite','Limite de PE por turno'],['dtRitual','DT de rituais'],['resist','Testes de resistência'],['esquiva','Defesa ao esquivar'],['bloqueio','RD ao bloquear']]
   .concat(pericias().map(p=>['per:'+p.id,'Perícia: '+p.nome]))}
 const alvoNome=a=>(modAlvos().find(x=>x[0]===a)||[a,a==='pvBase'?'PV iniciais':a==='pvPor10'?'PV a cada 10% NEX':a==='pePor10'?'PE a cada 10% NEX':a==='carga_pen'?'Perícias de carga':a])[1];
 function modsPanel(f,r){
