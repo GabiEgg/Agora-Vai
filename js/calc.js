@@ -211,6 +211,11 @@ function calc0(f){
   r.carga=(forCarga>0?5*forCarga:2)+m('carga')+(flags.some(x=>x.cargaInt)?A.INT:0);
   r.sobrecarga=r.esp>r.carga;if(r.esp>2*r.carga)r.alertas.push('Carga acima do dobro do limite: o agente não consegue se mover.');
   const armad=inv.filter(i=>i.equipado&&i.tipo==='protecao');
+  /* Proficiências: texto da classe + poderes/habilidades com prof:[...] ('arma:simples', 'arma:tatica', 'arma:tatica:fogo', 'protecao:leve'...). */
+  r.prof=new Set();{const t=slug(c?c.proficiencias:'');if(/simples/.test(t))r.prof.add('arma:simples');if(/armas_taticas/.test(t))r.prof.add('arma:tatica');if(/armas_pesadas/.test(t))r.prof.add('arma:pesada');
+    if(/protecoes_leves/.test(t))r.prof.add('protecao:leve');if(/protecoes_pesadas/.test(t))r.prof.add('protecao:pesada');flags.forEach(x=>(x.prof||[]).forEach(k=>r.prof.add(k)))}
+  r.semProfProt=c?armad.filter(i=>!profItem(i,r)):[];
+  r.cargaPenItens=armad.filter(i=>(i.mods||[]).some(mm=>mm.alvo==='carga_pen')).map(i=>({nome:i.nome,v:(i.mods||[]).filter(mm=>mm.alvo==='carga_pen').reduce((a,mm)=>a+(+mm.valor),0)}));
   const prot=armad.reduce((s,i)=>s+(+i.defesa||0),0);
   // Defesa de equipamento × efeitos que não acumulam com equipamento: vale o maior.
   const defEquip=prot+mods.filter(x=>x.alvo==='defesa'&&x.equip).reduce((s,x)=>s+x.valor,0);
@@ -331,8 +336,14 @@ function nomeStat0(k,sub){
     ||(k==='testesAttr'?'testes de '+(ATTR_NOME[sub]||sub):k==='desloc'?'deslocamento':k==='attr'?ATTR_NOME[sub]||sub:k==='per'?perNome(sub):k==='dadosPer'?'dados em '+perNome(sub):k==='rd'?'RD '+sub:sub)}
 const valStat=(stat,v)=>typeof v==='number'?(stat.replace(/^[a-z]+\|/,'').startsWith('dadosPer')?`+${v}d20`:sgn(v)):'+'+v;
 /* Dados extras/penalidades de condições num teste. */
+/* Proficiência com um item (arma ou proteção). Sem tipo definido, ou marcado à mão na ficha, conta como proficiente. */
+function profItem(it,r){if(!it||it.profOk)return true;const p=it.proficiencia;if(!p||!r.prof)return true;
+  if(it.tipo==='protecao')return r.prof.has('protecao:'+p);
+  if(it.tipo==='arma'){if(r.prof.has('arma:'+p))return true;const forma=(it.forma==='corpo'||it.alcance==='corpo')?'corpo':(it.forma||'fogo');return r.prof.has('arma:'+p+':'+forma)}
+  return true}
 function dadosMod(r,{per,attr,atk,corpo}){
   const d=r.condEf.dados;let n=0;const pick=k=>{if(d[k])n+=d[k]};
+  if((attr==='FOR'||attr==='AGI')&&(r.semProfProt||[]).length)n-=2;
   pick('todos');if(per)pick('pericias');if(per)pick('per:'+per);if(attr)pick(attr);if(atk){pick('ataque');if(corpo)pick('ataqueCorpo')}
   return n;
 }
@@ -356,6 +367,7 @@ function armaInfo(it,r,f){
   const atk=p.bonus+(+it.atkBonus||0)+e('atk')+ritAtk+r.ef.ataqueArma+(it.atk&&!isNaN(+it.atk)?+it.atk:0);
   const usaAgi=!ocult&&it.agil&&corpo&&r.A.AGI>r.A.FOR;
   let dadosAtk=(usaAgi?p.dados-r.A.FOR+r.A.AGI:p.dados)+(String(it.atk||'').includes('d20')?(parseInt(it.atk)||0):0);
+  const semProf=!!(f&&f.classe)&&!profItem(it,r);if(semProf)dadosAtk-=2;
   let dano=String(it.dano||'');const extraDados=e('dados')+(fav?r.favoritaDado:0);
   if(extraDados&&/^\d+d\d+/.test(dano))dano=dano.replace(/^(\d+)d(\d+)/,(x,q,fc)=>(+q+extraDados)+'d'+fc);
   const somaFor=corpo||it.arremesso||it.somaFor;let fixo=e('dano')+(somaFor?(usaAgi?r.A.AGI:r.A.FOR):0);
@@ -364,7 +376,7 @@ function armaInfo(it,r,f){
   const af=r.danoAttrForma[forma];if(af){fixo+=r.A[af]||0;fontesDano.push(`+${af}`)}
   r.danoAttrMunicao.forEach(x=>{if(new RegExp(x.municao,'i').test(String(it.municao||'')+' '+String(it.desc||''))){fixo+=r.A[x.attr]||0;fontesDano.push(`+${x.attr}`)}});
   const extras=[];ms.forEach(m=>{if((m.efeitos||{}).danoExtra)extras.push(m.efeitos.danoExtra)});if(corpo)r.ef.danoArma.forEach(x=>extras.push(x));
-  return {per,ocult,atk,dados:dadosAtk,dano,fixo,extras,margem:Math.max(2,margem),mult,corpo,forma,fav};
+  return {semProf,per,ocult,atk,dados:dadosAtk,dano,fixo,extras,margem:Math.max(2,margem),mult,corpo,forma,fav};
 }
 function danoExpr(ai,crit){
   let base=ai.dano;if(crit&&/^\d+d\d+/.test(base))base=base.replace(/^(\d+)d(\d+)/,(x,q,fc)=>(+q*ai.mult)+'d'+fc);

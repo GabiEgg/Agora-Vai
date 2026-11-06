@@ -198,7 +198,7 @@ document.addEventListener('click',e=>{
      if(r.perito&&(f.perito||[]).includes(p.id)){const k=f.nex>=85?3:f.nex>=55?2:f.nex>=25?1:0;roll.acts.unshift({l:`Perito +1d${[6,8,10,12][k]} (${2+k} ${r.det?'PD':'PE'})`,a:'perito',dado:'1d'+[6,8,10,12][k],pe:2+k});renderRolls()}
      return}
    case 'atk':{const it=f.inventario[+ds.i];const r=calc(f);const ai=armaInfo(it,r,f);
-     const roll=rollTest(`Ataque: ${it.nome} (${perNome(ai.per)}) · crítico ${ai.margem}/x${ai.mult}`,ai.dados,ai.atk,{attr:r.per[ai.per].attr,margem:ai.margem,arma:+ds.i});
+     const roll=rollTest(`Ataque: ${it.nome} (${perNome(ai.per)})${ai.semProf?' · sem proficiência −2d20':''} · crítico ${ai.margem}/x${ai.mult}`,ai.dados,ai.atk,{attr:r.per[ai.per].attr,margem:ai.margem,arma:+ds.i});
      const extra=[];
      if(r.ataqueEspecial)extra.push({l:'Ataque Especial: +5 no ataque (2 PE)',a:'atkEsp',alvo:'ataque'},{l:'Ataque Especial: +5 no dano (2 PE)',a:'atkEsp',alvo:'dano'});
      if(r.furtivo&&(ai.corpo||it.alcance==='curto')){const n=Math.min(4,Math.max(1,r.nTrilha));extra.push({l:`Ataque Furtivo +${n}d6 (1 ${r.det?'PD':'PE'})`,a:'furtivo',dado:n+'d6'})}

@@ -48,6 +48,10 @@ for(const F of FONTES){
   }
  }
 }
+// Proficiências concedidas (lidas pelo cálculo para as penalidades de arma e proteção sem proficiência).
+{const P={com_armamento_pesado:['arma:pesada'],com_protecao_pesada:['protecao:pesada'],esp_balistica_avancada:['arma:tatica:fogo'],esp_ninja_urbano:['arma:tatica:corpo','arma:tatica:disparo']};
+ for(const [id,v] of Object.entries(P)){const p=out.poderes.find(x=>x.id===id);if(!p)throw new Error('prof: '+id);p.prof=v}
+ const at=out.trilhas.find(t=>t.id==='atirador');const me=at&&at.habilidades.find(h=>h.nome==='Mira de Elite');if(!me)throw new Error('prof: Mira de Elite');me.prof=['arma:tatica:fogo']}
 // Automação do homebrew da mesa (src/casa_auto.js), aplicada por id.
 {const AU=require('./src/casa_auto.js');let n=0;for(const [k,mp] of Object.entries(AU)){for(const [id,p] of Object.entries(mp)){const e=(out[k]||[]).find(x=>x.id===id);if(!e)throw new Error('casa_auto: id não encontrado '+k+':'+id);Object.assign(e,p);n++}}console.log('casa_auto',n)}
 // Regras: nenhuma fica travada como “sempre”; todas ligam e desligam na Mesa.
