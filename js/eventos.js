@@ -205,7 +205,7 @@ document.addEventListener('click',e=>{
      const iD=roll.acts.findIndex(x=>x.a==='dmgFrom');roll.acts.splice(iD<0?roll.acts.length:iD,0,...extra);renderRolls();return}
    case 'dmg':{const it=f.inventario[+ds.i];const r=calc(f);rollDano(`Dano: ${it.nome}${it.tipoDano?' ('+it.tipoDano+')':''}`,danoExpr(armaInfo(it,r,f),false),r.A,{tipos:tiposDe(it.tipoDano),origem:it.nome,autor:f.nome});return}
    case 'rollAct':{const roll=S.rolls[0];const ac=roll&&roll.acts[+ds.k];if(!ac)return;
-     if(ac.a==='bonusTeste'){if(ac.pe&&gastarPE(f,ac.pe,ac.nome)===false)return;roll.v+=ac.v;roll.d+=` + ${ac.v} ${ac.nome}`;roll.acts=roll.acts.filter(z=>z.a!=='bonusTeste'||z.nome!==ac.nome);saveF();renderRolls();return}
+     if(ac.a==='bonusTeste'){if(ac.pe&&gastarPE(f,ac.pe,ac.nome)===false)return;const bx=/d/i.test(String(ac.v))?rollExpr(ac.v,calc(f).A):{total:+ac.v,txt:String(ac.v)};roll.v+=bx.total;roll.d+=` + ${bx.txt} ${ac.nome}`;roll.acts=roll.acts.filter(z=>z.a!=='bonusTeste'||z.nome!==ac.nome);saveF();renderRolls();return}
      if(ac.a==='danoAlvo'){roll.acts.splice(+ds.k,1);renderRolls();enviarDano(ac).then(()=>{if(S.view==='escudo')atualizarIni();else{S._iniJogKey=null;atualizarIniJogador()}}).catch(err=>{toast(err.message);roll.acts.splice(+ds.k,0,ac);renderRolls()});return}
      if(ac.a==='useBonus'){const b=(f.bonus||[]).find(x=>x.uid===ac.id);if(!b||b.usos<1)return;const x=rollExpr(b.valor);b.usos--;roll.v+=x.total;roll.d+=` + ${b.nome} ${x.txt}`;roll.acts.splice(+ds.k,1);saveF();renderRolls();if(S.tab==='bonus'||S.tab==='interludio')render();return}
      if(ac.a==='precoMald'){perderSan(f,2*ac.n);roll.acts.splice(+ds.k,1);saveF();toast(`Preço da maldição: −${2*ac.n} ${calc(f).det?'PD':'SAN'}.`);break}
@@ -272,7 +272,7 @@ document.addEventListener('click',e=>{
      if(pe&&gastarPE(f,pe,ac.nome||x.nome)===false)return;saveF();
      if(cura){const v=rollExpr(cura,r.A);pushRoll({t:`${ac.nome||x.nome}: cura`,v:v.total,d:v.txt,acts:[{l:'Aplicar em mim',a:'curaEmMim',v:v.total}]})}
      break}
-   case 'perito':{const l=f.perito=f.perito||[];const i=l.indexOf(ds.id);if(i>=0)l.splice(i,1);else{if(l.length>=2){toast('Perito: escolha só duas perícias.');return}l.push(ds.id)}saveF();break}
+   case 'perito':{const l=f.perito=f.perito||[];const i=l.indexOf(ds.id);if(i>=0)l.splice(i,1);else{const pm=calc(f).peritoMax||2;if(l.length>=pm){toast(`Perito: escolha só ${pm} perícias.`);return}l.push(ds.id)}saveF();break}
    case 'rmRit':f.rituais=f.rituais.filter(x=>x!==ds.id);saveF();break;
    case 'castModal':castModal(ds.id);return;
    case 'castGo':if(conjurar(f,ds.id))closeModal();break;
@@ -361,6 +361,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;const f=F();const ds=t.dataset;
   if(t.id==='pick-all'){pickState.all=t.checked;renderPick();return}
+  if(ds.act==='soPosso'){S.soPosso=t.checked;try{localStorage.setItem('cristopher-soPosso',S.soPosso?'1':'')}catch(e){}renderPick();return}
   if(t.type==='checkbox'&&ds.act){
     switch(ds.act){
      case 'tglFonte':{const C=cfgAlvo(S.mesaAlvo);C.fontes[ds.id]=t.checked;salvarAlvoRegras();break}

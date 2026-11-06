@@ -153,7 +153,7 @@ function renderPick(){
   // filtros por círculo/elemento (rituais) e tipo (itens)
   const elsX=x=>(x.elementos||[x.elemento]).filter(Boolean);
   if(type==='rituais'){const base=list;list=list.filter(x=>(!pickState.fc||+x.circulo===+pickState.fc)&&(!pickState.fe||(pickState.fe==='_'?!elsX(x).length:elsX(x).includes(pickState.fe))));pickState._base=base}
-  if(src==='poderes'){pickState._base=list;list=list.filter(x=>(!pickState.fp||(pickState.fp==='_classe'?!['geral','paranormal'].includes(x.tipo):x.tipo===pickState.fp))&&(!pickState.fpe||(pickState.fpe==='_'?!x.elemento:x.elemento===pickState.fpe)))}
+  if(src==='poderes'){pickState._pre=new Map(list.map(x=>[x.id,preReqCheck(x,f,r)]));if(S.soPosso)list=list.filter(x=>pickState._pre.get(x.id).ok&&!(f.poderes.some(p=>p.ref===x.id)&&!x.repetivel));pickState._base=list;list=list.filter(x=>(!pickState.fp||(pickState.fp==='_classe'?!['geral','paranormal'].includes(x.tipo):x.tipo===pickState.fp))&&(!pickState.fpe||(pickState.fpe==='_'?!x.elemento:x.elemento===pickState.fpe)))}
   if(type==='itens'){pickState._base=list;list=list.filter(x=>(!pickState.ft||x.tipo===pickState.ft)&&(pickState.fk==null||pickState.fk===''||String(+x.cat||0)===pickState.fk))}
   const has=x=>(src==='poderes')?f.poderes.some(p=>p.ref===x.id)&&!x.repetivel:type==='rituais'?f.rituais.includes(x.id):type==='aliados'?(f.aliados||[]).some(a=>a.ref===x.id):false;
   const titulo={poderes:'Adicionar poder',transcender:'Transcender: poder paranormal',rituais:'Aprender ritual',itens:'Adicionar item',aliados:'Adicionar aliado',mods:'Modificação ou maldição'}[type];
@@ -176,10 +176,10 @@ function renderPick(){
      <div class="chips filtros" style="padding:0 14px"><span class="eyebrow">Categoria</span><button class="btn sm" aria-pressed="${!pickState.fk}" data-act="pickF" data-k="fk" data-v="">Todas</button>${[0,1,2,3,4].filter(k=>(pickState._base||[]).some(x=>(+x.cat||0)===k)).map(k=>`<button class="btn sm" aria-pressed="${pickState.fk===String(k)}" data-act="pickF" data-k="fk" data-v="${k}">${CAT_NOME[k]}</button>`).join('')}</div>`:'';
   let ultimo=null;
   const cab=x=>{if(!grupo)return '';const [k,l]=grupo(x);const key=k+'|'+l;if(key===ultimo)return '';ultimo=key;return `<div class="grp">${h(l)}</div>`};
-  modal(titulo,`<div class="modal-h" style="padding-top:8px"><input class="inp" id="pick-q" placeholder="Buscar…" value="${h(q)}" style="flex:1 1 200px">${filtroL?`<label class="row" style="font-size:12px;gap:4px"><input type="checkbox" id="pick-all" ${all?'checked':''}> ${filtroL}</label>`:''}</div>
+  modal(titulo,`<div class="modal-h" style="padding-top:8px"><input class="inp" id="pick-q" placeholder="Buscar…" value="${h(q)}" style="flex:1 1 200px">${filtroL?`<label class="row" style="font-size:12px;gap:4px"><input type="checkbox" id="pick-all" ${all?'checked':''}> ${filtroL}</label>`:''}${src==='poderes'?`<label class="row" style="font-size:12px;gap:4px" title="Confere atributos, perícias, NEX, poderes e rituais da ficha"><input type="checkbox" data-act="soPosso" ${S.soPosso?'checked':''}> Só os que posso pegar</label>`:''}</div>
    ${type==='transcender'?`<p class="hint" style="padding:0 14px">O poder entra marcado como Transcender: −${r.det?((D.extras.classesExtra[f.classe]||{}).pdNex||0)+' PD':(r.c?r.c.sanNex:0)+' SAN'} máximos.</p>`:''}
    ${filtros}
-   <div class="modal-b">${lim.length?lim.map(x=>cab(x)+`<button class="pick ${has(x)?'has':''}" data-act="pickAdd" data-id="${h(x.id)}"><b>${h(x.nome)} ${elBadge(x.elemento)} ${fonteBadge(x)}${has(x)?' <span class="badge">já adicionado</span>':''}</b><span class="meta">${h(sub(x))}</span>${x.desc?`<p>${h(x.desc)}</p>`:''}${x.afinidade?`<p><i>Afinidade:</i> ${h(x.afinidade)}</p>`:''}</button>`).join('')+(list.length>300?`<p class="hint">Mostrando 300 de ${list.length}. Refine a busca.</p>`:''):'<div class="empty">Nada encontrado. Verifique as fontes ligadas na aba Mesa ou crie o que falta em Homebrew.</div>'}</div>`);
+   <div class="modal-b">${lim.length?lim.map(x=>cab(x)+`<button class="pick ${has(x)?'has':''}" data-act="pickAdd" data-id="${h(x.id)}"><b>${h(x.nome)} ${elBadge(x.elemento)} ${fonteBadge(x)}${has(x)?' <span class="badge">já adicionado</span>':''}</b><span class="meta">${h(sub(x))}</span>${src==='poderes'&&pickState._pre&&pickState._pre.get(x.id)?(c=>(c.faltam.length?`<p class="warnline">Falta: ${h(c.faltam.join('; '))}</p>`:'')+(c.narrativo.length?`<p class="hint">Confira com o mestre: ${h(c.narrativo.join('; '))}</p>`:''))(pickState._pre.get(x.id)):''}${x.desc?`<p>${h(x.desc)}</p>`:''}${x.afinidade?`<p><i>Afinidade:</i> ${h(x.afinidade)}</p>`:''}</button>`).join('')+(list.length>300?`<p class="hint">Mostrando 300 de ${list.length}. Refine a busca.</p>`:''):'<div class="empty">Nada encontrado. Verifique as fontes ligadas na aba Mesa ou crie o que falta em Homebrew.</div>'}</div>`);
   const qi=document.getElementById('pick-q');qi.focus();qi.setSelectionRange(q.length,q.length);
 }
 function condModal(){
@@ -288,3 +288,49 @@ function hbUsadoPor(f){const out=emptyHB();const push=(k,id)=>{const x=(S.hb[k]|
   push('origens',f.origem);push('classes',f.classe);push('trilhas',f.trilha);f.poderes.forEach(p=>push('poderes',p.ref));f.rituais.forEach(id=>push('rituais',id));
   f.inventario.forEach(i=>{push('itens',i.ref);(i.modsAplicadas||[]).forEach(m=>push('modificacoes',m))});(f.aliados||[]).forEach(a=>push('aliados',a.ref));(f.condicoes||[]).forEach(c=>push('condicoes',c.id));
   (S.hb.pericias||[]).forEach(p=>out.pericias.push(p));return out}
+/* Pré-requisitos de poderes: lê o texto (“Agi 2, treinado em Luta ou Pontaria”, “Sangue 1”, “NEX 45%”, nome de poder…)
+   e confere com a ficha. Retorna {ok, faltam:[...], narrativo:[...]} — o que não dá para conferir (história, mestre) não bloqueia. */
+const PRE_ATTR={for:'FOR',forca:'FOR',agi:'AGI',agilidade:'AGI',int:'INT',intelecto:'INT',pre:'PRE',presenca:'PRE',vig:'VIG',vigor:'VIG'};
+function nomesDaFicha(f,r){
+  const s=new Set();const add=n=>n&&s.add(slug(n));
+  f.poderes.forEach(p=>{const d=byId('poderes',p.ref);if(d)add(d.nome)});
+  const c=byId('classes',f.classe);(c&&c.habilidades||[]).forEach(x=>{if(+x.nex<=f.nex)add(x.nome)});
+  const t=byId('trilhas',f.trilha);(t&&t.habilidades||[]).forEach(x=>{if(+x.nex<=f.nex)add(x.nome)});
+  const o=byId('origens',f.origem);if(o)add(o.poderNome);
+  return s;
+}
+function preReqCheck(x,f,r){
+  const txt=String(x.prereq||'').trim();const res={ok:true,faltam:[],narrativo:[]};if(!txt)return res;
+  const nomes=nomesDaFicha(f,r);const ritos=(f.rituais||[]).map(id=>byId('rituais',id)).filter(Boolean).concat((r.ritConcedidos||[]).map(id=>byId('rituais',id)).filter(Boolean));
+  const els=['sangue','morte','conhecimento','energia','medo'];
+  const qtdEl=e=>f.poderes.filter(p=>{const d=byId('poderes',p.ref);return d&&d.tipo==='paranormal'&&(e==='*'?!!d.elemento:d.elemento===e)}).length
+    +(regraOn('prereq_rituais')?(f.rituais||[]).map(id=>byId('rituais',id)).filter(x=>x&&(e==='*'?elsDe(x).length:elsDe(x).includes(e))).length:0);
+  const perOk=(nome,grau)=>{const p=pericias().find(q=>slug(q.nome)===slug(nome.replace(/\(.*?\)/g,'').trim()));if(!p)return null;return ((r.per[p.id]||{}).grau||0)>=grau};
+  const temNome=n=>{const k=slug(n);return nomes.has(k)||[...nomes].some(y=>y.startsWith(k+'_')||k.startsWith(y+'_'))};
+  const avalia=cl=>{ // true / false / null (não verificável)
+    const c=cl.trim().replace(/\.$/,'');const sc=slug(c);if(!c)return true;
+    let m=sc.match(/^(?:(\d)_de_)?(for|forca|agi|agilidade|int|intelecto|pre|presenca|vig|vigor)(?:_(\d))?$/);if(m&&(m[1]||m[3]))return (r.A[PRE_ATTR[m[2]]]||0)>=+(m[1]||m[3]);
+    m=sc.match(/^nex_(\d+)$/);if(m)return f.nex>=+m[1];
+    m=sc.match(/^(sangue|morte|conhecimento|energia|medo|varia)(?:_(\d))?$/);if(m)return qtdEl(m[1]==='varia'?'*':m[1])>=+(m[2]||1);
+    m=c.match(/^(treinad[oa]|veteran[oa]|expert)\s+(?:em|na|no)\s+(.+)$/i);
+    if(m){const g=/^trein/i.test(m[1])?5:/^vet/i.test(m[1])?10:15;m[2]=m[2].replace(/\(.*?\)/g,'');
+      // “Luta ou Pontaria e Sobrevivência”: E de grupos com OU dentro
+      const grupos=m[2].split(/\s+e\s+/);let incerto=false;
+      const ok=grupos.every(gr=>gr.split(/\s+ou\s+/).some(n=>{const v=perOk(n,g);if(v==null){incerto=true;return true}return v}));
+      return incerto&&ok?null:ok}
+    m=c.match(/^conjurar rituai?s?(?:\s+de\s+(\d)º\s+círculo)?(?:\s+d[eo]\s+(sangue|morte|conhecimento|energia|medo|elemento))?/i);
+    if(m){if(!ritos.length&&!r.circ)return false;if(m[1]&&(r.circ||0)<+m[1])return false;
+      if(!ritos.length&&!(+(byId('classes',f.classe)||{}).ritInicial))return false;
+      if(m[2]&&els.includes(slug(m[2])))return ritos.some(x=>x.elemento===slug(m[2]));return true}
+    // nome de poder/habilidade (aceita “Especialista em Elemento no elemento”)
+    const n=c.replace(/\s+(nesse|no|com o)\s+(elemento|ritual).*$/i,'');
+    if(temNome(n))return true;
+    if((D.poderes.some(p=>slug(p.nome)===slug(n))||D.trilhas.some(t=>(t.habilidades||[]).some(h=>slug(h.nome)===slug(n)))||D.classes.some(cl=>(cl.habilidades||[]).some(h=>slug(h.nome)===slug(n)))))return false;
+    return null};
+  // separa por vírgula; “X e NEX 50%” e “Int 2 e Pre 2” também separam
+  txt.split(/,|;/).flatMap(p=>/^\s*(treinad|veteran|expert)/i.test(p)?[p]:p.split(/\s+e\s+/)).forEach(cl=>{
+    const alts=cl.split(/\s+ou\s+/i);
+    const vs=/^\s*(treinad|veteran|expert)/i.test(cl)?[avalia(cl)]:alts.map(avalia);
+    if(vs.some(v=>v===true))return;if(vs.every(v=>v===false)){res.ok=false;res.faltam.push(cl.trim())}else res.narrativo.push(cl.trim())});
+  return res;
+}

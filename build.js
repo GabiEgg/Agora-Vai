@@ -48,6 +48,8 @@ for(const F of FONTES){
   }
  }
 }
+// Automação do homebrew da mesa (src/casa_auto.js), aplicada por id.
+{const AU=require('./src/casa_auto.js');let n=0;for(const [k,mp] of Object.entries(AU)){for(const [id,p] of Object.entries(mp)){const e=(out[k]||[]).find(x=>x.id===id);if(!e)throw new Error('casa_auto: id não encontrado '+k+':'+id);Object.assign(e,p);n++}}console.log('casa_auto',n)}
 // Regras: nenhuma fica travada como “sempre”; todas ligam e desligam na Mesa.
 out.regras.forEach(r=>{delete r.sempre});
 // Trilhas Monstruoso: o elemento escolhido troca o atributo de PE (e de DT, no ocultista) e altera atributos.

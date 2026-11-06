@@ -113,7 +113,7 @@ function paneDossie(f,r){
      <div class="stat ${r.bloqueio==null?'off':''}" title="${r.bloqueio==null?'Precisa ser treinado em Fortitude':'Reação: RD igual ao bônus de Fortitude contra um ataque corpo a corpo'}"><b>${r.bloqueio==null?'—':'RD '+r.bloqueio}</b><span>Bloqueio</span></div>
      <div class="stat"><b data-d="desloc">${r.desloc}m</b><span>Deslocamento</span></div>
      <div class="stat"><b data-d="peLim">${r.peLim}</b><span>${r.det?'PD':'PE'} por turno</span></div>
-     <div class="stat"><b data-d="dt">${r.dt}</b><span>DT de rituais</span></div>
+     <div class="stat" title="10 + limite de PE + ${r.dtAttr}${(r.dtSoma||[]).map(x=>' + '+x.attr+' ('+h(x.nome)+')').join('')}"><b data-d="dt">${r.dt}</b><span>DT de rituais${(r.dtSoma||[]).length?' (+'+r.dtSoma.map(x=>x.attr).join(', ')+')':''}</span></div>
      <div class="stat"><b data-d="carga">${r.esp}/${r.carga}</b><span>Carga</span></div>
      <div class="stat"><b>${r.lv}</b><span>${r.est?'Estágio':'Nível'}</span></div>
     </div>
@@ -269,7 +269,7 @@ function poderAfinCard(p,d,f,r){const b=f.poderes.find(x=>x.uid===p.afinDe);cons
 function paneRit(f,r){
   const rits=f.rituais.map(id=>byId('rituais',id)||{id,nome:'Ritual indisponível',_gone:true}).concat((r.ritConcedidos||[]).filter(id=>!f.rituais.includes(id)).map(id=>({...(byId('rituais',id)||{id,nome:id}),_conc:true})));
   return `<div class="sec"><div class="sec-h"><h2>Rituais</h2>
-    <span class="chip">DT ${r.dt}</span><span class="chip">Até o ${r.circ}º círculo</span>${r.rit.max?`<span class="chip ${r.rit.usado>r.rit.max?'over':''}">Conhecidos ${r.rit.usado}/${r.rit.max}</span>`:''}${r.ritCircLivre?'':(r.ritCirc||[]).map(x=>`<span class="chip ${x.usado>x.max?'over':x.usado===x.max&&x.max?'ok':''}" title="Rituais de ${x.c}º círculo ou maior que o NEX permite ter aprendido">${x.c}º+ ${x.usado}/${x.max}</span>`).join('')}
+    <span class="chip" title="10 + limite de PE + ${r.dtAttr}${(r.dtSoma||[]).map(x=>' + '+x.attr+' ('+h(x.nome)+')').join('')}">DT ${r.dt}</span><span class="chip">Até o ${r.circ}º círculo</span>${r.rit.max?`<span class="chip ${r.rit.usado>r.rit.max?'over':''}">Conhecidos ${r.rit.usado}/${r.rit.max}</span>`:''}${r.ritCircLivre?'':(r.ritCirc||[]).map(x=>`<span class="chip ${x.usado>x.max?'over':x.usado===x.max&&x.max?'ok':''}" title="Rituais de ${x.c}º círculo ou maior que o NEX permite ter aprendido">${x.c}º+ ${x.usado}/${x.max}</span>`).join('')}
     <div class="row"><button class="btn acc sm" data-act="pick" data-type="rituais">+ Aprender ritual</button></div></div>
    <p class="hint">“Conjurar” desconta ${r.det?'PD':'PE'} (incluindo penalidades de condições) e, se ligado na Mesa, faz sozinho o teste do Custo do Paranormal (Ocultismo DT 20 + custo) e aplica a perda de ${r.det?'PD':'Sanidade'}. Rituais de Medo sempre cobram Sanidade. Efeitos em você mesmo vão para a aba Bônus.</p>
    ${(f.retidos||[]).length?`<div class="alert"><p><b>Rituais retidos</b> — ${r.retido} ${r.det?'PD':'PE'} presos (fora do atual e do máximo). Soltar encerra o efeito; o máximo volta, o atual não. Ou faça Ocultismo (DT 20 + custo) para recuperar também o atual.</p>${f.retidos.map((x,i)=>`<div class="row"><b>${h(x.nome||(byId('rituais',x.rit)||{}).nome||'ritual')}</b> · ${x.pe} ${r.det?'PD':'PE'} <button class="btn sm" data-act="soltarRet" data-i="${i}">Soltar</button><button class="btn sm" data-act="soltarRetRec" data-i="${i}">Soltar e recuperar (Ocultismo DT ${20+x.pe})</button></div>`).join('')}</div>`:''}

@@ -39,7 +39,7 @@ function calc0(f){
   const M=modos(f);const {c,det}=M;const prog=progresso(f,M);const lv=nivelDe(f,M);
   const og=origemDe(f);const o=og.o;const t=byId('trilhas',f.trilha);
   const r={c,o,og,t,lv,prog,det,pat:M.pat,est:M.est,nivelSep:M.nivelSep,alertas:[]};
-  const mods=[];const add=(list,fonte)=>(list||[]).forEach(m=>m&&m.alvo&&mods.push({alvo:m.alvo,valor:+m.valor||0,fonte}));
+  const mods=[];const add=(list,fonte)=>(list||[]).forEach(m=>m&&m.alvo&&mods.push({alvo:m.alvo,valor:+m.valor||0,attr:m.attr,mult:m.mult,fonte}));
   const flags=[];const flag=(x,fonte)=>{if(x)flags.push({...x,_fonte:fonte})};
   add(og.mods,o?(o.poderNome||o.nome):'');flag(o,o&&o.poderNome);
   const habs=[];
@@ -144,17 +144,17 @@ function calc0(f){
   r.dtElem={};flags.forEach(x=>{if(x.dtElem&&x.escolha)r.dtElem[x.escolha]=(r.dtElem[x.escolha]||0)+x.dtElem});
   r.ritDanoAttrs=flags.filter(x=>x.ritDanoAttr).map(x=>x.ritDanoAttr);
   r.imuneCond=new Set([...flags.flatMap(x=>x.imuneCond||[]),...imuneEf]);
-  r.bonusTeste=flags.filter(x=>x.bonusTeste).map(x=>x.bonusTeste);
+  r.bonusTeste=flags.filter(x=>x.bonusTeste).flatMap(x=>[].concat(x.bonusTeste));
   r.ritConcedidos=[...new Set(flags.flatMap(x=>x.ritConcedido||[]).concat(f.inventario.filter(i=>i.equipado&&i.ritConcedido).flatMap(i=>i.ritConcedido)))];
   r.ataqueOcultismo=flags.some(x=>x.ataqueOcultismo);r.gladiador=maxF('gladiador');r.critMaxFogo=flags.some(x=>x.critMaxFogo);
-  r.furtivo=flags.some(x=>x.furtivo);r.ataqueEspecial=flags.some(x=>x.ataqueEspecial);r.perito=flags.some(x=>x.perito);
+  r.furtivo=flags.some(x=>x.furtivo);r.ataqueEspecial=flags.some(x=>x.ataqueEspecial);r.perito=flags.some(x=>x.perito);r.peritoMax=2+flags.filter(x=>x.peritoExtra).length;
   r.catRedGeral=maxF('catRedGeral');r.castExtra=flags.flatMap(x=>x.castExtra||[]);
   r.flagelo=flags.filter(x=>x.flagelo).reduce((a,x)=>Math.min(a,x.flagelo),99);if(r.flagelo===99)r.flagelo=0;
   r.resistParHab=somaF('resistPar');r.peLimAcao=maxF('peLimAcao');
-  r.rdHab=flags.filter(x=>x.rdTexto).map(x=>x.rdTexto);
+  r.rdHab=flags.filter(x=>x.rdTexto&&!(!x._afin&&flags.some(y=>y._afin&&y.rdTexto&&y._fonte===x._fonte+' (afinidade)'))).map(x=>x.rdTexto);
   const rdEl=flags.filter(x=>x.rdElem&&x.escolha).reduce((o2,x)=>(o2[x.escolha]=Math.max(o2[x.escolha]||0,x.rdElem),o2),{});
   Object.entries(rdEl).forEach(([k,v])=>r.rdHab.push(`${ELEM[k]} ${v}`));
-  const m=k=>mods.filter(x=>x.alvo===k).reduce((s,x)=>s+x.valor,0);r.m=m;
+  const m=k=>mods.filter(x=>x.alvo===k).reduce((s,x)=>s+x.valor+(x.attr&&r.A?Math.floor((r.A[x.attr]||0)*(x.mult||1)):0),0);r.m=m;
   // atributos
   const el=t&&t.elementoEscolha?f.trilhaElemento:'';r.trilhaElemento=el;
   const Abase={...f.atributos};inv.forEach(it=>{if(it.equipado)modsDoItem(it).forEach(mm=>Object.entries((mm.efeitos||{}).attr||{}).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v))});flags.forEach(x=>{if(x.attrBonus)Object.entries(x.attrBonus).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v);
@@ -222,7 +222,7 @@ function calc0(f){
   r.desloc=desl;
   if(M.pat)r.peLim=LIM_PD_PATENTE[pIdx]+m('peLimite');else r.peLim=(c&&c.limitePE?+c.limitePE:lv)+m('peLimite');
   const plr=(flags.find(x=>x.peLimRitual)||{}).peLimRitual;r.peLimRit=r.peLim+(plr?A[plr]||0:0);
-  r.dt=10+r.peLim+A[dtAttr]+m('dtRitual')+ef.dt;r.circ=M.est?1:circuloMax(f.nex);
+  r.dtSoma=flags.filter(x=>x.dtSomaAttr).map(x=>({attr:x.dtSomaAttr,v:A[x.dtSomaAttr]||0,nome:x._fonte}));r.dt=10+r.peLim+A[dtAttr]+m('dtRitual')+ef.dt+r.dtSoma.reduce((s,x)=>s+x.v,0);r.circ=M.est?1:circuloMax(f.nex);
   r.custoExtra=condEf.custoPE;
   r.rd=[...inv.filter(i=>i.equipado&&i.rd).map(i=>typeof i.rd==='number'?'RD '+i.rd+' ('+i.nome+')':i.rd+' ('+i.nome+')'),...ef.rd,...r.rdHab,...r.machucadoEf.filter(x=>/^RD/.test(x))];
   r.resistPar=r.resistParHab+(ef.resistPar||0);
@@ -246,6 +246,8 @@ function calc0(f){
   flags.forEach(x=>{if(x.escolheDadoPericia&&x.escolha)dadosFixos[x.escolha]=(dadosFixos[x.escolha]||0)+1});
   aliados.forEach(({d})=>{const b=d.bonusEf||{};Object.entries(b.dadosPer||{}).forEach(([k,v])=>dadosFixos[k]=(dadosFixos[k]||0)+v)});
   Object.entries(ef.dadosPer).forEach(([k,v])=>dadosFixos[k]=(dadosFixos[k]||0)+v);
+  flags.forEach(x=>Object.entries(x.dadosPer||{}).forEach(([k,v])=>dadosFixos[k]=(dadosFixos[k]||0)+v));
+  const dadosAttrF={};flags.forEach(x=>Object.entries(x.dadosAttr||{}).forEach(([k,v])=>dadosAttrF[k]=(dadosAttrF[k]||0)+v));r.dadosAttrF=dadosAttrF;
   const dadosAtk=aliados.reduce((s,{d})=>s+((d.bonusEf||{}).dadosAtaque||0),0);r.dadosAtk=dadosAtk;
   const cargaPen=armad.reduce((s,i)=>s+(i.mods||[]).filter(mm=>mm.alvo==='carga_pen').reduce((a,mm)=>a+(+mm.valor),0),0);
   pericias().forEach(p=>{const manual=+f.pericias[p.id]||0;const grau=Math.max(manual,auto[p.id]?5:0);
@@ -256,7 +258,7 @@ function calc0(f){
     if(somaAttr[p.id])bonus+=A[somaAttr[p.id]]||0;
     (f.condicoes||[]).forEach(x=>{if(x.id==='ferimento_investigacao'&&x.attr===attr)bonus-=2});
     const atk=p.id==='luta'||p.id==='pontaria';
-    const dm=dadosMod(r,{per:p.id,attr,atk,corpo:p.id==='luta'})+(dadosFixos[p.id]||0)+(atk?dadosAtk:0);
+    const dm=dadosMod(r,{per:p.id,attr,atk,corpo:p.id==='luta'})+(dadosFixos[p.id]||0)+(dadosAttrF[attr]||0)+(atk?dadosAtk:0);
     r.per[p.id]={rit:ritPer(ef,p.id),grau,manual,bonus,attr,base:A[attr]??1,dm,dados:(A[attr]??1)+dm,auto:auto[p.id],extra2:extra2[p.id],bloq:p.somenteTreinada&&!grau}});
   // contadores de escolhas
   const extraTrein=Object.entries(f.pericias).filter(([id,g])=>g>=5&&!auto[id]).length;
@@ -380,8 +382,9 @@ function rollTest(label,dados,bonus,ctx={}){
     if(cfgR().auto.maldicao){const r=calc(f);const its=r.precoMaldicao[ctx.attr];if(its&&its.length)roll.acts.push({l:`Falhou? Preço da maldição (−${2*its.length} SAN)`,a:'precoMald',n:its.length})}
   }
   /* bônus de origem que a pessoa escolhe somar (Saindo da Jaula, Destemido, Antes Só…) */
-  if(f&&ctx.attr&&ctx.arma==null){const rb=calc(f);(rb.bonusTeste||[]).forEach(bt=>{if(bt.attrs&&!bt.attrs.includes(ctx.attr))return;if(ctx.per&&(bt.exceto||[]).includes(ctx.per))return;
-    roll.acts.push({l:`${bt.nome}: +${bt.valor}${bt.pe?` (${bt.pe} ${rb.det?'PD':'PE'})`:''}`,a:'bonusTeste',v:bt.valor,pe:bt.pe,nome:bt.nome})})}
+  if(f&&ctx.attr&&ctx.arma==null){const rb=calc(f);(rb.bonusTeste||[]).forEach(bt=>{if(bt.attrs&&!bt.attrs.includes(ctx.attr))return;if(ctx.per&&(bt.exceto||[]).includes(ctx.per))return;if(bt.pericias&&!bt.pericias.includes(ctx.per))return;
+    const vv=/^(AGI|FOR|INT|PRE|VIG)$/.test(bt.valor)?(rb.A[bt.valor]||0):bt.valor;
+    roll.acts.push({l:`${bt.nome}: +${vv}${bt.pe?` (${bt.pe} ${rb.det?'PD':'PE'})`:''}`,a:'bonusTeste',v:vv,pe:bt.pe,nome:bt.nome})})}
   if(ctx.arma!=null)roll.acts.push({l:roll.crit?'Rolar dano crítico':'Rolar dano',a:'dmgFrom',i:ctx.arma,crit:roll.crit});
   if(ctx.arma!=null&&f)roll.acts.push(...acoesAtaque({arma:ctx.arma,origem:(f.inventario[ctx.arma]||{}).nome,autor:f.nome}));
   pushRoll(roll);return roll;

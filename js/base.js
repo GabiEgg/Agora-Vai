@@ -62,7 +62,7 @@ const FONTE=id=>(D&&D.fontes.find(f=>f.id===id))||{id,sigla:id,nome:id};
 const HB_TYPES=[['origens','Origens'],['classes','Classes'],['trilhas','Trilhas'],['poderes','Poderes'],['rituais','Rituais'],['itens','Itens'],['modificacoes','Modificações'],['aliados','Aliados'],['condicoes','Condições'],['pericias','Perícias'],['criaturas','Criaturas e NPCs']];
 const emptyHB=()=>Object.fromEntries(HB_TYPES.map(([k])=>[k,[]]));
 const cfgPadrao=()=>({fontes:{core:true},pacotes:{},regras:{},auto:{custoParanormal:true,transcender:true,maldicao:true,massivo:true},acoesInterludio:2,imgs:{}});
-const S={conta:null,mesas:[],mesaAberta:null,mesaDados:null,mesaEventos:[],alheia:null,fichas:{},hb:emptyHB(),cfg:cfgPadrao(),active:null,view:'ficha',tab:'dossie',hbType:'origens',hbSel:null,hbQ:'',open:{},confirm:null,rolls:[],assets:null,mesaTab:'fontes'};
+const S={soPosso:(()=>{try{return !!localStorage.getItem('cristopher-soPosso')}catch(e){return false}})(),conta:null,mesas:[],mesaAberta:null,mesaDados:null,mesaEventos:[],alheia:null,fichas:{},hb:emptyHB(),cfg:cfgPadrao(),active:null,view:'ficha',tab:'dossie',hbType:'origens',hbSel:null,hbQ:'',open:{},confirm:null,rolls:[],assets:null,mesaTab:'fontes'};
 
 /* Regras em vigor. Há três níveis:
    - gerais (S.cfg): aba Mesa, valem para fichas sem regras próprias;
