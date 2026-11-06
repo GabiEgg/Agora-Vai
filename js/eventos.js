@@ -186,6 +186,7 @@ document.addEventListener('click',e=>{
    case 'backup':showExport('Backup completo','cristopher-backup.json',{tipo:'backup',versao:2,fichas:realFichas(),homebrew:S.hb,cfg:S.cfg,mapas:S.mapas||[],escFichas:S.escFichas||{}});return;
    case 'exportHB':showExport('Pacotes de homebrew','homebrew-ordem.json',{tipo:'homebrew',versao:2,homebrew:S.hb});return;
    case 'importar':showImport();return;
+   case 'fichaHtml':baixarFichaHtml();return;
    case 'attr':{const r=calc(f);const v=f.atributos[ds.a]+(+ds.d);const min=regraOn('atributos_negativos')?-3:0;
      if(v<min||v>r.attr.teto){toast(`Atributos vão de ${min} a ${r.attr.teto}.`);return}f.atributos[ds.a]=v;saveF();break}
    case 'descanso':f.pv=f.pe=f.san=null;f.condicoes=(f.condicoes||[]).filter(x=>!['morrendo','enlouquecendo','perturbado'].includes(x.id));f.contadores={};saveF();break;

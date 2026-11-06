@@ -26,7 +26,7 @@ Abra `http://localhost:3000`. Clique em **Entrar** → escolha um nome e uma sen
 | `PERMITIR_CADASTRO` | `1` | `0` desliga a criação de contas novas (depois que o grupo se cadastrar) |
 | `COOKIE_SECURE` | — | `1` quando o site estiver em HTTPS |
 | `NODE_ENV` | — | `production` guarda a página em cache |
-| `TRUST_PROXY` | — | `1` quando hospedado atrás de um proxy (Railway, Fly.io, Nginx), para o limite de tentativas de login contar por pessoa |
+| `TRUST_PROXY` | — | `1` quando hospedado atrás de um proxy (Render, Railway, Nginx), para o limite de tentativas de login contar por pessoa |
 
 Exemplo: `PORT=8080 PERMITIR_CADASTRO=0 npm start`
 
@@ -41,7 +41,7 @@ O banco fica no volume `dossie-dados`, então sobrevive a atualizações do cont
 
 ## Colocar na internet
 
-Qualquer serviço que rode Node.js ou Docker com disco persistente serve (VPS, Railway, Fly.io, Render com disco). Use HTTPS na frente (o próprio serviço ou um proxy como Caddy/Nginx) e defina `COOKIE_SECURE=1`.
+Qualquer serviço que rode Node.js ou Docker com disco persistente serve (VPS, Railway, Render com disco). Use HTTPS na frente (o próprio serviço ou um proxy como Caddy/Nginx) e defina `COOKIE_SECURE=1`.
 
 ## Hospedar de graça: Render + Turso (passo a passo)
 
@@ -63,22 +63,6 @@ O plano gratuito do Render apaga os arquivos do servidor quando ele reinicia ou 
 4. O endereço `https://….onrender.com` é o link para o grupo. Depois que todos criarem conta, adicione `PERMITIR_CADASTRO` = `0`.
 
 A chave do Turso é secreta: guarde só nas variáveis do Render, nunca nos arquivos do repositório. O serviço gratuito dorme depois de 15 minutos sem acesso; o primeiro acesso depois disso demora um pouco, mas os dados continuam no Turso.
-
-## Hospedar no Fly.io (passo a passo)
-
-Precisa do terminal (Prompt de Comando, PowerShell ou Terminal) e de uma conta no Fly.io.
-
-1. Instale o `flyctl`: veja as instruções em https://fly.io/docs/flyctl/install/
-2. Entre na conta: `fly auth login`
-3. Abra o terminal **dentro desta pasta** (onde está o `Dockerfile`).
-4. Escolha um nome único para o app (só letras minúsculas, números e hífen) e troque `cristopher-TROQUE` no `fly.toml` por ele.
-5. Crie o app: `fly apps create NOME-ESCOLHIDO`
-6. Crie o disco do banco: `fly volumes create dossie_dados --region gru --size 1`
-7. Publique: `fly deploy`
-8. O endereço é `https://NOME-ESCOLHIDO.fly.dev`. Mande para o grupo.
-9. Depois que todos criarem conta: `fly secrets set PERMITIR_CADASTRO=0`
-
-Para atualizar o app depois, substitua os arquivos desta pasta e rode `fly deploy` de novo; o banco fica no volume. Se o Fly criar duas máquinas, deixe só uma (`fly scale count 1`), porque o banco fica num único disco. A máquina desliga sozinha quando ninguém usa e liga no próximo acesso (o primeiro carregamento pode levar alguns segundos).
 
 ## Hospedar no Railway (passo a passo)
 

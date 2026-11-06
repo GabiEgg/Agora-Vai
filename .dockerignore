@@ -1,0 +1,5 @@
+server/dados
+node_modules
+src
+*.png
+*.zip

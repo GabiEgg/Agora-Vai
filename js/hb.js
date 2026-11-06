@@ -253,11 +253,11 @@ async function showExport(titulo,nome,obj){
   const db=document.getElementById('dl-btn');if(db)db.onclick=()=>dl.save({filename:nome,data:txt}).then(()=>toast('Arquivo salvo.'),e=>{if(e&&e.code!=='declined')toast('Não foi possível baixar. Use Copiar.')});
 }
 function showImport(){
-  modal('Importar',`<div class="modal-b"><p class="hint" style="margin:0">Aceita uma ficha, um pacote de homebrew ou um backup completo exportados por este app (versão antiga também).</p>
-   <input type="file" id="imp-file" accept=".json,application/json"><textarea class="inp" id="imp-txt" rows="10" placeholder="…ou cole o JSON aqui" style="font-family:var(--f-mono);font-size:12px"></textarea>
+  modal('Importar',`<div class="modal-b"><p class="hint" style="margin:0">Aceita uma ficha (.json ou o arquivo .html da ficha), um pacote de homebrew ou um backup completo exportados por este app.</p>
+   <input type="file" id="imp-file" accept=".json,.html,application/json,text/html"><textarea class="inp" id="imp-txt" rows="10" placeholder="…ou cole o JSON aqui" style="font-family:var(--f-mono);font-size:12px"></textarea>
    <div class="row"><button class="btn pri" id="imp-go">Importar</button><span class="hint" id="imp-msg"></span></div></div>`);
-  document.getElementById('imp-file').onchange=e=>{const file=e.target.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{document.getElementById('imp-txt').value=rd.result};rd.readAsText(file)};
-  document.getElementById('imp-go').onclick=()=>{try{const msg=importar(JSON.parse(document.getElementById('imp-txt').value));closeModal();render();toast(msg)}catch(e){document.getElementById('imp-msg').textContent='Não reconheci esse conteúdo. Confira se o JSON está completo.'}};
+  document.getElementById('imp-file').onchange=e=>{const file=e.target.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{document.getElementById('imp-txt').value=jsonDeArquivo(rd.result)};rd.readAsText(file)};
+  document.getElementById('imp-go').onclick=()=>{try{const msg=importar(JSON.parse(jsonDeArquivo(document.getElementById('imp-txt').value)));closeModal();render();toast(msg)}catch(e){document.getElementById('imp-msg').textContent='Não reconheci esse conteúdo. Confira se o JSON está completo.'}};
 }
 function contaModal(){
   const c=S.conta;
@@ -334,3 +334,49 @@ function preReqCheck(x,f,r){
     if(vs.some(v=>v===true))return;if(vs.every(v=>v===false)){res.ok=false;res.faltam.push(cl.trim())}else res.narrativo.push(cl.trim())});
   return res;
 }
+/* Ficha em arquivo único (.html): todas as abas renderizadas como leitura, com o estilo do app e os dados embutidos
+   (o arquivo também pode ser importado de volta). Abre em qualquer navegador, sem internet. */
+function fichaArquivoHtml(){
+  const f=F();if(!f)return null;const r=calc(f);
+  const antes={tab:S.tab,fr:S.filtroRit,fp:S.filtroPod};S.filtroRit='';S.filtroPod='';
+  const secs=[];let head='',vitals='';
+  try{TABS.forEach(([k,l])=>{if(k==='interludio'&&!(f.bonus||[]).length&&!(f.interludio||[]).length)return;
+      S.tab=k;renderNow();const sh=document.querySelector('.sheet');if(!sh)return;
+      if(!head){const hd=sh.querySelector('.sheet-head');head=hd?hd.outerHTML:'';const vt=sh.querySelector('.vitals');vitals=vt?vt.outerHTML:''}
+      const pane=sh.querySelector('.pane');if(pane&&!pane.querySelector('.empty:only-child'))secs.push([l,pane.innerHTML])})}
+  finally{S.tab=antes.tab;S.filtroRit=antes.fr;S.filtroPod=antes.fp;renderNow()}
+  // transforma em leitura: campos viram texto, botões de ação somem
+  const box=document.createElement('div');
+  box.innerHTML=`<header class="arq-head">${head}${vitals}</header>`+secs.map(([l,x])=>`<details class="arq-sec" open><summary>${h(l)}</summary><div class="pane">${x}</div></details>`).join('');
+  box.querySelectorAll('select').forEach(s=>{const o=s.options[s.selectedIndex];const sp=document.createElement('span');sp.className='arq-val';sp.textContent=o?o.textContent:'';s.replaceWith(sp)});
+  box.querySelectorAll('input').forEach(i=>{const sp=document.createElement('span');sp.className='arq-val';
+    if(i.type==='checkbox'||i.type==='radio'){sp.textContent=i.checked?'☑':'☐'}else if(i.type==='file'||i.type==='color'||i.type==='hidden'){sp.textContent=''}else sp.textContent=i.value||i.placeholder&&''||'';
+    if(i.id==='f-nome'){sp.className='arq-nome'}i.replaceWith(sp)});
+  box.querySelectorAll('textarea').forEach(t=>{const d=document.createElement('div');d.className='arq-texto';d.textContent=t.value;t.replaceWith(d)});
+  box.querySelectorAll('button').forEach(b=>{if(b.classList.contains('linkbtn')||b.classList.contains('condbtn')||b.closest('.chips')&&b.getAttribute('aria-pressed')==='true'){const sp=document.createElement('span');sp.className=b.className.replace(/\b(btn|linkbtn)\b/g,'');sp.innerHTML=b.innerHTML;b.replaceWith(sp)}else b.remove()});
+  box.querySelectorAll('[data-act],[data-f],[data-d]').forEach(e=>{e.removeAttribute('data-act');e.removeAttribute('data-f');e.removeAttribute('data-d')});
+  box.querySelectorAll('.filtros,.chips:empty,.row:empty,.sec-h .row:empty').forEach(e=>{if(!e.textContent.trim()||e.classList.contains('filtros'))e.remove()});
+  const css=[...document.querySelectorAll('style')].map(s=>s.textContent).join('\n')+`
+  body{padding:0 0 40px}.arq{max-width:1100px;margin:0 auto;padding:16px}
+  .arq-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;border-bottom:1px solid var(--line);padding:6px 0 10px;margin-bottom:12px;font-size:12px;color:var(--muted)}
+  .arq-nome{font-family:var(--f-display);font-size:28px;line-height:1.1}
+  .arq-sec{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);margin:12px 0;overflow:hidden}
+  .arq-sec>summary{cursor:pointer;padding:10px 14px;font-family:var(--f-display);font-size:18px;border-bottom:1px solid var(--line);list-style-position:inside}
+  .arq-sec .pane{padding:12px 14px}.arq-val{font-weight:600}.arq-texto{white-space:pre-wrap;border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--sunk)}
+  .arq-head .sheet-head{border:0}.arq-head .sheet-head .eyebrow{display:block;margin-bottom:2px}.arq-head .sheet-head>div:first-child{display:block}
+  .arq .inp{border:0!important;background:none!important;padding:0!important;box-shadow:none!important;font-weight:600;min-height:0;height:auto;pointer-events:none}@media print{.arq-sec{break-inside:avoid-page}.arq-sec>summary{list-style:none}}`;
+  const fontes=[...document.querySelectorAll('link[rel="stylesheet"]')].map(l=>`<link rel="stylesheet" href="${h(l.href)}">`).join('');
+  const dados=JSON.stringify({tipo:'ficha',versao:2,ficha:(({_exemplo,_alheia,_dono,...x})=>x)(f),homebrew:hbUsadoPor(f)}).replace(/</g,'\\u003c');
+  const quando=new Date().toLocaleString('pt-BR');
+  return {nome:slug(f.nome||'agente')+'.html',html:`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${h(f.nome||'Agente')} · Cristopher</title>${fontes}<style>${css}</style></head>
+<body data-elem="${h(document.body.dataset.elem||'')}" style="${h(document.body.getAttribute('style')||'')}"><main class="arq"><div class="arq-top"><span>Ficha exportada do Cristopher em ${h(quando)} · somente leitura</span><span>Para editar: abra o Cristopher → Importar → escolha este arquivo</span></div>${box.innerHTML}</main>
+<script type="application/json" id="cristopher-ficha">${dados}</script></body></html>`};
+}
+async function baixarFichaHtml(){
+  const a=fichaArquivoHtml();if(!a)return;let dl=null;try{if(window.claude&&window.claude.use)dl=await window.claude.use('downloads')}catch(e){dl=null}
+  if(dl){try{await dl.save({filename:a.nome,data:a.html});toast('Arquivo salvo: '+a.nome);return}catch(e){if(e&&e.code==='declined')return}}
+  try{const u=URL.createObjectURL(new Blob([a.html],{type:'text/html'}));const l=document.createElement('a');l.href=u;l.download=a.nome;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Arquivo baixado: '+a.nome)}
+  catch(e){toast('Não foi possível baixar o arquivo neste navegador.')}
+}
+/* Lê o JSON embutido num arquivo .html exportado. */
+function jsonDeArquivo(txt){const m=String(txt).match(/<script type="application\/json" id="cristopher-ficha">([\s\S]*?)<\/script>/);return m?m[1]:txt}

@@ -1,0 +1,5 @@
+server/dados/
+node_modules/
+*.db
+*.db-shm
+*.db-wal
