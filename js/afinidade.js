@@ -33,7 +33,7 @@ function fxCamada(){
   window.addEventListener('resize',()=>{if(FX.atual){fxTamanho();if(FX.parado)fxQuadro(performance.now())}});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&FX.atual&&!FX.parado&&!FX.raf)FX.raf=requestAnimationFrame(fxLoop)});
 }
-function fxTamanho(){FX.dpr=Math.min(1.5,window.devicePixelRatio||1);FX.W=innerWidth;FX.H=innerHeight;FX.cv.width=Math.round(FX.W*FX.dpr);FX.cv.height=Math.round(FX.H*FX.dpr);FX.cv.style.width=FX.W+'px';FX.cv.style.height=FX.H+'px';FX.ctx.setTransform(FX.dpr,0,0,FX.dpr,0,0)}
+function fxTamanho(){FX.dpr=Math.min(1.5,window.devicePixelRatio||1);FX.W=document.documentElement.clientWidth||innerWidth;FX.H=document.documentElement.clientHeight||innerHeight;FX.cv.width=Math.round(FX.W*FX.dpr);FX.cv.height=Math.round(FX.H*FX.dpr);FX.cv.style.width=FX.W+'px';FX.cv.style.height=FX.H+'px';FX.ctx.setTransform(FX.dpr,0,0,FX.dpr,0,0)}
 function fxIniciar(e){fxCamada();FX.atual=e;FX.raiz.style.display='';fxTamanho();FX.t0=performance.now();FX.est={};FX.parado=fxReduzido();
   const ini={sangue:sgIni,morte:mtIni,conhecimento:cnIni,energia:enIni}[e];ini&&ini(FX.est);
   if(FX.parado){for(let i=0;i<90;i++)fxQuadro(FX.t0+i*33)}else FX.raf=requestAnimationFrame(fxLoop)}

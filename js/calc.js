@@ -273,6 +273,18 @@ function calc0(f){
     ritMax=+c.ritInicial+(regraOn('aprendizado_campo')?0:regraOn('aprendizado_lento')?nexs.filter(n=>(n/5)%2===1).length:nexs.length*(+c.ritNex||0))}
   ritMax+=pods.filter(x=>x.d.aprendeRitual).length;flags.forEach(x=>{if(x.ritExtra)ritMax+=x.ritExtra==='saberAmpliado'?r.circ:(+x.ritExtra||1)});
   r.rit={usado:f.rituais.length,max:ritMax};
+  /* Limite por círculo: cada ritual aprendido ocupa uma "vaga" com o círculo máximo da época em que foi ganho.
+     Ocultista: 3 de 1º no início e 1 por NEX com o círculo daquele NEX; Aprender Ritual segue o NEX atual; Saber Ampliado dá um por círculo.
+     Rituais concedidos por trilha, poder ou item ficam de fora (não estão em f.rituais). */
+  {const vagas=[];
+   if(c&&+c.ritInicial>0&&!regraOn('aprendizado_campo')){for(let i=0;i<+c.ritInicial;i++)vagas.push(1);
+     NEX_LIST.filter(n=>n>5&&n<=f.nex).filter(n=>!regraOn('aprendizado_lento')||(n/5)%2===1).forEach(n=>{for(let i=0;i<(+c.ritNex||0);i++)vagas.push(M.est?1:circuloMax(n))})}
+   const capAR=f.nex>=75?3:f.nex>=45?2:1;
+   pods.filter(x=>x.d.aprendeRitual).forEach(()=>vagas.push(f.classe==='ocultista'?r.circ:capAR));
+   flags.forEach(x=>{if(x.ritExtra==='saberAmpliado'){for(let k=1;k<=r.circ;k++)vagas.push(k)}else if(x.ritExtra)for(let i=0;i<(+x.ritExtra||1);i++)vagas.push(r.circ)});
+   const conh=f.rituais.map(id=>byId('rituais',id)).filter(Boolean);
+   r.ritCirc=[2,3,4].filter(k=>k<=r.circ||conh.some(x=>+x.circulo>=k)).map(k=>({c:k,usado:conh.filter(x=>+x.circulo>=k).length,max:vagas.filter(v=>v>=k).length}));
+   r.ritCircLivre=!vagas.length;}
   r.patente=PATENTES[pIdx];
   r.catUso=[1,2,3,4].map(k=>inv.filter(i=>catItem(i,r)===k).reduce((s,i)=>s+(+i.qtd||1),0));
   // preço das maldições: atributos ligados aos itens amaldiçoados equipados

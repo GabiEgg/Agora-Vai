@@ -231,10 +231,13 @@ function reacaoBloco(x,r){const rc=x.reacao;const fm=rc.formas||['n','d','v'];
    ${(rc.rolar||[]).length?`<div class="row" role="radiogroup" aria-label="Teste da reação"><span class="hint">${rc.attrRolar?'Repetir com '+rc.attrRolar+':':'Rolar com +'+rc.bonusRolar+':'}</span><label class="btn sm"><input type="radio" name="cast-reacao-rolar" value="" checked> Não rolar</label>${rc.rolar.map(id=>`<label class="btn sm"><input type="radio" name="cast-reacao-rolar" value="${id}"> ${h(perNome(id))}</label>`).join('')}</div>`:''}
    ${!rc.sempre?`<p class="hint" style="margin:0">Como reação, o efeito é imediato e não vai para a aba Bônus.</p>`:''}
   </fieldset>`}
+/* Usos novos de perícia que vêm de regras opcionais ligadas (ex.: "Blindar a Mente (novo uso de Ocultismo)"). */
+function usosOpcionais(id){const p=pericias().find(x=>x.id===id);if(!p)return [];
+  return (D.regras||[]).filter(r=>regraOn(r.id)).map(r=>{const m=String(r.nome).match(/^(.*?)\s*\(novo uso de ([^)]+)\)/i);if(!m||slug(m[2])!==slug(p.nome))return null;const q=String(r.desc).match(/^(Treinado|Veterano|Expert)\b/);return [m[1],q?q[1]:'',r.desc,'Regra opcional · '+FONTE(r.fonte).sigla]}).filter(Boolean)}
 /* Explicação de uma perícia: usos, requisitos de grau e DTs. */
 function perInfoModal(id){const f=F();const r=calc(f);const p=pericias().find(x=>x.id===id);if(!p)return;const x=r.per[id]||{};
   const GR={'':0,Treinado:5,Veterano:10,Expert:15};
-  const usos=(p.usos||[]).map(([n,req,t])=>{const ok=!req||(x.grau||0)>=GR[req];return `<div class="card"><h4>${h(n)}${req?` <span class="badge ${ok?'acc':'warnb'}">${h(req)}</span>`:''}</h4><p>${h(t)}</p>${req&&!ok?`<p class="warnline">Precisa ser ${h(req.toLowerCase())} para este uso.</p>`:''}</div>`}).join('');
+  const usos=(p.usos||[]).concat(usosOpcionais(id)).map(([n,req,t,opc])=>{const ok=!req||(x.grau||0)>=GR[req];return `<div class="card"><h4>${h(n)}${req?` <span class="badge ${ok?'acc':'warnb'}">${h(req)}</span>`:''}${opc?` <span class="badge hb" title="Vem de uma regra opcional ligada na Mesa">${h(opc)}</span>`:''}</h4><p>${h(t)}</p>${req&&!ok?`<p class="warnline">Precisa ser ${h(req.toLowerCase())} para este uso.</p>`:''}</div>`}).join('');
   modal(p.nome,`<div class="modal-b">
    <div class="meta"><span>${x.attr||p.attr}</span>${p.somenteTreinada?'<span>Somente treinada</span>':''}${p.carga?'<span>Penalidade de carga</span>':''}<span>Seu teste: ${x.dados<1?(2-x.dados)+'d20 (pior)':x.dados+'d20'} ${sgn(x.bonus||0)}</span></div>
    ${p.desc?`<p>${h(p.desc)}</p>`:''}

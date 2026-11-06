@@ -312,8 +312,16 @@ label.btn:has(input:disabled){opacity:.45;cursor:not-allowed}
 .ini-aviso.ok .hint{color:var(--muted)}
 .ini-aviso ol{margin:4px 0 0;padding-left:20px}
 /* Efeitos de afinidade (experimental): fundo animado e paleta do elemento do agente aberto. */
-#fx{position:fixed;inset:0;z-index:0;pointer-events:none}
-#fx canvas{display:block}
+#fx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;contain:strict}
+#fx canvas{display:block;width:100%!important;height:100%!important}
+/* A página nunca passa da largura da tela: textos longos quebram, mídias encolhem. */
+html,body{max-width:100%;overflow-x:hidden}
+@supports (overflow:clip){html,body{overflow-x:clip}}
+body{overflow-wrap:break-word}
+img,svg,canvas,video,table,pre{max-width:100%}
+pre,code{white-space:pre-wrap}
+.modal-box{max-width:100%;box-sizing:border-box}
+.card,.pick,.sec,.alert,.roll-card{min-width:0;overflow-wrap:anywhere}
 body[data-elem]:not([data-elem=""]) .wrap{position:relative;z-index:1}
 body[data-elem]:not([data-elem=""]){color-scheme:dark}
 body[data-elem]:not([data-elem=""]) .sheet{-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}

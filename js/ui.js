@@ -269,10 +269,11 @@ function poderAfinCard(p,d,f,r){const b=f.poderes.find(x=>x.uid===p.afinDe);cons
 function paneRit(f,r){
   const rits=f.rituais.map(id=>byId('rituais',id)||{id,nome:'Ritual indisponível',_gone:true}).concat((r.ritConcedidos||[]).filter(id=>!f.rituais.includes(id)).map(id=>({...(byId('rituais',id)||{id,nome:id}),_conc:true})));
   return `<div class="sec"><div class="sec-h"><h2>Rituais</h2>
-    <span class="chip">DT ${r.dt}</span><span class="chip">Até o ${r.circ}º círculo</span>${r.rit.max?`<span class="chip ${r.rit.usado>r.rit.max?'over':''}">Conhecidos ${r.rit.usado}/${r.rit.max}</span>`:''}
+    <span class="chip">DT ${r.dt}</span><span class="chip">Até o ${r.circ}º círculo</span>${r.rit.max?`<span class="chip ${r.rit.usado>r.rit.max?'over':''}">Conhecidos ${r.rit.usado}/${r.rit.max}</span>`:''}${r.ritCircLivre?'':(r.ritCirc||[]).map(x=>`<span class="chip ${x.usado>x.max?'over':x.usado===x.max&&x.max?'ok':''}" title="Rituais de ${x.c}º círculo ou maior que o NEX permite ter aprendido">${x.c}º+ ${x.usado}/${x.max}</span>`).join('')}
     <div class="row"><button class="btn acc sm" data-act="pick" data-type="rituais">+ Aprender ritual</button></div></div>
    <p class="hint">“Conjurar” desconta ${r.det?'PD':'PE'} (incluindo penalidades de condições) e, se ligado na Mesa, faz sozinho o teste do Custo do Paranormal (Ocultismo DT 20 + custo) e aplica a perda de ${r.det?'PD':'Sanidade'}. Rituais de Medo sempre cobram Sanidade. Efeitos em você mesmo vão para a aba Bônus.</p>
    ${(f.retidos||[]).length?`<div class="alert"><p><b>Rituais retidos</b> — ${r.retido} ${r.det?'PD':'PE'} presos (fora do atual e do máximo). Soltar encerra o efeito; o máximo volta, o atual não. Ou faça Ocultismo (DT 20 + custo) para recuperar também o atual.</p>${f.retidos.map((x,i)=>`<div class="row"><b>${h(x.nome||(byId('rituais',x.rit)||{}).nome||'ritual')}</b> · ${x.pe} ${r.det?'PD':'PE'} <button class="btn sm" data-act="soltarRet" data-i="${i}">Soltar</button><button class="btn sm" data-act="soltarRetRec" data-i="${i}">Soltar e recuperar (Ocultismo DT ${20+x.pe})</button></div>`).join('')}</div>`:''}
+   ${r.ritCircLivre?'':(r.ritCirc||[]).filter(x=>x.usado>x.max).map(x=>`<p class="warnline">${x.usado} ritua${x.usado>1?'is':'l'} de ${x.c}º círculo ou maior, mas o NEX só permite ${x.max}: cada NEX dá um ritual do círculo liberado <i>naquele</i> NEX (2º a partir de 25%, 3º de 55%, 4º de 85%). Rituais concedidos por trilha, poder ou item não contam.</p>`).join('')}
    ${rits.length?ritFiltros(rits)+ritGrupos(rits,r):'<div class="empty">Nenhum ritual aprendido. Ocultistas começam com 3 rituais de 1º círculo; outras classes aprendem com o poder Aprender Ritual.</div>'}</div>`;
 }
 const ORD_EL=['sangue','morte','conhecimento','energia','medo',''];
@@ -475,9 +476,8 @@ function renderMesa(){
      ${pk.length?`<div class="toggles">${pk.map(p=>tgl('pk-'+slug(p),p,'Conteúdo criado na aba Homebrew.',pacoteOn(p),`data-act="tglPacote" data-id="${h(p)}"`,'★',HB_TYPES.reduce((s,[k])=>s+(S.hb[k]||[]).filter(x=>(x.pacote||'Minha mesa')===p).length,0))).join('')}</div>`:'<p class="hint">Você ainda não criou homebrew. Na aba Homebrew, cada criação pertence a um pacote com nome; os pacotes aparecem aqui para ligar e desligar.</p>'}`;
   }else if(t==='regras'){
     const grupos={};D.regras.forEach(x=>{if(!fonteOn(x.fonte))return;(grupos[x.fonte]=grupos[x.fonte]||[]).push(x)});
-    body=`<p class="hint">Regras marcadas como “sempre” são novos usos de perícia que só listamos para referência. As demais mudam cálculos ou liberam botões quando ligadas (por exemplo, Determinação troca PE e Sanidade por PD).</p>`+
-     Object.entries(grupos).map(([fid,list])=>`<div class="sec-h" style="margin-top:6px"><h2>${h(FONTE(fid).nome)}</h2></div><div class="toggles">${list.map(x=>x.sempre?tgl('r-'+x.id,x.nome,x.desc,true,'disabled','sempre'):
-       tgl('r-'+x.id,x.nome,x.desc,regraOn(x.id),`${trava}data-act="tglRegra" data-id="${x.id}"`,x.efeito?'automático':'referência',x.requer?'Complementa: '+regraRotulo(x.requer):'')).join('')}</div>`).join('');
+    body=`<p class="hint">Regras de “uso de perícia” aparecem dentro da perícia correspondente (clique no nome dela) quando ligadas. As demais mudam cálculos ou liberam botões quando ligadas (por exemplo, Determinação troca PE e Sanidade por PD).</p>`+
+     Object.entries(grupos).map(([fid,list])=>`<div class="sec-h" style="margin-top:6px"><h2>${h(FONTE(fid).nome)}</h2></div><div class="toggles">${list.map(x=>tgl('r-'+x.id,x.nome,x.desc,regraOn(x.id),`${trava}data-act="tglRegra" data-id="${x.id}"`,x.efeito?'automático':/novo uso de/i.test(x.nome)?'uso de perícia':'referência',x.requer?'Complementa: '+regraRotulo(x.requer):'')).join('')}</div>`).join('');
   }else{
     const a=cfgR().auto;
     body=`<div class="toggles">

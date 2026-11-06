@@ -48,6 +48,8 @@ for(const F of FONTES){
   }
  }
 }
+// Regras: nenhuma fica travada como “sempre”; todas ligam e desligam na Mesa.
+out.regras.forEach(r=>{delete r.sempre});
 // Trilhas Monstruoso: o elemento escolhido troca o atributo de PE (e de DT, no ocultista) e altera atributos.
 const EL4=(a,b,c,d)=>({sangue:a,morte:b,conhecimento:c,energia:d});
 const PE_EL=EL4('FOR','VIG','INT','AGI');
