@@ -20,6 +20,8 @@ const retSrc=id=>'/_blob/'+id;
 function retMonitor(f){
   if(!f||!f.classe)return;let r;try{r=calc(f)}catch(e){return}
   const caido=r.conds.has('morrendo'),louco=r.conds.has('enlouquecendo');const rt=retDados(f);
+  /* Resumo público: é só isto (e o retrato) que os colegas de campanha recebem do servidor. */
+  f.publico={estado:retEstado(f,r),det:!!r.det,pv:r.pv,pvMax:r.pvMax,pe:r.pe,peMax:r.peMax,san:r.san,sanMax:r.sanMax};
   if(!rt.ult){rt.ult={caido,louco};return}
   if(caido&&!rt.ult.caido){rt.sessao.quedas++;rt.total.quedas++}
   if(louco&&!rt.ult.louco){rt.sessao.loucuras++;rt.total.loucuras++}
@@ -32,8 +34,9 @@ function retBarras(f,r,cls=''){
     const mud=ant==null||ant===pct?'':ant>pct?'perde':'ganha';
     return `<div class="ret-bar ${mud}" style="--c:var(--${col})" title="${l} ${cur}/${max}"><span class="ret-bl">${l}</span><span class="ret-bv">${cur}/${max}</span><div class="ret-trilho"><i data-ret-de="${ant??pct}" data-ret-para="${pct}" style="width:${ant??pct}%"></i></div></div>`};
   return `<div class="ret-barras ${cls}">${bar('pv','PV','pv')}${r.det?bar('pe','PD','pe'):bar('san','SAN','san')+bar('pe','PE','pe')}</div>`}
-function retFigura(f,r,{grande=false,alheia=false}={}){
-  const est=retEstado(f,r);const art=retArte(f,est);const ini=String(f.nome||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+function retFigura(f,r,{grande=false}={}){return retFiguraDe({nome:f.nome,est:retEstado(f,r),arte:(f.retrato||{}).arte,grande})}
+function retFiguraDe({nome,est,arte,grande=false}){
+  const art=retArte({retrato:{arte:arte||{}}},est);const ini=String(nome||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();const f={nome};
   return `<div class="ret-fig est-${est} ${art&&!art.proprio?'reserva':''} ${art?'':'vazia'} ${grande?'grande':''}">
     ${art?`<img src="${retSrc(art.id)}" alt="Retrato de ${h(f.nome||'agente')}: ${RET_NOME[est]}" loading="lazy">`:`<span class="ret-ini" aria-hidden="true">${h(ini)}</span>`}
     <span class="ret-est">${RET_NOME[est]}</span></div>`}
@@ -67,3 +70,33 @@ document.addEventListener('click',e=>{
   if(a==='retArte'){const k=t.dataset.k;upload(id=>{retDados(f).arte[k]=id;saveF();render();retratoModal()});return}
   if(a==='retArteTirar'){delete retDados(f).arte[t.dataset.k];saveF();render();retratoModal();return}
 });
+
+/* ============================== GRUPO ==============================
+   Jogadores veem os colegas da mesma campanha: retrato, estado e contadores; as barras dependem do mestre:
+   numeros (barras com números), barras (só a barra), sem (sem barras), oculto (jogadores não veem o grupo). */
+const GRUPO_MODOS=[['numeros','Retrato, barras e números'],['barras','Retrato e barras (sem números)'],['sem','Só retrato e estado (sem barras)'],['oculto','Nada: jogadores não veem o grupo']];
+S.grupo={};
+async function grupoBuscar(mid,forcar){if(!mid||!(S.conta&&S.conta.usuario))return;const g=S.grupo[mid];if(!forcar&&g&&Date.now()-g.t<10e3)return;
+  try{const r=await Api.req('GET',`/api/mesas/${encodeURIComponent(mid)}/grupo`);const antes=JSON.stringify(g&&g.r);S.grupo[mid]={t:Date.now(),r};
+    if(antes!==JSON.stringify(r)&&(S.view==='ficha'||S.view==='escudo')){const ae=document.activeElement;if(!(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)))render()}}
+  catch(e){S.grupo[mid]={t:Date.now(),r:null}}}
+function grupoBarra(x,k,l,col){const b=x[k];if(!b)return '';const pct=b.pct!=null?b.pct:Math.max(0,Math.min(100,b.v/b.max*100));
+  const ch='g:'+x.id+':'+k;const ant=S._retAnt[ch];S._retAnt[ch]=pct;const mud=ant==null||ant===pct?'':ant>pct?'perde':'ganha';
+  return `<div class="ret-bar mini ${mud}" style="--c:var(--${col})" title="${l}${b.v!=null?` ${b.v}/${b.max}`:''}"><span class="ret-bl">${l}</span>${b.v!=null?`<span class="ret-bv">${b.v}/${b.max}</span>`:''}<div class="ret-trilho"><i data-ret-de="${ant??pct}" data-ret-para="${pct}" style="width:${ant??pct}%"></i></div></div>`}
+function grupoCard(x){const s=x.sessao||{};
+  return `<div class="grupo-card est-${x.estado}">${retFiguraDe({nome:x.nome,est:x.estado,arte:x.arte})}
+    <div class="grupo-info"><b>${h(x.nome)}</b><small>${h(x.usuario)}</small>
+     ${x.pv||x.pe||x.san?`<div class="ret-barras">${grupoBarra(x,'pv','PV','pv')}${x.det?grupoBarra(x,'pe','PD','pe'):grupoBarra(x,'san','SAN','san')}</div>`:''}
+     <span class="ret-cont"><span>Caiu <b>${s.quedas||0}</b></span><span>Enlouqueceu <b>${s.loucuras||0}</b></span></span></div></div>`}
+/* Faixa na ficha do jogador, abaixo das barras. */
+function grupoFaixa(f){if(!f||f._alheia||!f.mesa||!(S.conta&&S.conta.usuario))return '';
+  const g=S.grupo[f.mesa];if(!g){grupoBuscar(f.mesa);return ''}const r=g.r;if(!r||r.modo==='oculto')return '';
+  const outros=(r.membros||[]).filter(x=>x.id!==f.id);if(!outros.length)return '';
+  return `<div class="grupo-faixa" aria-label="Grupo da campanha"><span class="eyebrow">Grupo</span><div class="grupo-lista">${outros.map(grupoCard).join('')}</div></div>`}
+/* Mestre: escolhe o que os jogadores veem (Escudo → Agentes). */
+function grupoModoSel(mid){const g=S.grupo[mid];if(!g){grupoBuscar(mid);return ''}const modo=(g.r&&g.r.modo)||'barras';
+  return `<label class="row grupo-modo" style="gap:6px;font-size:13px">Os jogadores veem do grupo: <select class="inp" data-grupo-modo="${h(mid)}">${GRUPO_MODOS.map(([k,l])=>opt(k,l,modo)).join('')}</select></label>`}
+document.addEventListener('change',async e=>{const m=e.target.dataset&&e.target.dataset.grupoModo;if(!m)return;
+  try{await Api.req('PUT',`/api/mesas/${encodeURIComponent(m)}/grupo`,{modo:e.target.value});await grupoBuscar(m,true);toast('Pronto: '+(GRUPO_MODOS.find(x=>x[0]===e.target.value)||[])[1]+'.')}catch(err){toast(err.message||'Não foi possível salvar.')}});
+/* Atualiza o grupo a cada 12 s com a ficha aberta. */
+setInterval(()=>{if(document.visibilityState!=='visible'||S.view!=='ficha')return;const f=F();if(f&&f.mesa&&!f._alheia)grupoBuscar(f.mesa,true)},12000);

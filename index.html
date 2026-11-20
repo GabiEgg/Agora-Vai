@@ -467,6 +467,15 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 @keyframes pingUrg{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 @media (prefers-reduced-motion:reduce){.ping-pop,.ping-pop.urg{animation:none}}
 @media print{#ping-btn,#pings{display:none}}
+
+/* ---------- Grupo (colegas da campanha) ---------- */
+.grupo-faixa{border-bottom:1px solid var(--line);padding:8px 18px 10px;background:var(--sunk);display:grid;gap:6px}
+.grupo-lista{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.grupo-card{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);min-width:200px;flex:none}
+.grupo-card .ret-fig{width:52px}.grupo-card .ret-ini{font-size:18px}.grupo-card .ret-est{font-size:8px}
+.grupo-info{display:grid;gap:3px;min-width:0;flex:1}.grupo-info small{color:var(--muted);font-size:11px;margin-top:-3px}
+.ret-bar.mini{font-size:11px}.ret-bar.mini .ret-trilho{height:6px}
+.grupo-modo select{width:auto}
 </style>
 
 <div class="wrap">

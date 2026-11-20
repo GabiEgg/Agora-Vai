@@ -135,7 +135,7 @@ async function addCriaturaCombate(id,nome){
 function escAgentes(m){
   if(!S.mesaDados)return '<p class="hint">Carregando…</p>';
   const jog=S.mesaDados.membros.filter(x=>x.papel!=='mestre');
-  return `<div class="sec"><div class="sec-h"><h2>Agentes</h2><span class="hint">${jog.length} jogador${jog.length===1?'':'es'}</span></div>${agentesCards()||`<div class="empty">Nenhuma ficha ligada ainda. ${jog.length?'Peça aos jogadores para escolher esta campanha no Dossiê de cada agente.':'Passe o código <b>'+h(m.codigo)+'</b> para os jogadores.'}</div>`}</div>`;
+  return `<div class="sec"><div class="sec-h"><h2>Agentes</h2><span class="hint">${jog.length} jogador${jog.length===1?'':'es'}</span>${typeof grupoModoSel==='function'?grupoModoSel(S.mesaAberta):''}</div>${agentesCards()||`<div class="empty">Nenhuma ficha ligada ainda. ${jog.length?'Peça aos jogadores para escolher esta campanha no Dossiê de cada agente.':'Passe o código <b>'+h(m.codigo)+'</b> para os jogadores.'}</div>`}</div>`;
 }
 function agentesCards(){const d=S.mesaDados;if(!d||!d.fichas.length)return '';
   return `<div class="cards">${d.fichas.map((x,i)=>{const f=migrar(clone(x.ficha));let r;try{r=calc(f)}catch(e){r=null}const c=r&&r.c;

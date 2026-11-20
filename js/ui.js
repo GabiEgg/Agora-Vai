@@ -35,7 +35,7 @@ function renderFichas(){
       <span class="stamp">${r.est?'Estágio '+(f.estagio||1):'NEX '+f.nex+'%'}</span>
       <div class="row">${S.confirm==='del'?`<span class="confirm">Excluir esta ficha? <button class="btn sm danger" data-act="delOk">Excluir</button><button class="btn sm" data-act="cancel">Cancelar</button></span>`:
        `<button class="btn sm" data-act="dup">Duplicar</button><button class="btn sm" data-act="fichaHtml" title="Arquivo .html com a ficha inteira, para abrir sem o site">Compartilhar</button><button class="btn sm" data-act="exportF">Exportar</button><button class="btn sm danger" data-act="del">Excluir</button>`}</div></div>
-    ${iniBanner(f,r)}${fxBarra(f)}${vitalsStrip(f,r)}
+    ${iniBanner(f,r)}${fxBarra(f)}${vitalsStrip(f,r)}${typeof grupoFaixa==='function'?grupoFaixa(f):''}
     <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${S.tab===k}" data-act="tab" data-v="${k}">${l}${k==='bonus'&&nb?` <span class="badge ${r.ef.naoAcumula.length?'warnb':'acc'}" ${r.ef.naoAcumula.length?'title="Há efeitos de rituais que não acumulam"':''}>${nb}${r.ef.naoAcumula.length?' !':''}</span>`:''}${k==='aliados'&&na?` <span class="badge">${na}</span>`:''}</button>`).join('')}</div>
     <div class="pane">${f.classe||['notas','aliados'].includes(S.tab)||S.tab==='dossie'?panes[S.tab](f,r):`<div class="empty">Escolha uma classe no Dossiê para liberar esta aba.</div>`}</div></section></div>`;
 }

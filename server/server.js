@@ -194,6 +194,9 @@ async function rotear(req,res){
    continuam vendo apenas as próprias. Avisos de rituais vão dos jogadores para o mestre. */
 const ALFA='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const novoCodigo=()=>Array.from(crypto.randomBytes(6),b=>ALFA[b%ALFA.length]).join('');
+const MODOS_GRUPO=['numeros','barras','sem','oculto'];
+const modoGrupo=v=>MODOS_GRUPO.includes(v)?v:'barras';
+async function lerCfgMesa(id){const r=await db.get(Q.cfgMesa,id);try{return (r&&JSON.parse(r.dados))||{}}catch(e){return {}}}
 async function rotasMesa(req,res,u,p,m,url){
   if(p==='/api/mesas'&&m==='GET')return enviar(res,200,(await db.all(Q.minhasMesas,u.id)).map(x=>({id:x.id,nome:x.nome,papel:x.papel,mestre:x.mestre,codigo:x.papel==='mestre'?x.codigo:undefined})));
   if(p==='/api/mesas'&&m==='POST'){const b=await lerJSON(req)||{};const nome=String(b.nome||'').trim().slice(0,80);if(!nome)return erro(res,400,'Dê um nome para a campanha.');
@@ -218,6 +221,23 @@ async function rotasMesa(req,res,u,p,m,url){
   if(sub==='/eventos'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê os avisos.');const depois=+url.searchParams.get('depois')||0;
     return enviar(res,200,(await db.all(Q.eventos,mesa.id,depois)).map(e=>({id:e.id,criado:e.criado,usuario:e.usuario,...JSON.parse(e.dados)})))}
   if(sub==='/iniciativa')return rotaIniciativa(req,res,u,m,mesa,mestre);
+  /* Grupo: o que cada jogador vê dos colegas (retrato, estado, contadores e, conforme o mestre, barras com ou sem números).
+     Só sai daqui o resumo público da ficha; o resto continua só para o mestre. */
+  if(sub==='/grupo'&&m==='GET'){const modo=modoGrupo((await lerCfgMesa(mesa.id)).grupo);
+    if(modo==='oculto'&&!mestre)return enviar(res,200,{modo,membros:[]});
+    const idOk=v=>typeof v==='string'&&/^[\w-]{1,64}$/.test(v)?v:undefined;const n=v=>Math.max(0,Math.min(999,Math.round(+v)||0));
+    const membros=[];for(const r of await db.all(Q.fichasDaMesa,mesa.id,mesa.id)){let f;try{f=JSON.parse(r.dados).ficha}catch(e){continue}if(!f)continue;
+      const pub=f.publico||{};const rt=f.retrato||{};const arte={};for(const k of ['normal','machucado','perturbado','caido','louco','morto']){const v=idOk((rt.arte||{})[k]);if(v)arte[k]=v}
+      const e={usuario:r.usuario,id:idOk(String(f.id||'')),nome:txtCurto(f.nome,80)||'Agente',estado:['normal','machucado','perturbado','caido','louco','morto'].includes(pub.estado)?pub.estado:'normal',
+        arte,morto:!!rt.morto,sessao:{quedas:n((rt.sessao||{}).quedas),loucuras:n((rt.sessao||{}).loucuras)}};
+      if(rt.morto)e.estado='morto';
+      if(modo==='numeros'||modo==='barras'){const barra=k=>{const c=Math.round(+pub[k]),mx=Math.round(+pub[k+'Max']);if(!(mx>0)||!Number.isFinite(c))return undefined;
+          return modo==='numeros'?{v:Math.max(-999,Math.min(9999,c)),max:Math.min(9999,mx)}:{pct:Math.round(Math.max(0,Math.min(100,c/mx*100)))}};
+        e.det=!!pub.det;e.pv=barra('pv');if(pub.det)e.pe=barra('pe');else e.san=barra('san')}
+      membros.push(e)}
+    return enviar(res,200,{modo,membros})}
+  if(sub==='/grupo'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre escolhe o que o grupo vê.');const b=await lerJSON(req)||{};
+    const cfg=await lerCfgMesa(mesa.id);cfg.grupo=modoGrupo(b.modo);await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true,modo:cfg.grupo})}
   if(sub==='/membros'&&m==='GET')return enviar(res,200,(await db.all(Q.membrosIds,mesa.id)).map(x=>({id:mestre||x.papel==='mestre'?x.id:undefined,usuario:x.usuario,papel:x.papel})));
   if(sub==='/ping'&&m==='POST'){if(pingDemais(u.id))return erro(res,429,'Calma: muitos pings seguidos. Espere alguns segundos.');
     const b=await lerJSON(req)||{};const texto=txtCurto(b.texto,300);if(!texto)return erro(res,400,'Escreva a mensagem do ping.');
@@ -229,7 +249,8 @@ async function rotasMesa(req,res,u,p,m,url){
   if(sub==='/regras'&&m==='GET'){const r=await db.get(Q.cfgMesa,mesa.id);let cfg=null;try{cfg=r?JSON.parse(r.dados):null}catch(e){}return enviar(res,200,{cfg,atualizado:r?r.atualizado:0})}
   if(sub==='/regras'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre define as regras da campanha.');const b=await lerJSON(req)||{};
     const bools=o=>{const out={};if(o&&typeof o==='object')for(const [k,v] of Object.entries(o).slice(0,500))if(/^[\w-]{1,64}$/.test(k))out[k]=!!v;return out};
-    const cfg={fontes:bools(b.fontes),regras:bools(b.regras),auto:bools(b.auto),acoesInterludio:Math.max(1,Math.min(10,Math.round(+b.acoesInterludio)||2))};
+    const ant=await lerCfgMesa(mesa.id);
+    const cfg={fontes:bools(b.fontes),regras:bools(b.regras),auto:bools(b.auto),acoesInterludio:Math.max(1,Math.min(10,Math.round(+b.acoesInterludio)||2)),grupo:ant.grupo};
     await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true})}
   return erro(res,404,'Não encontrado');
 }
