@@ -219,6 +219,6 @@ function realFichas(){const o={};for(const k in S.fichas)if(!S.fichas[k]._exempl
 const hbCount=()=>HB_TYPES.reduce((s,[k])=>s+(S.hb[k]||[]).length,0);
 function setStatus(m){const el=document.getElementById('status');if(!el)return;el.className='status '+(m==='db'?'db':m==='err'?'err':'');
   el.querySelector('span').textContent=m==='db'?(S.conta&&S.conta.usuario?'Salvo no servidor':'Salvo na sua conta'):m==='err'?'Falha ao salvar':'Salvo neste navegador'}
-function saveF(f=F()){if(!f||f._alheia)return;if(f._exemplo)delete f._exemplo;f.atualizado=Date.now();if(typeof monitorPV==='function')monitorPV(f);Store.touch('f-'+f.id)}
+function saveF(f=F()){if(!f||f._alheia)return;if(f._exemplo)delete f._exemplo;f.atualizado=Date.now();if(typeof retMonitor==='function')retMonitor(f);if(typeof monitorPV==='function')monitorPV(f);Store.touch('f-'+f.id)}
 function saveHB(){S._hbv++;Store.touch('homebrew')}
 function saveCfg(){Store.touch('config');if(typeof publicarRegras==='function')publicarRegras()}

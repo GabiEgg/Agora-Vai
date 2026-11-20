@@ -411,6 +411,62 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .cri-acao{border-left:2px solid var(--line);padding-left:8px;display:grid;gap:3px}
 .rollchip{font-family:var(--f-mono);font-size:11.5px;padding:4px 8px;border-radius:4px;border:1px solid var(--line);background:var(--sunk);cursor:pointer;color:inherit}
 .rollchip:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ---------- Retrato (portrait) ---------- */
+.bar i{transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.vit.perde .bar{animation:retHit .6s ease-out}.vit.ganha .bar{animation:retCura .8s ease-out}
+@keyframes retHit{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--pv) 70%,transparent)}30%{transform:translateX(-2px)}60%{transform:translateX(2px)}100%{box-shadow:0 0 0 6px transparent;transform:none}}
+@keyframes retCura{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}100%{box-shadow:0 0 0 6px transparent}}
+.ret-linha{display:flex;gap:14px;align-items:stretch}.ret-linha>.vits{flex:1;min-width:0}
+.ret-mini{all:unset;cursor:pointer;display:grid;gap:4px;justify-items:center;align-content:start;flex:none;border-radius:var(--r)}
+.ret-mini:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.ret-fig{position:relative;width:84px;aspect-ratio:3/4;border-radius:8px;overflow:hidden;border:2px solid var(--line);background:var(--paper);display:grid;place-items:center;transition:border-color .4s,filter .6s}
+.ret-fig.grande{width:min(240px,62vw)}
+.ret-fig img{width:100%;height:100%;object-fit:cover;display:block;transition:filter .6s,transform .6s}
+.ret-ini{font-family:var(--f-display);font-size:28px;color:var(--muted)}.ret-fig.grande .ret-ini{font-size:64px}
+.ret-est{position:absolute;left:0;right:0;bottom:0;font:600 10px/1.6 var(--f-mono,monospace);letter-spacing:.06em;text-transform:uppercase;text-align:center;color:#fff;background:rgba(0,0,0,.55);padding:1px 2px}
+.ret-fig.grande .ret-est{font-size:13px;padding:3px}
+.ret-fig.est-machucado{border-color:var(--pv)}
+.ret-fig.est-perturbado{border-color:var(--san)}
+.ret-fig.est-caido{border-color:var(--pv);box-shadow:0 0 0 2px color-mix(in srgb,var(--pv) 40%,transparent)}
+.ret-fig.est-louco{border-color:var(--pe);animation:retLouco 2.4s infinite}
+.ret-fig.est-morto{border-color:#000}.ret-fig.est-morto .ret-est{background:#000}
+/* Efeitos quando o estado usa a arte de outro estado (ou não tem arte). */
+.ret-fig.reserva.est-machucado::after,.ret-fig.vazia.est-machucado::after{content:"";position:absolute;inset:0;background:radial-gradient(transparent 45%,color-mix(in srgb,var(--pv) 55%,transparent));pointer-events:none}
+.ret-fig.reserva.est-perturbado img{filter:saturate(.5) contrast(1.1)}
+.ret-fig.reserva.est-caido img{filter:grayscale(.6) brightness(.75);transform:rotate(-8deg) scale(1.08)}
+.ret-fig.reserva.est-louco img{filter:hue-rotate(250deg) saturate(1.6) contrast(1.2)}
+.ret-fig.reserva.est-morto img{filter:grayscale(1) brightness(.6) contrast(1.15)}
+.ret-fig.vazia.est-morto,.ret-fig.vazia.est-caido{filter:grayscale(1)}
+@keyframes retLouco{0%,100%{transform:none}20%{transform:translate(1px,-1px) skewX(1deg)}40%{transform:translate(-1px,1px)}60%{transform:translate(1px,1px) skewX(-1deg)}}
+@media (prefers-reduced-motion:reduce){.ret-fig.est-louco,.vit.perde .bar,.vit.ganha .bar{animation:none}.bar i{transition:none}}
+.ret-cont{display:flex;gap:6px;font-size:11px;color:var(--muted);white-space:nowrap}.ret-cont b{color:var(--ink)}
+.ret-modal .ret-topo{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}.ret-lado{flex:1 1 220px;display:grid;gap:12px;min-width:0}
+.ret-barras{display:grid;gap:8px}.ret-bar{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;color:var(--c);font-size:13px}
+.ret-bl{font-weight:600}.ret-bv{justify-self:end;font-variant-numeric:tabular-nums;color:var(--ink)}
+.ret-trilho{grid-column:1/-1;height:12px;background:var(--sunk);border:1px solid var(--line);border-radius:3px;overflow:hidden}.ret-trilho i{display:block;height:100%;background:currentColor;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.ret-bar.perde .ret-trilho{animation:retHit .6s ease-out}
+.ret-conts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ret-conts>div{border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;background:var(--sunk)}
+.ret-conts b{font-size:26px;line-height:1}.ret-conts span{font-size:12px}.ret-conts small{color:var(--muted);font-size:11px}
+.ret-artes{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.ret-slot{border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;gap:6px;justify-items:center;text-align:center}.ret-slot.atual{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ret-thumb{width:84px;aspect-ratio:3/4;border-radius:6px;overflow:hidden;background:var(--sunk);display:grid;place-items:center;font-size:11px;color:var(--muted)}.ret-thumb img{width:100%;height:100%;object-fit:cover}
+.ag-card{display:flex;gap:12px;align-items:flex-start}.ag-ret{display:grid;gap:4px;justify-items:center;flex:none}.ag-info{flex:1;min-width:0;display:grid;gap:6px}
+@media (max-width:600px){.ret-fig{width:64px}.ret-ini{font-size:22px}.ret-cont{flex-direction:column;gap:0;align-items:center}}
+/* ---------- Ping ---------- */
+#ping-btn{position:fixed;right:16px;bottom:16px;z-index:60;display:flex;gap:6px;align-items:center;border-radius:999px;padding:10px 16px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+#pings{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:90;display:grid;gap:8px;width:min(420px,calc(100vw - 32px))}
+.ping-pop{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:10px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.3);display:grid;gap:6px;animation:pingIn .35s cubic-bezier(.2,.9,.3,1.3)}
+.ping-pop.urg{border-left-color:var(--pv);animation:pingIn .35s cubic-bezier(.2,.9,.3,1.3),pingUrg .5s .35s 3}
+.ping-de{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}.ping-de span{font-size:11px;color:var(--muted)}
+.ping-txt{margin:0;font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ping-mais{font-size:12px;color:var(--muted);text-align:center;background:var(--paper);border-radius:8px;padding:4px}
+.ping-cit{margin:0;border-left:3px solid var(--line);padding:4px 8px;color:var(--muted);font-size:13px}
+.ping-form textarea{width:100%;box-sizing:border-box;resize:vertical}
+@keyframes pingIn{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes pingUrg{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.ping-pop,.ping-pop.urg{animation:none}}
+@media print{#ping-btn,#pings{display:none}}
 </style>
 
 <div class="wrap">
@@ -437,4 +493,6 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 <script src="js/mapas.js" charset="utf-8"></script>
 <script src="js/afinidade.js" charset="utf-8"></script>
 <script src="js/criaturas.js" charset="utf-8"></script>
+<script src="js/retrato.js" charset="utf-8"></script>
+<script src="js/ping.js" charset="utf-8"></script>
 <script src="js/eventos.js" charset="utf-8"></script>

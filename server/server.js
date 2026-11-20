@@ -71,6 +71,14 @@ const Q={
   iniDelEstado:'DELETE FROM mesa_estado WHERE mesa_id=?',
   iniDados:'SELECT chave,usuario_id,tipo,nome,dados FROM mesa_ini WHERE mesa_id=? AND chave=?',
   iniSetDados:'UPDATE mesa_ini SET dados=?,atualizado=? WHERE mesa_id=? AND chave=?',
+  membrosIds:`SELECT u.id,u.usuario,mm.papel FROM mesa_membros mm JOIN usuarios u ON u.id=mm.usuario_id WHERE mm.mesa_id=? ORDER BY mm.entrou`,
+  pingAdd:'INSERT INTO mesa_ping(mesa_id,de_id,para,criado,dados) VALUES(?,?,?,?,?)',
+  /* Pings para mim: enviados ao meu id, ou "mestre" nas campanhas que mestro, ou "todos" nas campanhas em que jogo. */
+  pingMeus:`SELECT p.id,p.mesa_id,p.criado,p.dados,p.para,p.de_id,mm.papel,u.usuario de,m.nome mesa FROM mesa_ping p JOIN mesa_membros mm ON mm.mesa_id=p.mesa_id AND mm.usuario_id=? JOIN usuarios u ON u.id=p.de_id JOIN mesas m ON m.id=p.mesa_id
+    WHERE p.id>? AND p.criado>? AND p.de_id<>? AND (p.para=? OR (p.para='mestre' AND mm.papel='mestre') OR (p.para='todos' AND mm.papel<>'mestre')) ORDER BY p.id LIMIT 50`,
+  pingUltimo:'SELECT MAX(id) n FROM mesa_ping',
+  pingPodar:'DELETE FROM mesa_ping WHERE criado<?',
+  apagarPings:'DELETE FROM mesa_ping WHERE mesa_id=?',
   logAdd:'INSERT INTO mesa_log(mesa_id,usuario_id,criado,dados) VALUES(?,?,?,?)',
   logLista:'SELECT id,criado,dados FROM mesa_log WHERE mesa_id=? AND id>? ORDER BY id LIMIT 2000',
   logContar:'SELECT COUNT(*) n FROM mesa_log WHERE mesa_id=?',
@@ -94,6 +102,9 @@ async function abrirSessao(res,usuarioId){
 // Limite simples de tentativas de login/cadastro por IP (10 por minuto).
 const tentativas=new Map();
 function ipDe(req){const xf=TRUST_PROXY&&String(req.headers['x-forwarded-for']||'').split(',')[0].trim();return xf||req.socket.remoteAddress||'?'}
+const pingsPorUsuario=new Map();
+/* Até 15 pings por minuto por pessoa. */
+function pingDemais(uid){const agora=Date.now();const l=(pingsPorUsuario.get(uid)||[]).filter(t=>agora-t<60e3);l.push(agora);pingsPorUsuario.set(uid,l);return l.length>15}
 function excedeu(req){const ip=ipDe(req);const agora=Date.now();const l=(tentativas.get(ip)||[]).filter(t=>agora-t<60e3);l.push(agora);tentativas.set(ip,l);return l.length>10}
 
 /* ---------------- utilidades HTTP ---------------- */
@@ -166,6 +177,13 @@ async function rotear(req,res){
     const buf=await lerCorpo(req,MAX_IMG);if(!buf.length)return erro(res,400,'Arquivo vazio');
     const id=crypto.randomBytes(16).toString('hex');await db.run(Q.gravarImg,id,u.id,tipo,buf,Date.now());
     return enviar(res,200,{id,url:'/_blob/'+id,sizeBytes:buf.length,contentType:tipo})}
+  /* Pings: avisos rápidos entre mestre e jogadores. GET traz os novos para mim (de todas as campanhas). */
+  if(p==='/api/ping'&&m==='GET'){const depois=+url.searchParams.get('depois')||0;
+    /* Primeira consulta (depois=0): só os dos últimos 2 minutos, para não perder um ping que chegou enquanto a página abria. */
+    const lista=await db.all(Q.pingMeus,u.id,depois,Date.now()-(depois?6*3600e3:120e3),u.id,u.id);
+    if(!depois&&!lista.length){const r=await db.get(Q.pingUltimo);return enviar(res,200,{ultimo:(r&&r.n)||0,pings:[]})}
+    if(Math.random()<0.02)await db.run(Q.pingPodar,Date.now()-2*86400e3);
+    return enviar(res,200,{ultimo:lista.length?lista[lista.length-1].id:depois,pings:lista.map(x=>{let d={};try{d=JSON.parse(x.dados)}catch(e){}return {id:x.id,mesa:x.mesa_id,mesaNome:x.mesa,de:x.de,deId:x.papel==='mestre'?x.de_id:undefined,souMestre:x.papel==='mestre',criado:x.criado,paraTodos:x.para==='todos',...d}})})}
   if(p.startsWith('/api/mesas'))return rotasMesa(req,res,u,p,m,url);
   return erro(res,404,'Não encontrado');
 }
@@ -190,7 +208,7 @@ async function rotasMesa(req,res,u,p,m,url){
   const mm=p.match(/^\/api\/mesas\/([\w-]{1,64})(\/[a-z]+)?$/);if(!mm)return erro(res,404,'Não encontrado');
   const mesa=await db.get(Q.mesa,mm[1]);const pap=mesa&&(await db.get(Q.papel,mesa.id,u.id));if(!mesa||!pap)return erro(res,404,'Campanha não encontrada.');
   const mestre=pap.papel==='mestre';const sub=mm[2]||'';
-  if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.iniDelTudo,mesa.id);await db.run(Q.iniDelEstado,mesa.id);await db.run(Q.logApagar,mesa.id);await db.run(Q.cfgMesaDel,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
+  if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.apagarPings,mesa.id);await db.run(Q.iniDelTudo,mesa.id);await db.run(Q.iniDelEstado,mesa.id);await db.run(Q.logApagar,mesa.id);await db.run(Q.cfgMesaDel,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
   if(sub==='/sair'&&m==='POST'){if(mestre)return erro(res,400,'O mestre não sai da própria campanha; exclua-a se quiser.');await db.run(Q.tirarMembro,mesa.id,u.id);return enviar(res,200,{ok:true})}
   if(sub==='/fichas'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê as fichas da campanha.');
     const fichas=[];for(const r of await db.all(Q.fichasDaMesa,mesa.id,mesa.id)){try{fichas.push({usuario:r.usuario,atualizado:r.atualizado,ficha:JSON.parse(r.dados).ficha})}catch(e){}}
@@ -200,6 +218,13 @@ async function rotasMesa(req,res,u,p,m,url){
   if(sub==='/eventos'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê os avisos.');const depois=+url.searchParams.get('depois')||0;
     return enviar(res,200,(await db.all(Q.eventos,mesa.id,depois)).map(e=>({id:e.id,criado:e.criado,usuario:e.usuario,...JSON.parse(e.dados)})))}
   if(sub==='/iniciativa')return rotaIniciativa(req,res,u,m,mesa,mestre);
+  if(sub==='/membros'&&m==='GET')return enviar(res,200,(await db.all(Q.membrosIds,mesa.id)).map(x=>({id:mestre||x.papel==='mestre'?x.id:undefined,usuario:x.usuario,papel:x.papel})));
+  if(sub==='/ping'&&m==='POST'){if(pingDemais(u.id))return erro(res,429,'Calma: muitos pings seguidos. Espere alguns segundos.');
+    const b=await lerJSON(req)||{};const texto=txtCurto(b.texto,300);if(!texto)return erro(res,400,'Escreva a mensagem do ping.');
+    let para='mestre';
+    if(mestre){para=b.para==='todos'||!b.para?'todos':String(b.para);if(para!=='todos'){const alvo=(await db.all(Q.membrosIds,mesa.id)).find(x=>x.id===para&&x.papel!=='mestre');if(!alvo)return erro(res,404,'Jogador não está nesta campanha.')}}
+    const dados={texto,agente:txtCurto(b.agente,80)||undefined,urgente:!!b.urgente||undefined};
+    await db.run(Q.pingAdd,mesa.id,u.id,para,Date.now(),JSON.stringify(dados));return enviar(res,200,{ok:true,para})}
   /* Regras da campanha: o mestre publica livros, regras opcionais e automações; os jogadores copiam. */
   if(sub==='/regras'&&m==='GET'){const r=await db.get(Q.cfgMesa,mesa.id);let cfg=null;try{cfg=r?JSON.parse(r.dados):null}catch(e){}return enviar(res,200,{cfg,atualizado:r?r.atualizado:0})}
   if(sub==='/regras'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre define as regras da campanha.');const b=await lerJSON(req)||{};

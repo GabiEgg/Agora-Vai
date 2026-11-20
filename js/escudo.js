@@ -141,11 +141,11 @@ function agentesCards(){const d=S.mesaDados;if(!d||!d.fichas.length)return '';
   return `<div class="cards">${d.fichas.map((x,i)=>{const f=migrar(clone(x.ficha));let r;try{r=calc(f)}catch(e){r=null}const c=r&&r.c;
     const bar=(k,l,col)=>r&&r[k+'Max']?`<div class="mini-vit" style="--c:var(--${col})"><span>${l} ${r[k]}/${r[k+'Max']}</span><div class="bar"><i style="width:${Math.max(0,Math.min(100,r[k]/r[k+'Max']*100))}%"></i></div></div>`:'';
     const conds=r?[...r.conds.values()].map(z=>z.c.nome):[];
-    return `<div class="card"><h4>${h(f.nome)} <span class="badge">${h(x.usuario)}</span></h4>
+    return `<div class="card ag-card">${r&&typeof retFigura==='function'&&f.classe?`<div class="ag-ret">${retFigura(f,r)}${retContadores(f,{curto:true})}</div>`:''}<div class="ag-info"><h4>${h(f.nome)} <span class="badge">${h(x.usuario)}</span></h4>
       <div class="meta"><span>${c?h(c.nome):'Sem classe'}</span><span>${c&&c.estagios?'Estágio '+f.estagio:'NEX '+f.nex+'%'}</span>${r?`<span>Defesa ${r.defesa}</span><span>DT ${r.dt}</span><span>Percepção ${r.per.percepcao?sgn(r.per.percepcao.bonus):''}</span>`:''}</div>
       ${r?bar('pv','PV','pv')+bar('pe',r.det?'PD':'PE','pe')+(r.det?'':bar('san','SAN','san')):''}
       ${conds.length?`<div class="chips">${conds.map(n=>`<span class="cond">${h(n)}</span>`).join('')}</div>`:''}
-      <div class="row"><button class="btn sm" data-act="verFicha" data-i="${i}">Ver ficha</button><span class="hint">atualizada ${new Date(x.atualizado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div></div>`}).join('')}</div>`}
+      <div class="row"><button class="btn sm" data-act="verFicha" data-i="${i}">Ver ficha</button><span class="hint">atualizada ${new Date(x.atualizado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div></div></div>`}).join('')}</div>`}
 function escAvisos(){
   const av=(S.mesaEventos||[]).map(e=>`<div class="aviso"><div class="meta"><span>${new Date(e.criado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span><span>${h(e.agente||e.usuario)}</span>${e.elemento?elBadge(e.elemento):''}</div>
      <b>${h(e.ritual||'Ritual')} → ${h(e.alvo||'')}</b><span class="dt">DT ${h(e.dt)}</span><p>${h(avisoTexto(e))}</p>${e.alcance||e.duracao?`<p class="hint">${[e.alcance&&'Alcance '+e.alcance,e.duracao&&'Duração '+e.duracao].filter(Boolean).map(h).join(' · ')}</p>`:''}</div>`).join('');

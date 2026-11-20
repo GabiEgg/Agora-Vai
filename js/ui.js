@@ -10,7 +10,7 @@ function guardarCampos(){const ids=['mesa-nome','mesa-codigo','hb-q','cri-q',...
   const at=document.activeElement;return {v,foco:at&&at.id&&ids.includes(at.id)?at.id:null}}
 function restaurarCampos(g){Object.entries(g.v).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val});
   if(g.foco){const el=document.getElementById(g.foco);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}}
-function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender()}
+function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender();if(typeof retAnimar==='function')retAnimar()}
 function renderTela(){
   const navs=[['ficha','Fichas'],...(S.conta&&S.conta.usuario?[['campanha','Campanha']]:[]),...(souMestre()?[['escudo','Escudo do Mestre']]:[]),['mesa','Mesa'],['hb','Homebrew'],['guia','Guia']];
   document.getElementById('nav').innerHTML=navs.map(([k,l])=>`<button class="btn" aria-pressed="${S.view===k}" data-act="view" data-v="${k}">${l}${k==='hb'&&hbCount()?` <span class="badge hb">${hbCount()}</span>`:''}${k==='mesa'?` <span class="badge">${D.fontes.filter(x=>!x.viaRegra&&fonteOn(x.id)).length+pacotesHB().filter(pacoteOn).length}</span>`:''}</button>`).join('')+(S.conta?(S.conta.usuario?`<button class="btn" data-act="contaMenu" title="Conta no servidor">${h(S.conta.usuario)}</button>`:`<button class="btn acc" data-act="contaMenu">Entrar</button>`):'');
@@ -44,8 +44,9 @@ function renderFichas(){
 function vitalsStrip(f,r){
   if(!f.classe)return '';
   const one=(k,lbl,col)=>{const cur=r[k],max=r[k+'Max'],tmp=k==='san'?0:r[k+'Temp'];const pct=max?Math.max(0,Math.min(100,cur/max*100)):0;
-    return `<div class="vit" style="--c:var(--${col})"><div class="vit-h"><b>${lbl}</b><span class="vnum"><span data-d="${k}">${cur}</span>/<span data-d="${k}Max">${max}</span></span>${tmp?`<span class="tmpb" title="Pontos temporários: gastos primeiro, somem no fim da cena">+${tmp} temp.</span>`:''}</div>
-     <div class="bar"><i data-bar="${k}" style="width:${pct}%"></i>${tmp?`<i class="tb" style="width:${Math.min(100,tmp/Math.max(1,max)*100)}%"></i>`:''}</div>
+    const ch='v:'+f.id+':'+k;S._retAnt=S._retAnt||{};const ant=S._retAnt[ch];S._retAnt[ch]=pct;const mud=ant==null||ant===pct?'':ant>pct?'perde':'ganha';
+    return `<div class="vit ${mud}" style="--c:var(--${col})"><div class="vit-h"><b>${lbl}</b><span class="vnum"><span data-d="${k}">${cur}</span>/<span data-d="${k}Max">${max}</span></span>${tmp?`<span class="tmpb" title="Pontos temporários: gastos primeiro, somem no fim da cena">+${tmp} temp.</span>`:''}</div>
+     <div class="bar"><i data-bar="${k}" data-ret-de="${ant??pct}" data-ret-para="${pct}" style="width:${ant??pct}%"></i>${tmp?`<i class="tb" style="width:${Math.min(100,tmp/Math.max(1,max)*100)}%"></i>`:''}</div>
      <div class="vit-in"><input class="inp" data-dmg="${k}" placeholder="−15, +8, =20, -2d6" aria-label="Alterar ${lbl}: digite −15 para perder, +8 para recuperar" inputmode="text">
       <button class="btn sm" data-act="dmgGo" data-k="${k}">Aplicar</button>
       ${k!=='san'?`<label class="tmpin" title="Pontos temporários">temp <input class="inp num" type="number" min="0" data-f="${k}Temp" data-num data-r value="${tmp||''}" placeholder="0" aria-label="${lbl} temporários"></label>`:''}
@@ -54,7 +55,7 @@ function vitalsStrip(f,r){
   const contador=(id,lbl)=>r.conds.has(id)?`<span class="chip warn">${lbl}: <button class="mini" data-act="cont" data-id="${id}" data-d="-1" aria-label="Menos">−</button> ${(f.contadores||{})[id]||0}/3 turnos <button class="mini" data-act="cont" data-id="${id}" data-d="1" aria-label="Mais">+</button></span>`:'';
   const danoT=conds.filter(([id,x])=>x.c.danoTurno);
   return `<div class="strip">
-   <div class="vits">${one('pv','PV','pv')}${one('pe',r.det?'PD':'PE','pe')}${r.det?'':one('san','SAN','san')}</div>
+   <div class="ret-linha">${typeof retratoMini==='function'?retratoMini(f,r):''}<div class="vits">${one('pv','PV','pv')}${one('pe',r.det?'PD':'PE','pe')}${r.det?'':one('san','SAN','san')}</div></div>
    <div class="conds"><span class="eyebrow">Condições</span>
     ${conds.length?conds.map(([id,x])=>`<span class="cond ${x.orig?'inc':''}" title="${h(x.c.desc)}">${h(x.c.nome)}${x.orig?` <small>${x.orig==='auto'?'auto':'por '+h(x.orig)}</small>`:`${x.c.escolheAttr?condAttrSel(f,id):''}${x.c.agrava?` <button class="mini" data-act="condUp" data-id="${id}" title="Piorar para ${h((byId('condicoes',x.c.agrava)||{}).nome||'')}" aria-label="Piorar">↑</button>`:''} <button class="mini" data-act="condOff" data-id="${id}" aria-label="Remover ${h(x.c.nome)}">✕</button>`}</span>`).join(''):'<span class="hint">Nenhuma</span>'}
     <button class="btn sm" data-act="condModal">+ Condição</button>

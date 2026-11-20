@@ -88,6 +88,15 @@ function renderGuia(){
    <ul><li><code>-15</code> ou só <code>15</code> perde 15 · <code>+8</code> recupera 8 · <code>=20</code> define o valor · <code>-2d6</code> rola o dano para você.</li>
    <li>Os pontos <b>temporários</b> (campo “temp”) são gastos primeiro e somem no <b>Fim de cena</b>.</li>
    <li>Chegar a 0 PV marca <i>morrendo</i>; abaixo de metade da Sanidade, <i>perturbado</i>; com 0, <i>enlouquecendo</i>. Use os contadores de turno.</li></ul>`)}
+  ${s('Retrato do agente',`<p>Ao lado das barras fica o <b>retrato</b>. Ele muda sozinho com o estado: <i>normal</i>, <i>machucado</i> (metade dos PV), <i>perturbado</i>, <i>caído</i> (morrendo ou inconsciente), <i>enlouquecendo</i> e <i>morto</i> (marcado à mão).</p>
+   <ul><li>Clique no retrato para abri-lo grande e enviar uma arte para cada estado. Sem arte própria, o estado usa a mais próxima com um efeito por cima (caído escurece e inclina, enlouquecendo distorce as cores…).</li>
+   <li>As barras se mexem e piscam quando você perde ou recupera pontos.</li>
+   <li>Embaixo dele aparecem as vezes que o agente <b>caiu</b> (entrou em morrendo) e <b>enlouqueceu</b> nesta sessão. “Nova sessão” zera esses números e guarda o total.</li>
+   <li>Numa campanha, o mestre vê o retrato e os contadores de cada jogador no Escudo → Agentes.</li></ul>`)}
+  ${s('Ping',`<p>Com a conta no servidor e uma campanha, aparece o botão <b>Ping</b> no canto da tela. Ele manda um aviso rápido que surge como pop-up, com som, para quem recebe:</p>
+   <ul><li>O jogador manda para o mestre; o mestre manda para todos os jogadores ou para um só.</li>
+   <li>Há mensagens prontas (“Posso agir agora?”, “Sua vez!”…) ou escreva a sua. “Urgente” toca mais forte e chacoalha o aviso.</li>
+   <li>“Responder” já abre a resposta para quem mandou. A aba do navegador mostra quantos pings estão esperando.</li></ul>`)}
   ${s('Condições',`<p>“+ Condição” liga e desliga qualquer condição. Penalidades em dados, Defesa e deslocamento entram nas contas na hora; condições que incluem outras (agarrado → desprevenido e imóvel) ligam as demais; ficar abalado duas vezes vira apavorado. Em chamas e sangrando ganham um botão de dano no início do turno.</p>`)}
   ${s('Mudanças automáticas',`<ul><li><b>Transcender:</b> ao adicionar um poder paranormal por “+ Transcender”, a Sanidade máxima daquele NEX é retirada (ou os PD, com Determinação). Desmarque se o poder veio de outra fonte.</li>
    <li><b>Conjurar:</b> desconta PE, aplica penalidades de condições e faz o teste do Custo do Paranormal; rituais de Medo sempre cobram Sanidade.</li>
