@@ -33,18 +33,30 @@ function fxCamada(){
   window.addEventListener('resize',()=>{if(FX.atual){fxTamanho();if(FX.parado)fxQuadro(performance.now())}});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&FX.atual&&!FX.parado&&!FX.raf)FX.raf=requestAnimationFrame(fxLoop)});
 }
-function fxTamanho(){FX.dpr=Math.min(1.5,window.devicePixelRatio||1);FX.W=document.documentElement.clientWidth||innerWidth;FX.H=document.documentElement.clientHeight||innerHeight;FX.cv.width=Math.round(FX.W*FX.dpr);FX.cv.height=Math.round(FX.H*FX.dpr);FX.cv.style.width=FX.W+'px';FX.cv.style.height=FX.H+'px';FX.ctx.setTransform(FX.dpr,0,0,FX.dpr,0,0)}
+/* Modo leve: celular/tablet (toque) ou aparelho que não acompanha. Resolução 1x, 30 quadros/s e menos partículas. */
+FX.leve=(()=>{try{return matchMedia('(pointer:coarse)').matches||Math.min(screen.width,screen.height)<700}catch(e){return false}})();
+function fxTamanho(){FX.cache={};FX.dpr=FX.leve?1:Math.min(1.5,window.devicePixelRatio||1);FX.W=document.documentElement.clientWidth||innerWidth;FX.H=document.documentElement.clientHeight||innerHeight;FX.cv.width=Math.round(FX.W*FX.dpr);FX.cv.height=Math.round(FX.H*FX.dpr);FX.cv.style.width=FX.W+'px';FX.cv.style.height=FX.H+'px';FX.ctx.setTransform(FX.dpr,0,0,FX.dpr,0,0)}
 function fxIniciar(e){fxCamada();FX.atual=e;FX.raiz.style.display='';fxTamanho();FX.t0=performance.now();FX.est={};FX.parado=fxReduzido();
   const ini={sangue:sgIni,morte:mtIni,conhecimento:cnIni,energia:enIni}[e];ini&&ini(FX.est);
   if(FX.parado){for(let i=0;i<90;i++)fxQuadro(FX.t0+i*33)}else FX.raf=requestAnimationFrame(fxLoop)}
 function fxParar(){cancelAnimationFrame(FX.raf);FX.raf=0;FX.atual=null;FX.est=null;if(FX.raiz){FX.ctx.clearRect(0,0,FX.W,FX.H);FX.raiz.style.display='none'}}
-function fxLoop(now){FX.raf=0;if(!FX.atual)return;if(document.hidden)return;fxQuadro(now);FX.raf=requestAnimationFrame(fxLoop)}
+function fxLoop(now){FX.raf=0;if(!FX.atual)return;if(document.hidden)return;
+  if(FX.leve&&now-(FX.ultQ||0)<31){FX.raf=requestAnimationFrame(fxLoop);return}FX.ultQ=now;
+  const c0=performance.now();fxQuadro(now);const custo=performance.now()-c0;
+  /* Se o quadro custa caro de forma constante, passa sozinho para o modo leve. */
+  FX.custo=FX.custo==null?custo:FX.custo*.95+custo*.05;if(!FX.leve&&FX.custo>12&&now-FX.t0>3000){FX.leve=true;fxTamanho()}
+  FX.raf=requestAnimationFrame(fxLoop)}
+/* Camada pré-desenhada (fundo, vinheta, símbolo parado): refeita só quando a tela muda de tamanho. */
+function fxCamadaFixa(nome,W,H,desenhar){FX.cache=FX.cache||{};let c=FX.cache[nome];if(c)return c;
+  c=document.createElement('canvas');c.width=Math.round(W*FX.dpr);c.height=Math.round(H*FX.dpr);const x=c.getContext('2d');x.setTransform(FX.dpr,0,0,FX.dpr,0,0);desenhar(x,W,H);FX.cache[nome]=c;return c}
+const fxPor=(ctx,c,W,H)=>ctx.drawImage(c,0,0,W,H);
 function fxQuadro(now){const t=(now-FX.t0)/1000;const dt=Math.min(.05,t-(FX.est._t??t));FX.est._t=t;
   ({sangue:sgQuadro,morte:mtQuadro,conhecimento:cnQuadro,energia:enQuadro})[FX.atual](FX.ctx,FX.W,FX.H,t,dt,FX.est)}
 /* Desenha um símbolo vetorial centrado em (cx,cy) com altura h. */
 function fxSimbolo(ctx,nome,cx,cy,h,estilo){const s=FX_SIMB[nome];const [x0,y0,w0,h0]=s.vb;const k=h/h0;
   ctx.save();ctx.translate(cx-w0*k/2,cy-h0*k/2);ctx.scale(k,k);
-  s.d.forEach(d=>{const p=new Path2D(d);if(s.fill){ctx.fillStyle=estilo.fill;ctx.fill(p);if(estilo.stroke){ctx.strokeStyle=estilo.stroke;ctx.lineWidth=estilo.lw/k;ctx.stroke(p)}}
+  const ps=s._p||(s._p=s.d.map(d=>new Path2D(d)));
+  ps.forEach(p=>{if(s.fill){ctx.fillStyle=estilo.fill;ctx.fill(p);if(estilo.stroke){ctx.strokeStyle=estilo.stroke;ctx.lineWidth=estilo.lw/k;ctx.stroke(p)}}
     else{ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=estilo.stroke;ctx.lineWidth=(estilo.lw||s.w);ctx.stroke(p)}});
   ctx.restore();return {x:cx-w0*k/2,y:cy-h0*k/2,k}}
 const rnd2=(a,b)=>a+Math.random()*(b-a);
@@ -53,25 +65,27 @@ const rnd2=(a,b)=>a+Math.random()*(b-a);
 function sgIni(E){E.gotas=[];E.respingos=[]}
 function sgSuperficie(x,t,H){const L=H*.22;return L+24*Math.sin(x*.011+t*1.9)+14*Math.sin(x*.029-t*3.1)+7*Math.sin(x*.07+t*5.3)+26*Math.pow(Math.abs(Math.sin(x*.017+t*1.4)),3)}
 function sgQuadro(ctx,W,H,t,dt,E){
-  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1a0204');g.addColorStop(1,'#0c0102');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  /* símbolo embaixo, ponta para cima */
-  const hS=Math.min(H*.42,W*.55);const cy=H-hS*.42;const sb=fxSimbolo(ctx,'sangue',W/2,cy,hS,{fill:'#4a070d',stroke:'#a3111e',lw:2});
+  /* fundo e símbolo (embaixo, ponta para cima) ficam numa camada pré-desenhada */
+  const hS=Math.min(H*.42,W*.55);const cy=H-hS*.42;let sb;
+  fxPor(ctx,fxCamadaFixa('sgBase',W,H,(x)=>{const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1a0204');g.addColorStop(1,'#0c0102');x.fillStyle=g;x.fillRect(0,0,W,H);
+    E._sb=fxSimbolo(x,'sangue',W/2,cy,hS,{fill:'#4a070d',stroke:'#a3111e',lw:2})}),W,H);sb=E._sb;
   const px=sb.x+FX_SIMB.sangue.ponta[0]*sb.k,py=sb.y+FX_SIMB.sangue.ponta[1]*sb.k;
   /* jorro: gotas sobem acelerando em direção ao oceano */
-  const pulso=1+Math.max(0,Math.sin(t*3.2))*1.6;const n=Math.round(dt*150*pulso);for(let i=0;i<n;i++)E.gotas.push({x:px+rnd2(-5,5),y:py,vx:rnd2(-70,70),vy:rnd2(-520,-300)*pulso*.8,r:rnd2(1.8,5.5)});
+  const pulso=1+Math.max(0,Math.sin(t*3.2))*1.6;const n=Math.round(dt*(FX.leve?100:150)*pulso);for(let i=0;i<n;i++)E.gotas.push({x:px+rnd2(-5,5),y:py,vx:rnd2(-70,70),vy:rnd2(-520,-300)*pulso*.8,r:rnd2(1.8,5.5)});
   ctx.strokeStyle='rgba(150,10,22,.55)';ctx.lineWidth=6+3*pulso;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+Math.sin(t*7)*3,py-60*pulso);ctx.stroke();
-  ctx.fillStyle='#b3121f';
-  E.gotas=E.gotas.filter(p=>{p.vy-=220*dt;p.vx*=.995;p.x+=p.vx*dt;p.y+=p.vy*dt;const s=sgSuperficie(p.x,t,H);
-    if(p.y<=s){if(Math.random()<.35)E.respingos.push({x:p.x,y:s,r:2,v:1});return false}
-    ctx.beginPath();ctx.ellipse(p.x,p.y,p.r*.8,p.r*1.6,0,0,7);ctx.fill();return true});
+  ctx.fillStyle='#b3121f';ctx.beginPath();
+  E.gotas=E.gotas.filter(p=>{p.vy-=220*dt;p.vx*=.995;p.x+=p.vx*dt;p.y+=p.vy*dt;
+    if(p.y<H*.5){const s=sgSuperficie(p.x,t,H);if(p.y<=s){if(Math.random()<.35)E.respingos.push({x:p.x,y:s,r:2,v:1});return false}}
+    ctx.moveTo(p.x+p.r*.8,p.y);ctx.ellipse(p.x,p.y,p.r*.8,p.r*1.6,0,0,7);return true});
+  ctx.fill();
   /* oceano invertido: três camadas de ondas violentas penduradas no topo */
   [[.55,'#3d0309',0,1],[.75,'#6b0711',22,1.35],[.95,'#8f0c18',40,1.8]].forEach(([a,cor,off,vel])=>{ctx.globalAlpha=a;ctx.fillStyle=cor;ctx.beginPath();ctx.moveTo(0,0);
-    for(let x=0;x<=W+8;x+=8)ctx.lineTo(x,sgSuperficie(x+off*7,t*vel,H)-off);ctx.lineTo(W,0);ctx.closePath();ctx.fill()});
+    const passo=FX.leve?14:8;for(let x=0;x<=W+passo;x+=passo)ctx.lineTo(x,sgSuperficie(x+off*7,t*vel,H)-off);ctx.lineTo(W,0);ctx.closePath();ctx.fill()});
   ctx.globalAlpha=1;
   ctx.strokeStyle='rgba(255,90,100,.35)';ctx.lineWidth=2;
   E.respingos=E.respingos.filter(r=>{r.r+=60*dt;r.v-=1.6*dt;if(r.v<=0)return false;ctx.globalAlpha=r.v;ctx.beginPath();ctx.ellipse(r.x,r.y,r.r,r.r*.3,0,0,7);ctx.stroke();return true});
   ctx.globalAlpha=1;
-  const v=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.6)');ctx.fillStyle=v;ctx.fillRect(0,0,W,H);
+  fxPor(ctx,fxCamadaFixa('sgVinheta',W,H,(x)=>{const v=x.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,.6)');x.fillStyle=v;x.fillRect(0,0,W,H)}),W,H);
 }
 
 /* ---------------- Morte ---------------- */
@@ -85,15 +99,15 @@ function mtQuadro(ctx,W,H,t,dt,E){
   const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.7);g.addColorStop(0,'#2a2a2a');g.addColorStop(1,'#060606');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   E.rastros.forEach((r,k)=>{if(r.atraso<0){r.atraso+=dt;return}
     if(r.p<1)r.p=Math.min(1,r.p+r.vel*dt);else{r.vida-=dt*.25;if(r.vida<=0){E.rastros[k]=mtNovo(r.i);return}}
-    const N=Math.max(2,Math.round(r.p*120));ctx.globalAlpha=Math.max(0,r.vida);
-    for(let pass=0;pass<2;pass++){ctx.beginPath();for(let j=0;j<=N;j++){const s=j/120;const [x,y]=mtPonto(r,s,W,H,t);if(j)ctx.lineTo(x,y);else ctx.moveTo(x,y)}
+    const N=Math.max(2,Math.round(r.p*(FX.leve?60:120)));ctx.globalAlpha=Math.max(0,r.vida);
+    for(let pass=0;pass<2;pass++){ctx.beginPath();for(let j=0;j<=N;j++){const s=j/(FX.leve?60:120);const [x,y]=mtPonto(r,s,W,H,t);if(j)ctx.lineTo(x,y);else ctx.moveTo(x,y)}
       ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=pass?'rgba(90,90,90,.35)':'#000';ctx.lineWidth=pass?r.larg*.18:r.larg;if(pass)ctx.setLineDash([2,14]);ctx.stroke();ctx.setLineDash([])}
     /* gotas de lodo escorrendo da cabeça do rastro */
     if(r.p<1){const [hx,hy]=mtPonto(r,r.p,W,H,t);ctx.fillStyle='#000';ctx.beginPath();ctx.arc(hx,hy,r.larg*.75,0,7);ctx.fill();
       for(let d=1;d<4;d++){const [x,y]=mtPonto(r,Math.max(0,r.p-d*.04),W,H,t);ctx.beginPath();ctx.ellipse(x,y+r.larg*.6+Math.sin(t*2+d)*4,r.larg*.18,r.larg*.4,0,0,7);ctx.fill()}}
     ctx.globalAlpha=1});
-  const hS=Math.min(W,H)*.5;ctx.save();ctx.translate(W/2,H/2);ctx.rotate(Math.sin(t*.25)*.06);ctx.translate(-W/2,-H/2);
-  ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=18;fxSimbolo(ctx,'morte',W/2,H/2,hS,{stroke:'#000',lw:58});ctx.shadowBlur=0;fxSimbolo(ctx,'morte',W/2,H/2,hS,{stroke:'#5a5a5a',lw:12});ctx.restore();
+  const hS=Math.min(W,H)*.5;const simb=fxCamadaFixa('mtSimb',W,H,(x)=>{x.shadowColor='rgba(0,0,0,.9)';x.shadowBlur=18;fxSimbolo(x,'morte',W/2,H/2,hS,{stroke:'#000',lw:58});x.shadowBlur=0;fxSimbolo(x,'morte',W/2,H/2,hS,{stroke:'#5a5a5a',lw:12})});
+  ctx.save();ctx.translate(W/2,H/2);ctx.rotate(Math.sin(t*.25)*.06);ctx.translate(-W/2,-H/2);fxPor(ctx,simb,W,H);ctx.restore();
 }
 
 /* ---------------- Conhecimento ---------------- */
@@ -102,14 +116,19 @@ function sigSprite(cor){if(FX.sprite&&FX.spriteCor===cor)return FX.sprite;const 
   const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext('2d');x.drawImage(img,0,0);x.globalCompositeOperation='source-in';x.fillStyle=cor;x.fillRect(0,0,c.width,c.height);
   FX.sprite=c;FX.spriteCor=cor;return c}
 function sigDesenhar(ctx,sp,i,x,y,s){if(i<0||!sp)return;const C=sp.height;ctx.drawImage(sp,i*C,0,C,C,x-s/2,y-s/2,s,s)}
+/* Folha com os sigilos já brilhando (cada um numa célula com margem): desenhar não custa um shadowBlur por quadro. */
+function sigSpriteBrilho(sp,cor){if(FX.spriteB&&FX.spriteBCor===cor)return FX.spriteB;const C=sp.height,n=Math.round(sp.width/C),p=Math.round(C*.35),T=C+2*p;
+  const c=document.createElement('canvas');c.width=n*T;c.height=T;const x=c.getContext('2d');x.shadowColor=cor;x.shadowBlur=C*.28;
+  for(let i=0;i<n;i++)x.drawImage(sp,i*C,0,C,C,i*T+p,p,C,C);FX.spriteB=c;FX.spriteBCor=cor;FX.spriteBM=T/C;return c}
+function sigDesenharB(ctx,spB,i,x,y,s){if(i<0||!spB)return;const T=spB.height,S2=s*FX.spriteBM;ctx.drawImage(spB,i*T,0,T,T,x-S2/2,y-S2/2,S2,S2)}
 function sigIndices(txt){return [...String(txt).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase()].map(ch=>ch===' '?-2:SIG_ORD.indexOf(ch)).filter(i=>i!==-1)}
 function cnIni(E){if(!FX._img){FX._img=new Image();FX._img.src='img/sigilos.png'}E.frases=[];E.prox=0;
   E.aneis=[[10,.2],[16,.32],[22,.44]].map(([n,r],k)=>({r,dir:k%2?-1:1,cel:Array.from({length:n},()=>({g:Math.floor(Math.random()*26),fade:1}))}));E.troca=0}
 function cnQuadro(ctx,W,H,t,dt,E){
-  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f0b02');g.addColorStop(1,'#1d1604');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  const sp=sigSprite('#e9b93a');if(!sp)return;
+  fxPor(ctx,fxCamadaFixa('cnFundo',W,H,(x)=>{const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f0b02');g.addColorStop(1,'#1d1604');x.fillStyle=g;x.fillRect(0,0,W,H)}),W,H);
+  const sp=sigSprite('#e9b93a');if(!sp)return;const spB=sigSpriteBrilho(sp,'rgba(233,185,58,.6)');
   /* frases subindo em grupos, sem repetir na tela */
-  E.prox-=dt;if(E.prox<=0&&E.frases.length<Math.max(6,Math.round(H/70))){E.prox=rnd2(.9,2.2);
+  E.prox-=dt;if(E.prox<=0&&E.frases.length<Math.max(FX.leve?4:6,Math.round(H/(FX.leve?95:70)))){E.prox=rnd2(.9,2.2);
     const ativas=new Set(E.frases.map(f=>f.txt));const livres=FX_FRASES.filter(f=>!ativas.has(f));const txt=livres[Math.floor(Math.random()*livres.length)];
     const s=rnd2(16,26)*(W<600?.75:1);const idx=sigIndices(txt);const largura=idx.length*s*.78;
     E.frases.push({txt,idx,s,x:rnd2(10,Math.max(12,W-largura-10)),y:H+s,v:rnd2(22,42),a:0})}
@@ -118,14 +137,16 @@ function cnQuadro(ctx,W,H,t,dt,E){
   ctx.globalAlpha=1;
   /* símbolo central: anéis de sigilos que trocam sozinhos e o "8" no meio */
   const R=Math.min(W,H);E.troca-=dt;if(E.troca<=0){E.troca=.09;const a=E.aneis[Math.floor(Math.random()*3)];const c=a.cel[Math.floor(Math.random()*a.cel.length)];c.g=Math.floor(Math.random()*32);c.fade=0}
-  ctx.save();ctx.shadowColor='rgba(233,185,58,.6)';ctx.shadowBlur=10;
   E.aneis.forEach((a,k)=>{const n=a.cel.length;const s=R*(.05+k*.012);a.cel.forEach((c,j)=>{c.fade=Math.min(1,c.fade+dt*2.5);const ang=j/n*Math.PI*2+t*.12*a.dir;
-    ctx.globalAlpha=.35+.6*c.fade;sigDesenhar(ctx,sp,c.g,W/2+Math.cos(ang)*a.r*R,H/2+Math.sin(ang)*a.r*R,s)})});
-  ctx.globalAlpha=1;sigDesenhar(ctx,sp,1,W/2,H/2,R*.16+Math.sin(t*1.5)*R*.006);ctx.restore();
+    ctx.globalAlpha=.35+.6*c.fade;sigDesenharB(ctx,spB,c.g,W/2+Math.cos(ang)*a.r*R,H/2+Math.sin(ang)*a.r*R,s)})});
+  ctx.globalAlpha=1;sigDesenharB(ctx,spB,1,W/2,H/2,R*.16+Math.sin(t*1.5)*R*.006);
 }
 
 /* ---------------- Energia ---------------- */
 function enIni(E){E.chamas=[];E.raios=[];E.prox=rnd2(.8,2);E.flash=0}
+function enParticula(cor,claro){const k='enP'+cor+(claro?'c':'');FX.cache=FX.cache||{};if(FX.cache[k])return FX.cache[k];const [r,g,b]=enHexRgb(cor);const br=claro?.45:0;
+  const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');const gr=x.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,`rgb(${Math.round(r+(255-r)*br)},${Math.round(g+(255-g)*br)},${Math.round(b+(255-b)*br)})`);gr.addColorStop(1,`rgba(${r},${g},${b},0)`);x.fillStyle=gr;x.fillRect(0,0,64,64);FX.cache[k]=c;return c}
 function enHexRgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255]}
 function enRaio(x0,y0,x1,y1,desvio,prof,out){if(prof<=0){out.push([x0,y0,x1,y1]);return}const mx=(x0+x1)/2+rnd2(-desvio,desvio),my=(y0+y1)/2+rnd2(-desvio,desvio);
   enRaio(x0,y0,mx,my,desvio/2,prof-1,out);enRaio(mx,my,x1,y1,desvio/2,prof-1,out);if(Math.random()<.18&&prof>2)enRaio(mx,my,mx+rnd2(-120,120),my+rnd2(40,160),desvio/2,prof-2,out)}
@@ -134,14 +155,12 @@ function enQuadro(ctx,W,H,t,dt,E){
   ctx.fillStyle='#08040f';ctx.fillRect(0,0,W,H);
   const cx=W/2,cy=H*.56,R=Math.min(W,H);
   /* chama: partículas subindo com turbulência, mistura aditiva */
-  const n=Math.round(dt*260);for(let i=0;i<n;i++){const off=rnd2(-1,1);E.chamas.push({x:cx+off*R*.13,y:cy+R*.13,vx:-off*12,vy:rnd2(-R*.42,-R*.26),vida:1,dec:rnd2(.55,.95),tam:rnd2(R*.035,R*.06)*(1-Math.abs(off)*.5)})}
+  const n=Math.round(dt*(FX.leve?130:260));for(let i=0;i<n;i++){const off=rnd2(-1,1);E.chamas.push({x:cx+off*R*.13,y:cy+R*.13,vx:-off*12,vy:rnd2(-R*.42,-R*.26),vida:1,dec:rnd2(.55,.95),tam:rnd2(R*.035,R*.06)*(1-Math.abs(off)*.5)})}
   ctx.globalCompositeOperation='lighter';
   E.chamas=E.chamas.filter(p=>{p.vida-=dt*p.dec;if(p.vida<=0)return false;p.vx+=Math.sin(p.y*.025+t*5+p.tam)*60*dt+(cx-p.x)*1.6*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
-    const s=p.tam*(.35+p.vida*.75);const gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,s);const br=p.vida>.85?.45:0;
-    gr.addColorStop(0,`rgba(${Math.round(r+(255-r)*br)},${Math.round(g+(255-g)*br)},${Math.round(b+(255-b)*br)},${.13*p.vida})`);gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
-    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,s,0,7);ctx.fill();return true});
-  ctx.globalCompositeOperation='source-over';
-  ctx.save();ctx.shadowColor=cor;ctx.shadowBlur=24;fxSimbolo(ctx,'energia',cx,cy-R*.06,R*.34,{stroke:cor,lw:10});ctx.shadowBlur=8;fxSimbolo(ctx,'energia',cx,cy-R*.06,R*.34,{stroke:'#fff',lw:3.5});ctx.restore();
+    const s=p.tam*(.35+p.vida*.75)*(FX.leve?1.3:1);ctx.globalAlpha=.13*p.vida*(FX.leve?1.5:1);ctx.drawImage(enParticula(cor,p.vida>.85),p.x-s,p.y-s,s*2,s*2);return true});
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
+  fxPor(ctx,fxCamadaFixa('enSimb'+cor,W,H,(x)=>{x.shadowColor=cor;x.shadowBlur=24;fxSimbolo(x,'energia',cx,cy-R*.06,R*.34,{stroke:cor,lw:10});x.shadowBlur=8;fxSimbolo(x,'energia',cx,cy-R*.06,R*.34,{stroke:'#fff',lw:3.5})}),W,H);
   /* tempestade: raios neon de tempos em tempos */
   E.prox-=dt;if(E.prox<=0){E.prox=rnd2(1.1,4.2);const seg=[];const x0=rnd2(0,W);enRaio(x0,-10,x0+rnd2(-W*.3,W*.3),rnd2(H*.35,H*.95),W*.12,7,seg);
     E.raios.push({seg,cor:`hsl(${Math.floor(Math.random()*360)},100%,62%)`,vida:.45});E.flash=.18}
