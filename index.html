@@ -476,6 +476,23 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .grupo-info{display:grid;gap:3px;min-width:0;flex:1}.grupo-info small{color:var(--muted);font-size:11px;margin-top:-3px}
 .ret-bar.mini{font-size:11px}.ret-bar.mini .ret-trilho{height:6px}
 .grupo-modo select{width:auto}
+
+/* ---------- Zoom do retrato ---------- */
+.ret-zoom-btn{all:unset;cursor:zoom-in;border-radius:8px;display:block}.ret-zoom-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ret-zoom-btn:hover .ret-fig{box-shadow:0 0 0 2px var(--accent)}
+#ret-zoom{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px}
+.rz-fundo{position:absolute;inset:0;background:rgba(8,8,10,.92);backdrop-filter:blur(3px);cursor:zoom-out}
+.rz-fig{position:relative;margin:0;display:grid;gap:8px;justify-items:center;max-width:min(920px,100%);color:#f3f3f3}
+.rz-palco{overflow:hidden;border-radius:10px;max-width:min(920px,calc(100vw - 32px));max-height:calc(100vh - 190px);touch-action:none;background:#111;line-height:0}
+.rz-palco img{display:block;height:min(calc(100vh - 190px),calc((100vw - 32px)*1.333),1100px);width:auto;max-width:min(920px,calc(100vw - 32px));object-fit:contain;cursor:zoom-in;transform-origin:center;transition:transform .18s ease-out;user-select:none;-webkit-user-drag:none}
+.rz-palco img.ampliada{cursor:grab}.rz-palco img.ampliada:active{cursor:grabbing}
+.rz-fig figcaption{text-align:center;font-size:14px;line-height:1.5}.rz-fig figcaption .badge{display:inline-block;margin-left:4px;vertical-align:1px}.rz-fig figcaption small{opacity:.75}.rz-dica{display:block;color:#bbb!important;font-size:12px}
+.rz-vazio{display:grid;justify-items:center;gap:8px;background:var(--paper);color:var(--ink);padding:16px;border-radius:10px}.rz-vazio p{margin:0}
+.rz-estados{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.rz-mini{all:unset;cursor:pointer;display:grid;justify-items:center;gap:2px;font-size:11px;color:#ddd;padding:3px;border-radius:6px;border:1px solid transparent}
+.rz-mini img{width:44px;aspect-ratio:3/4;object-fit:cover;border-radius:4px}.rz-mini.on{border-color:#fff}.rz-mini:focus-visible{outline:2px solid #fff}
+.rz-fechar{position:absolute;top:12px;right:12px;z-index:1}
+@media (prefers-reduced-motion:reduce){.rz-palco img{transition:none}}
 </style>
 
 <div class="wrap">

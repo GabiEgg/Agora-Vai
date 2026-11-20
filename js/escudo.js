@@ -141,7 +141,7 @@ function agentesCards(){const d=S.mesaDados;if(!d||!d.fichas.length)return '';
   return `<div class="cards">${d.fichas.map((x,i)=>{const f=migrar(clone(x.ficha));let r;try{r=calc(f)}catch(e){r=null}const c=r&&r.c;
     const bar=(k,l,col)=>r&&r[k+'Max']?`<div class="mini-vit" style="--c:var(--${col})"><span>${l} ${r[k]}/${r[k+'Max']}</span><div class="bar"><i style="width:${Math.max(0,Math.min(100,r[k]/r[k+'Max']*100))}%"></i></div></div>`:'';
     const conds=r?[...r.conds.values()].map(z=>z.c.nome):[];
-    return `<div class="card ag-card">${r&&typeof retFigura==='function'&&f.classe?`<div class="ag-ret">${retFigura(f,r)}${retContadores(f,{curto:true})}</div>`:''}<div class="ag-info"><h4>${h(f.nome)} <span class="badge">${h(x.usuario)}</span></h4>
+    return `<div class="card ag-card">${r&&typeof retFigura==='function'&&f.classe?`<div class="ag-ret"><button class="ret-zoom-btn" data-act="retZoom" data-src="a" data-id="${i}" title="Ver em tamanho grande" aria-label="Ampliar retrato de ${h(f.nome||'agente')}">${retFigura(f,r)}</button>${retContadores(f,{curto:true})}</div>`:''}<div class="ag-info"><h4>${h(f.nome)} <span class="badge">${h(x.usuario)}</span></h4>
       <div class="meta"><span>${c?h(c.nome):'Sem classe'}</span><span>${c&&c.estagios?'Estágio '+f.estagio:'NEX '+f.nex+'%'}</span>${r?`<span>Defesa ${r.defesa}</span><span>DT ${r.dt}</span><span>Percepção ${r.per.percepcao?sgn(r.per.percepcao.bonus):''}</span>`:''}</div>
       ${r?bar('pv','PV','pv')+bar('pe',r.det?'PD':'PE','pe')+(r.det?'':bar('san','SAN','san')):''}
       ${conds.length?`<div class="chips">${conds.map(n=>`<span class="cond">${h(n)}</span>`).join('')}</div>`:''}

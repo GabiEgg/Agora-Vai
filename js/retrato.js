@@ -84,7 +84,7 @@ function grupoBarra(x,k,l,col){const b=x[k];if(!b)return '';const pct=b.pct!=nul
   const ch='g:'+x.id+':'+k;const ant=S._retAnt[ch];S._retAnt[ch]=pct;const mud=ant==null||ant===pct?'':ant>pct?'perde':'ganha';
   return `<div class="ret-bar mini ${mud}" style="--c:var(--${col})" title="${l}${b.v!=null?` ${b.v}/${b.max}`:''}"><span class="ret-bl">${l}</span>${b.v!=null?`<span class="ret-bv">${b.v}/${b.max}</span>`:''}<div class="ret-trilho"><i data-ret-de="${ant??pct}" data-ret-para="${pct}" style="width:${ant??pct}%"></i></div></div>`}
 function grupoCard(x){const s=x.sessao||{};
-  return `<div class="grupo-card est-${x.estado}">${retFiguraDe({nome:x.nome,est:x.estado,arte:x.arte})}
+  return `<div class="grupo-card est-${x.estado}"><button class="ret-zoom-btn" data-act="retZoom" data-src="g" data-id="${h(x.id||'')}" title="Ver ${h(x.nome)} em tamanho grande" aria-label="Ampliar retrato de ${h(x.nome)}">${retFiguraDe({nome:x.nome,est:x.estado,arte:x.arte})}</button>
     <div class="grupo-info"><b>${h(x.nome)}</b><small>${h(x.usuario)}</small>
      ${x.pv||x.pe||x.san?`<div class="ret-barras">${grupoBarra(x,'pv','PV','pv')}${x.det?grupoBarra(x,'pe','PD','pe'):grupoBarra(x,'san','SAN','san')}</div>`:''}
      <span class="ret-cont"><span>Caiu <b>${s.quedas||0}</b></span><span>Enlouqueceu <b>${s.loucuras||0}</b></span></span></div></div>`}
@@ -100,3 +100,50 @@ document.addEventListener('change',async e=>{const m=e.target.dataset&&e.target.
   try{await Api.req('PUT',`/api/mesas/${encodeURIComponent(m)}/grupo`,{modo:e.target.value});await grupoBuscar(m,true);toast('Pronto: '+(GRUPO_MODOS.find(x=>x[0]===e.target.value)||[])[1]+'.')}catch(err){toast(err.message||'Não foi possível salvar.')}});
 /* Atualiza o grupo a cada 12 s com a ficha aberta. */
 setInterval(()=>{if(document.visibilityState!=='visible'||S.view!=='ficha')return;const f=F();if(f&&f.mesa&&!f._alheia)grupoBuscar(f.mesa,true)},12000);
+
+/* ============================== ZOOM ==============================
+   Clique num retrato do Grupo (ou do Escudo → Agentes) para ver grande.
+   Clique na imagem amplia o ponto clicado; roda do mouse/pinça ajusta; arrastar move; Esc ou fora fecha. */
+function retZoomDados(src,id){
+  if(src==='g'){const f=F();const g=f&&S.grupo[f.mesa];const x=g&&g.r&&(g.r.membros||[]).find(m=>m.id===id);return x?{nome:x.nome,usuario:x.usuario,est:x.estado,arte:x.arte||{}}:null}
+  if(src==='a'){const d=S.mesaDados;const x=d&&d.fichas[+id];if(!x)return null;const f=migrar(clone(x.ficha));let r;try{r=calc(f)}catch(e){return null}return {nome:f.nome,usuario:x.usuario,est:retEstado(f,r),arte:(f.retrato||{}).arte||{}}}
+  return null}
+function retZoomAbrir(d,est){if(!d)return;S.retZoom={...d,ver:est||d.est};retZoomDesenhar()}
+function retZoomDesenhar(){const z=S.retZoom;let el=document.getElementById('ret-zoom');
+  if(!z){if(el)el.remove();document.removeEventListener('keydown',retZoomTecla);return}
+  if(!el){el=document.createElement('div');el.id='ret-zoom';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');document.body.appendChild(el);document.addEventListener('keydown',retZoomTecla)}
+  el.setAttribute('aria-label','Retrato de '+(z.nome||'agente'));
+  const art=retArte({retrato:{arte:z.arte}},z.ver);const outras=RET_ESTADOS.filter(([k])=>z.arte[k]);
+  el.innerHTML=`<div class="rz-fundo" data-act="retZoomFechar"></div>
+   <figure class="rz-fig">${art?`<div class="rz-palco"><img id="rz-img" src="${retSrc(art.id)}" alt="Retrato de ${h(z.nome)}: ${RET_NOME[z.ver]}" draggable="false"></div>`:`<div class="rz-vazio">${retFiguraDe({nome:z.nome,est:z.ver,arte:{},grande:true})}<p>${h(z.nome)} ainda não tem arte${outras.length?' para este estado':''}.</p></div>`}
+    <figcaption><b>${h(z.nome)}</b>${z.usuario?` <small>${h(z.usuario)}</small>`:''} · ${RET_NOME[z.ver]}${art&&!art.proprio?' <small>(arte de outro estado)</small>':''}${z.ver===z.est?' <span class="badge acc">agora</span>':''}
+     ${art?'<span class="hint rz-dica">Clique na imagem para ampliar · roda do mouse ou pinça ajusta · arraste para mover</span>':''}</figcaption>
+    ${outras.length>1||(outras.length&&!z.arte[z.ver])?`<div class="rz-estados">${outras.map(([k,l])=>`<button class="rz-mini ${k===z.ver?'on':''}" data-act="retZoomVer" data-k="${k}" aria-pressed="${k===z.ver}"><img src="${retSrc(z.arte[k])}" alt=""><span>${l}</span></button>`).join('')}</div>`:''}
+   </figure><button class="btn sm rz-fechar" data-act="retZoomFechar" aria-label="Fechar">✕</button>`;
+  const img=document.getElementById('rz-img');if(img)retZoomGestos(img);
+  const b=el.querySelector('.rz-fechar');if(b)b.focus();
+}
+function retZoomTecla(e){if(e.key==='Escape'){S.retZoom=null;retZoomDesenhar()}}
+/* Zoom e arrasto da imagem (mouse, roda e toque). */
+function retZoomGestos(img){
+  const st={s:1,x:0,y:0};const pal=img.parentElement;
+  const aplicar=()=>{st.s=Math.max(1,Math.min(5,st.s));if(st.s===1){st.x=0;st.y=0}
+    const W=pal.clientWidth,H=pal.clientHeight,lx=W*(st.s-1)/2,ly=H*(st.s-1)/2;st.x=Math.max(-lx,Math.min(lx,st.x));st.y=Math.max(-ly,Math.min(ly,st.y));
+    img.style.transform=`translate(${st.x}px,${st.y}px) scale(${st.s})`;img.classList.toggle('ampliada',st.s>1)};
+  const focar=(cx,cy,ns)=>{const r=pal.getBoundingClientRect();const px=cx-r.left-r.width/2,py=cy-r.top-r.height/2;const k=ns/st.s;st.x=px-(px-st.x)*k;st.y=py-(py-st.y)*k;st.s=ns;aplicar()};
+  let arr=null,moveu=false;const toques=new Map();let pinca=null;
+  img.addEventListener('pointerdown',e=>{img.setPointerCapture(e.pointerId);toques.set(e.pointerId,{x:e.clientX,y:e.clientY});moveu=false;
+    if(toques.size===2){const [a,b]=[...toques.values()];pinca={d:Math.hypot(a.x-b.x,a.y-b.y),s:st.s};arr=null}else arr={x:e.clientX,y:e.clientY,ox:st.x,oy:st.y}});
+  img.addEventListener('pointermove',e=>{if(!toques.has(e.pointerId))return;toques.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinca&&toques.size===2){const [a,b]=[...toques.values()];focar((a.x+b.x)/2,(a.y+b.y)/2,pinca.s*Math.hypot(a.x-b.x,a.y-b.y)/pinca.d);moveu=true;return}
+    if(arr&&st.s>1){const dx=e.clientX-arr.x,dy=e.clientY-arr.y;if(Math.abs(dx)+Math.abs(dy)>3)moveu=true;st.x=arr.ox+dx;st.y=arr.oy+dy;aplicar()}});
+  const fim=e=>{toques.delete(e.pointerId);if(toques.size<2)pinca=null;
+    if(arr&&!moveu&&e.type==='pointerup')focar(e.clientX,e.clientY,st.s>1?1:2.5);arr=null};
+  img.addEventListener('pointerup',fim);img.addEventListener('pointercancel',fim);
+  pal.addEventListener('wheel',e=>{e.preventDefault();focar(e.clientX,e.clientY,st.s*(e.deltaY<0?1.2:1/1.2))},{passive:false});
+  aplicar();
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act;
+  if(a==='retZoom'){retZoomAbrir(retZoomDados(t.dataset.src,t.dataset.id));return}
+  if(a==='retZoomVer'){if(S.retZoom){S.retZoom.ver=t.dataset.k;retZoomDesenhar()}return}
+  if(a==='retZoomFechar'){S.retZoom=null;retZoomDesenhar();return}});
