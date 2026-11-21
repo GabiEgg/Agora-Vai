@@ -163,8 +163,9 @@ function drawStar(){
 /* ---------- Perícias ---------- */
 function panePericias(f,r){
   const grupos=escolhasClasse(r.c);const P=pericias();
-  const chip=(l,o)=>`<span class="chip ${o.max&&o.usado>o.max?'over':o.max&&o.usado===o.max?'ok':''}">${l} ${o.usado}/${o.max}</span>`;
+  const chip=(l,o)=>`<span class="chip ${o.max&&o.usado>o.max?'over':o.max&&o.usado===o.max?'ok':''}" ${o.doPoder?`title="Inclui ${o.doPoder} do poder Treinamento em Perícia"`:''}>${l} ${o.usado}/${o.max}${o.doPoder?` <small>(+${o.doPoder} poder)</small>`:''}</span>`;
   return `<div class="sec"><div class="sec-h"><h2>Treinamento</h2></div>
+   ${r.treinPoder&&r.treinPoder.n?`<p class="hint" style="margin:0">Treinamento em Perícia ×${r.treinPoder.n}: +${r.treinPoder.graus} graus para distribuir: novas perícias treinadas${f.nex>=35?', subir treinada para veterano':''}${f.nex>=70?' ou veterano para expert':''}. Os contadores abaixo já somam esses graus onde você os usou.</p>`:''}
    <div class="chips">${chip('Treinadas à escolha',r.trein)}${f.nex>=35?chip('Veterano',r.vet):'<span class="chip">Veterano a partir de NEX 35%</span>'}${f.nex>=70?chip('Experiente',r.exp):''}</div>
    ${grupos.length?`<div class="grid">${grupos.map((g,i)=>`<div class="row"><span class="hint">Classe, escolha uma:</span>${g.map(id=>`<button class="btn sm" aria-pressed="${f.escolhas[i]===id}" data-act="escolha" data-i="${i}" data-id="${id}">${h(perNome(id))}</button>`).join('')}</div>`).join('')}</div>`:''}
    ${(r.semProfProt||[]).length||(r.cargaPenItens||[]).length?`<div class="alert">${(r.semProfProt||[]).map(i=>`<p class="warnline" style="margin:0">Sem proficiência com ${h(i.nome)}: −2d20 em todos os testes de Força e Agilidade (já descontado abaixo).</p>`).join('')}${(r.cargaPenItens||[]).map(x=>`<p style="margin:0"><b>${h(x.nome)}:</b> ${x.v} nas perícias com penalidade de carga (marcadas com C; já descontado).</p>`).join('')}</div>`:''}

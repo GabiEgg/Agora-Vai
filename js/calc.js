@@ -270,6 +270,11 @@ function calc0(f){
   r.trein={usado:extraTrein,max:c?(+c.periciasLivres+f.atributos.INT):0};
   r.vet={usado:Object.values(r.per).filter(x=>x.grau>=10).length,max:(f.nex>=35&&c)?(+c.grau+f.atributos.INT):0};
   r.exp={usado:Object.values(r.per).filter(x=>x.grau>=15).length,max:(f.nex>=70&&c)?(+c.grau+f.atributos.INT):0};
+  /* Treinamento em Perícia: cada cópia dá 2 graus, que viram perícias treinadas novas ou (NEX 35%+) veterano / (NEX 70%+) expert.
+     Os graus vão primeiro para onde a ficha passou do limite; o que sobrar aparece como treinadas disponíveis. */
+  {const n=pods.filter(x=>x.d.id==='ger_treinamento_em_pericia'&&!x.afinCopia).length;r.treinPoder={n,graus:2*n};
+   if(n&&c){let livres=2*n;const usa=(o,ok)=>{if(!ok)return 0;const a=Math.min(Math.max(0,o.usado-o.max),livres);livres-=a;o.max+=a;o.doPoder=a;return a};
+     usa(r.trein,true);usa(r.vet,f.nex>=35);usa(r.exp,f.nex>=70);r.trein.max+=livres;r.trein.doPoder=(r.trein.doPoder||0)+livres}}
   const At=f.atributos;const pts=ATTR.reduce((s,a)=>s+(At[a]-1),0),zeros=ATTR.reduce((s,a)=>s+(At[a]<1?1-At[a]:0),0);
   const baseAttr=(c&&c.estagios)||regraOn('nex0')&&c&&c.regra==='nex0'?3:4;
   const aum=M.est?((+f.estagio||1)>=3?1:0):aumentosAttr(f.nex);
