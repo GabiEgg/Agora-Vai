@@ -78,7 +78,7 @@ function escCombate(m){
       ${atks.map(a=>`<button class="rollchip" data-act="criRoll" data-id="${h(cri.id)}" data-ch="${h(e.chave)}" data-l="${h(a.nome)}" data-x="${h(a.teste)}">${h(a.nome)} ${h(a.teste)}</button><button class="rollchip" data-act="criDano" data-id="${h(cri.id)}" data-ch="${h(e.chave)}" data-l="${h(a.nome)}" data-x="${h(a.dano)}">Dano ${h(a.dano)}</button>`).join('')}</div>`;
     return `<div class="ini-row ${atual?'atual':''}" ${atual?'aria-current="true"':''}>
       <span class="ini-pos">${e.valor==null?'–':i+1}</span>
-      <div class="ini-nome"><button class="linkbtn" data-act="cbAlvo" data-ch="${h(e.chave)}" title="Escolher como alvo do dano"><b>${h(e.nome)}</b></button> <span class="badge ${e.tipo==='agente'?'acc':''}">${e.tipo==='agente'?h(e.usuario||'agente'):e.tipo==='npc'?'NPC':'criatura'}</span>${e.fonte?` <span class="hint">${e.fonte==='fisico'?'dados físicos':e.fonte==='app'?'rolado no app':'mestre'}</span>`:''}
+      <div class="ini-nome"><button class="linkbtn ${((S.cb||{}).alvos||[]).includes(e.chave)?'cb-marcado':''}" data-act="cbAlvo" data-ch="${h(e.chave)}" title="Marcar ou desmarcar como alvo do dano" aria-pressed="${((S.cb||{}).alvos||[]).includes(e.chave)}"><b>${h(e.nome)}</b></button> <span class="badge ${e.tipo==='agente'?'acc':''}">${e.tipo==='agente'?h(e.usuario||'agente'):e.tipo==='npc'?'NPC':'criatura'}</span>${e.fonte?` <span class="hint">${e.fonte==='fisico'?'dados físicos':e.fonte==='app'?'rolado no app':'mestre'}</span>`:''}
        ${cri?` <button class="linkbtn hint" data-act="criVer" data-id="${h(cri.id)}">ficha</button>`:''}${dd.def?` <span class="hint">Defesa ${dd.def}</span>`:''}${ra?` <span class="hint">Defesa ${ra.defesa}</span>`:''}${dd.defs&&defesasTxt(dd.defs)?` <span class="hint">· ${h(defesasTxt(dd.defs))}</span>`:''}</div>
       ${pv}${pvAg}
       <input class="inp num sm" type="number" id="ini-v-${h(e.chave)}" data-keep value="${e.valor??''}" style="width:64px" aria-label="Iniciativa de ${h(e.nome)}">
@@ -99,17 +99,25 @@ function escCombate(m){
 }
 function agenteDe(e){const x=((S.mesaDados&&S.mesaDados.fichas)||[]).find(y=>e.chave.endsWith(':'+y.ficha.id)&&y.usuario===e.usuario);if(!x)return null;
   try{const f=migrar(clone(x.ficha));return {f,r:calc(f)}}catch(err){return null}}
+/* Alvos do painel: um ou vários (área). S.cb.alvos = chaves marcadas. */
+function cbAlvos(es){const cb=S.cb=S.cb||{};if(!Array.isArray(cb.alvos))cb.alvos=cb.alvo?[cb.alvo]:[];cb.alvos=cb.alvos.filter(ch=>es.some(e=>e.chave===ch));
+  if(!cb.alvos.length&&!cb._limpo){const c=es.find(e=>e.tipo!=='agente')||es[0];if(c)cb.alvos=[c.chave]}return cb.alvos}
+const CB_TESTES=[['','Sem teste de resistência'],['Fortitude reduz à metade','Fortitude reduz à metade'],['Reflexos reduz à metade','Reflexos reduz à metade'],['Vontade reduz à metade','Vontade reduz à metade'],['Fortitude anula','Fortitude anula'],['Reflexos anula','Reflexos anula'],['Vontade anula','Vontade anula']];
 function painelDano(es){
-  const cb=S.cb=S.cb||{};if(!es.some(e=>e.chave===cb.alvo))cb.alvo=(es.find(e=>e.tipo!=='agente')||es[0]).chave;
-  const alvo=es.find(e=>e.chave===cb.alvo);const defs=alvo&&alvo.dados&&alvo.dados.defs;
+  const cb=S.cb=S.cb||{};const alvos=cbAlvos(es);
   const sel=(k,ops,v)=>`<select class="inp" data-act-change="cbSel" data-k="${k}">${ops.map(([val,l])=>opt(val,l,v||'')).join('')}</select>`;
-  const nomes=es.map(e=>[e.chave,e.nome]);
+  const nomes=es.map(e=>[e.chave,e.nome]);const um=alvos.length===1&&es.find(e=>e.chave===alvos[0]);const defs=um&&um.dados&&um.dados.defs;
   return `<div class="card cb-painel"><h4>Dano e cura</h4>
-    <div class="grid g4">${fld('Alvo',sel('alvo',nomes,cb.alvo))}${fld('Quem causou',sel('autor',[['','Ninguém / ambiente'],...nomes],cb.autor))}
-     ${fld('Valor',`<input class="inp" id="cb-v" data-keep placeholder="15 ou 2d8+4" inputmode="text">`)}${fld('Tipo de dano',sel('tipo',[['','Sem tipo'],...TIPOS_DANO],cb.tipo))}</div>
-    <div class="row"><button class="btn acc" data-act="cbDano">Causar dano</button><button class="btn" data-act="cbCura">Curar</button>
+    <fieldset class="cb-alvos"><legend class="eyebrow">Alvos <span class="hint">(${alvos.length} marcado${alvos.length===1?'':'s'}; clique nos nomes do combate para marcar)</span></legend>
+     <div class="chips">${es.map(e=>{const on=alvos.includes(e.chave);const dd=e.dados||{};const pv=dd.pvMax?` ${dd.pv??dd.pvMax}/${dd.pvMax}`:'';
+       return `<button class="btn sm cb-alvo ${on?'on':''} ${e.tipo==='agente'?'ag':''}" aria-pressed="${on}" data-act="cbAlvo" data-ch="${h(e.chave)}">${h(e.nome)}<small>${h(pv)}</small></button>`}).join('')}</div>
+     <div class="row"><button class="btn sm ghost" data-act="cbTodos" data-q="cri">Todas as criaturas e NPCs</button><button class="btn sm ghost" data-act="cbTodos" data-q="tudo">Todos</button><button class="btn sm ghost" data-act="cbTodos" data-q="">Limpar</button></div></fieldset>
+    <div class="grid g4">${fld('Quem causou',sel('autor',[['','Ninguém / ambiente'],...nomes],cb.autor))}
+     ${fld('Valor',`<input class="inp" id="cb-v" data-keep placeholder="15 ou 2d8+4" inputmode="text">`)}${fld('Tipo de dano',sel('tipo',[['','Sem tipo'],...TIPOS_DANO],cb.tipo))}
+     ${fld('Teste de resistência',sel('teste',CB_TESTES,cb.teste))}${cb.teste?fld('DT',`<input class="inp num" id="cb-dt" data-keep type="number" min="1" max="99" value="${h(cb.dt||'')}" placeholder="DT">`):''}</div>
+    <div class="row"><button class="btn acc" data-act="cbDano">Causar dano${alvos.length>1?` em ${alvos.length}`:''}</button><button class="btn" data-act="cbCura">Curar${alvos.length>1?` ${alvos.length}`:''}</button>
      <label class="chk"><input type="checkbox" id="cb-ign" data-keep> Ignorar resistências</label>
-     <span class="hint">${defs&&defesasTxt(defs)?h(alvo.nome)+': '+h(defesasTxt(defs)):alvo&&alvo.tipo==='agente'?'O jogador recebe um aviso na ficha para aplicar.':'Sem resistências conhecidas.'}</span></div></div>`;
+     <span class="hint">${alvos.length>1?'O dano é rolado uma vez e aplicado em cada alvo com as resistências de cada um'+(cb.teste?'; cada criatura rola o próprio teste.':'.'):defs&&defesasTxt(defs)?h(um.nome)+': '+h(defesasTxt(defs)):um&&um.tipo==='agente'?'O jogador recebe um aviso na ficha para aplicar.':'Sem resistências conhecidas.'}</span></div></div>`;
 }
 function ultimosLog(){const L=S.logs[S.mesaAberta];if(!L||!L.itens.length||!(S.ini&&S.ini.pedido))return '';
   const it=L.itens.filter(x=>x.t!=='turno'&&x.t!=='ataque').slice(-6).reverse();if(!it.length)return '';
@@ -259,13 +267,25 @@ document.addEventListener('click',async e=>{
    case 'iniProx':try{await iniProximo()}catch(err){erroT(err)}return;
    case 'iniFim':{if(S.confirm!=='iniFim'){S.confirm='iniFim';toast('Clique de novo em “Encerrar combate” para confirmar.');setTimeout(()=>{if(S.confirm==='iniFim')S.confirm=null},5000);return}
      S.confirm=null;try{const mid=S.mesaAberta;await iniPost({acao:'encerrar'});await atualizarIni();toast('Combate encerrado.');await mostrarResumo(mid,'Combate encerrado: resumo')}catch(err){erroT(err)}return}
-   case 'cbAlvo':S.cb=S.cb||{};S.cb.alvo=ds.ch;render();document.querySelector('.cb-painel')?.scrollIntoView({block:'nearest'});return;
+   case 'cbAlvo':{S.cb=S.cb||{};const es=(S.ini||{}).entradas||[];const l=cbAlvos(es);const i=l.indexOf(ds.ch);if(i>=0)l.splice(i,1);else l.push(ds.ch);S.cb._limpo=!l.length;
+     render();if(!t.classList.contains('cb-alvo'))document.querySelector('.cb-painel')?.scrollIntoView({block:'nearest'});return}
+   case 'cbTodos':{S.cb=S.cb||{};const es=(S.ini||{}).entradas||[];S.cb.alvos=ds.q==='tudo'?es.map(e=>e.chave):ds.q==='cri'?es.filter(e=>e.tipo!=='agente').map(e=>e.chave):[];S.cb._limpo=!S.cb.alvos.length;render();return}
    case 'cbDano':case 'cbCura':{const cb=S.cb||{};const s=val('cb-v');if(!s){toast('Digite o valor.');return}
+     const es=(S.ini||{}).entradas||[];const alvos=cbAlvos(es).map(ch=>es.find(e=>e.chave===ch)).filter(Boolean);if(!alvos.length){toast('Marque pelo menos um alvo.');return}
      const x=rollExpr(s.replace(/^[-−+]/,''));if(!(x.total>=0)||isNaN(x.total)){toast('Use um número ou dados, como 2d8+4.');return}
-     const es=(S.ini||{}).entradas||[];const autor=es.find(y=>y.chave===cb.autor);
-     if(/d/i.test(s))pushRoll({t:(a==='cbDano'?'Dano':'Cura')+(autor?': '+autor.nome:''),v:x.total,d:x.txt});
-     try{await enviarDano({mesa:S.mesaAberta,ch:cb.alvo,v:x.total,tipos:cb.tipo?[cb.tipo]:[],autor:autor?autor.nome:null,autorChave:autor?autor.chave:null,cura:a==='cbCura',ignorar:document.getElementById('cb-ign')?.checked});
-       const el=document.getElementById('cb-v');if(el)el.value='';await atualizarIni()}catch(err){erroT(err)}return}
+     const autor=es.find(y=>y.chave===cb.autor);const cura=a==='cbCura';const ignorar=!!document.getElementById('cb-ign')?.checked;const tipos=cb.tipo?[cb.tipo]:[];
+     const dt=+val('cb-dt')||null;if(cb.teste&&!cura&&!dt){toast('Digite a DT do teste de resistência.');return}if(cb.teste)cb.dt=dt;
+     const linhas=[];t.disabled=true;
+     for(const e of alvos){
+       try{if(!cura&&cb.teste){const r=await Api.req('POST',`/api/mesas/${encodeURIComponent(S.mesaAberta)}/iniciativa`,{acao:'ritual',alvo:e.chave,ritual:'Dano'+(autor?' de '+autor.nome:''),dt,resistencia:cb.teste,dano:x.total,tipos,autor:autor?autor.nome:null,autorChave:autor?autor.chave:null,ignorar});
+           linhas.push(`${r.alvo}: ${r.valor!=null?r.valor:0}${r.nota?' ('+r.nota+')':''}${r.caiu?' · caiu!':''}`)}
+         else{const r=await Api.req('POST',`/api/mesas/${encodeURIComponent(S.mesaAberta)}/iniciativa`,{acao:cura?'cura':'dano',alvo:e.chave,valor:x.total,tipos,autor:autor?autor.nome:null,autorChave:autor?autor.chave:null,ignorar});
+           linhas.push(`${r.alvo}: ${cura?'+':''}${r.valor}${!cura&&(r.valor!==r.bruto||r.nota)?` (${r.nota||'de '+r.bruto})`:''}${r.caiu?' · caiu!':''}`)}}
+       catch(err){linhas.push(`${e.nome}: ${err.message}`)}}
+     t.disabled=false;
+     pushRoll({t:`${cura?'Cura':'Dano'}${autor?' de '+autor.nome:''}${tipos.length&&!cura?' ('+TIPO_NOME[tipos[0]]+')':''} em ${alvos.length} alvo${alvos.length>1?'s':''}${cb.teste&&!cura?' · '+cb.teste+' DT '+dt:''}`,v:(cura?'+':'')+x.total,d:(/d/i.test(s)?x.txt+' → ':'')+linhas.join(' · ')});
+     toast(linhas.length>1?`${cura?'Cura':'Dano'} aplicado em ${linhas.length} alvos.`:linhas[0],5000);
+     const el=document.getElementById('cb-v');if(el)el.value='';await atualizarIni();return}
    case 'efDel':{const ent=((S.ini||{}).entradas||[]).find(x=>x.chave===ds.ch);if(!ent)return;const cs=((ent.dados||{}).conds||[]).filter((_,k)=>k!==+ds.k);
      try{await iniPost({acao:'efeitos',chave:ds.ch,conds:cs});await atualizarIni()}catch(err){erroT(err)}return}
    case 'iniDel':try{await iniPost({acao:'remover',chave:ds.ch});await atualizarIni()}catch(err){erroT(err)}return;

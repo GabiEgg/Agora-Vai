@@ -355,7 +355,7 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     let pvAntes=null,pvDepois=null,valor=null,notaD='';
     if(bruto!=null&&bruto>0){let v=passou?(anula?0:Math.floor(bruto/2)):bruto;
       const tipos=(Array.isArray(b.tipos)?b.tipos:[]).map(t=>txtCurto(t,20)).filter(t=>TIPOS_DANO.includes(t)).slice(0,4);
-      const c=aplicarDefesas(v,tipos,dd&&dd.defs,false);valor=c.valor;notaD=c.nota;
+      const c=aplicarDefesas(v,tipos,dd&&dd.defs,mestre&&!!b.ignorar);valor=c.valor;notaD=c.nota;
       if(dd&&+dd.pvMax){pvAntes=dd.pv??+dd.pvMax;pvDepois=pvAntes-valor;dd.pv=pvDepois}
       regs.push({t:'dano',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,bruto,valor,tipos,nota:[notaT,notaD].filter(Boolean).join(', '),origem:nomeRit,rodada:est.rodada||0,pvAntes,pvDepois,pvMax:dd&&+dd.pvMax||null,caiu:pvAntes!=null&&pvAntes>0&&pvDepois<=0})}
     const cura=intOuNulo(b.cura);
