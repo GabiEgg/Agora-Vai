@@ -288,7 +288,8 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     const est=await db.get(Q.iniEstado,mesa.id)||{pedido:0,turno:null,rodada:0,atualizado:0};
     const entradas=(await db.all(Q.iniLista,mesa.id)).map(r=>{let dados=null;try{dados=r.dados?JSON.parse(r.dados):null}catch(e){}
       const meu=r.usuario_id===u.id;
-      return {chave:r.chave,tipo:r.tipo,nome:r.nome,valor:r.valor,fonte:r.fonte,usuario:r.usuario||null,meu,dados:mestre||meu?dados:null}});
+      const caido=r.tipo!=='agente'&&dados&&+dados.pvMax?(dados.pv??+dados.pvMax)<=0:undefined; /* jogadores sabem se caiu, não os PV */
+      return {chave:r.chave,tipo:r.tipo,nome:r.nome,valor:r.valor,fonte:r.fonte,usuario:r.usuario||null,meu,caido,dados:mestre||meu?dados:null}});
     const out={pedido:est.pedido,turno:est.turno,rodada:est.rodada,entradas,nLog:Number((await db.get(Q.logContar,mesa.id)).n)};
     if(/[?&]log=1/.test(req.url||'')){const dep=Math.max(0,+((req.url||'').match(/[?&]depois=(\d+)/)||[])[1]||0);
       out.log=(await db.all(Q.logLista,mesa.id,dep)).map(r=>{try{return semPV({id:r.id,criado:r.criado,...JSON.parse(r.dados)},mestre)}catch(e){return null}}).filter(Boolean)}

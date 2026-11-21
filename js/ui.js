@@ -10,7 +10,7 @@ function guardarCampos(){const ids=['mesa-nome','mesa-codigo','hb-q','cri-q',...
   const at=document.activeElement;return {v,foco:at&&at.id&&ids.includes(at.id)?at.id:null}}
 function restaurarCampos(g){Object.entries(g.v).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val});
   if(g.foco){const el=document.getElementById(g.foco);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}}
-function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender();if(typeof retAnimar==='function')retAnimar()}
+function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender();if(typeof retAnimar==='function')retAnimar();if(typeof iniOrdemRolar==='function')iniOrdemRolar()}
 function renderTela(){
   const navs=[['ficha','Fichas'],...(S.conta&&S.conta.usuario?[['campanha','Campanha']]:[]),...(souMestre()?[['escudo','Escudo do Mestre']]:[]),['mesa','Mesa'],['hb','Homebrew'],['guia','Guia']];
   document.getElementById('nav').innerHTML=navs.map(([k,l])=>`<button class="btn" aria-pressed="${S.view===k}" data-act="view" data-v="${k}">${l}${k==='hb'&&hbCount()?` <span class="badge hb">${hbCount()}</span>`:''}${k==='mesa'?` <span class="badge">${D.fontes.filter(x=>!x.viaRegra&&fonteOn(x.id)).length+pacotesHB().filter(pacoteOn).length}</span>`:''}</button>`).join('')+(S.conta?(S.conta.usuario?`<button class="btn" data-act="contaMenu" title="Conta no servidor">${h(S.conta.usuario)}</button>`:`<button class="btn acc" data-act="contaMenu">Entrar</button>`):'');

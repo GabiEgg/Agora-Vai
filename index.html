@@ -500,6 +500,19 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .cb-alvo.on{background:var(--pv);border-color:var(--pv);color:#fff}.cb-alvo.on small{color:rgba(255,255,255,.8)}
 .cb-alvo.ag:not(.on){border-style:dashed}
 .cb-marcado b{color:var(--pv);text-decoration:underline;text-decoration-thickness:2px}
+
+/* ---------- Ordem de iniciativa (jogador) ---------- */
+.ini-ordem-box{flex-basis:100%;display:grid;gap:4px;min-width:0}
+.ini-ordem{list-style:none;margin:0;padding:0 0 2px;display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x proximity}
+.ini-ordem li{flex:none;scroll-snap-align:start;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--paper);font-size:13px;position:relative}
+.ini-ordem .io-pos{font:600 11px var(--f-mono,monospace);color:var(--muted)}
+.ini-ordem .io-val{font-variant-numeric:tabular-nums;font-weight:600}
+.ini-ordem li.inimigo{border-color:color-mix(in srgb,var(--pv) 45%,var(--line))}.ini-ordem li.inimigo .io-nome{color:var(--pv)}
+.ini-ordem li.eu{background:color-mix(in srgb,var(--accent) 14%,var(--paper));border-color:var(--accent)}
+.ini-ordem li.atual{box-shadow:0 0 0 2px var(--accent);font-weight:600}
+.ini-ordem li.caido{opacity:.55}.ini-ordem li.caido .io-nome{text-decoration:line-through}
+.ini-ordem .io-vez{font:600 10px var(--f-mono,monospace);text-transform:uppercase;letter-spacing:.05em;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:1px 4px}
+.ini-ordem .io-vez.caiu{background:var(--muted);color:var(--paper)}
 </style>
 
 <div class="wrap">

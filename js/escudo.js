@@ -215,6 +215,15 @@ function escRef(){
 }
 
 /* ---------- jogador: aviso de iniciativa na ficha ---------- */
+/* Mantém a vez atual visível quando a trilha não cabe na tela (celular). */
+function iniOrdemRolar(){document.querySelectorAll('.ini-ordem').forEach(ol=>{const li=ol.querySelector('li.atual')||ol.querySelector('li.eu');if(li&&ol.scrollWidth>ol.clientWidth)ol.scrollLeft=Math.max(0,li.offsetLeft-ol.offsetLeft-8)})}
+/* Trilha com a ordem de iniciativa: vez atual, você, inimigos e quem caiu. Quem ainda não rolou aparece no fim. */
+function iniOrdemHtml(d,f){const todas=d.entradas||[];if(!todas.length)return '';
+  const es=ordenarIni(todas).filter(e=>e.valor!=null);const falta=todas.filter(e=>e.valor==null);
+  const eu=e=>e.meu&&e.chave.endsWith(':'+f.id);
+  const item=(e,i)=>{const at=e.chave===d.turno;const cls=[at?'atual':'',eu(e)?'eu':'',e.tipo!=='agente'?'inimigo':'',e.caido?'caido':''].join(' ');
+    return `<li class="${cls}" ${at?'aria-current="true"':''}><span class="io-pos">${i==null?'–':i+1}</span><span class="io-nome">${h(e.nome)}${eu(e)?' <small>(você)</small>':''}</span>${e.valor!=null?`<span class="io-val">${e.valor}</span>`:'<span class="io-val hint">…</span>'}${at?'<span class="io-vez">vez</span>':''}${e.caido?'<span class="io-vez caiu">caiu</span>':''}</li>`};
+  return `<div class="ini-ordem-box"><span class="eyebrow">Ordem de iniciativa${d.rodada?` · rodada ${d.rodada}`:''}</span><ol class="ini-ordem">${es.map((e,i)=>item(e,i)).join('')}${falta.map(e=>item(e,null)).join('')}</ol></div>`}
 function iniBanner(f,r){
   if(!f||f._alheia||!f.mesa||!(S.conta&&S.conta.usuario))return '';
   const d=(S.iniJog||{})[f.mesa];if(!d)return '';if(!d.pedido)return resumoJogadorHtml(f);
@@ -224,11 +233,11 @@ function iniBanner(f,r){
   if(!minha||minha.valor==null){const p=r.per.iniciativa;
     return `<div class="ini-aviso" role="status"><b>O mestre pediu iniciativa.</b>
       <button class="btn sm acc" data-act="iniRolar">Rolar no app (${p.dados<1?(2-p.dados)+'d20 pior':p.dados+'d20'} ${sgn(p.bonus)})</button>
-      <span class="hint">ou o que tirou nos dados:</span><input class="inp num sm" type="number" id="ini-meu" data-keep style="width:70px" aria-label="Valor da iniciativa rolada nos dados físicos"><button class="btn sm" data-act="iniMeu">Enviar</button></div>${avisosDanoHtml(f)}`}
+      <span class="hint">ou o que tirou nos dados:</span><input class="inp num sm" type="number" id="ini-meu" data-keep style="width:70px" aria-label="Valor da iniciativa rolada nos dados físicos"><button class="btn sm" data-act="iniMeu">Enviar</button>${iniOrdemHtml(d,f)}</div>${avisosDanoHtml(f)}`}
   const inim=es.filter(e=>e.tipo!=='agente');
   const pos=es.findIndex(e=>e.chave===minha.chave)+1;
   return `<div class="ini-aviso ok" role="status"><span>Iniciativa <b>${minha.valor}</b> · ${pos}º de ${es.length} · rodada ${d.rodada||1}</span>${atual?`<span>Vez de <b>${h(atual.nome)}</b>${atual.chave===minha.chave?' (você!)':''}</span>`:''}
-    <details><summary class="hint">Ordem</summary><ol class="hint">${es.map(e=>`<li>${h(e.nome)} (${e.valor})</li>`).join('')}</ol></details>
+    ${iniOrdemHtml(d,f)}
     ${inim.length?`<span class="hint">Inimigos: ${inim.map(e=>h(e.nome)).join(', ')}. Ataque pelo Inventário e escolha o alvo na rolagem de dano.</span>`:''}</div>${avisosDanoHtml(f)}`;
 }
 async function atualizarIniJogador(){
