@@ -105,6 +105,17 @@ S._hbv=0;
 function byId(type,id){if(!id)return null;return cat(type).find(x=>x.id===id)||(S.hb[type]||[]).find(x=>x.id===id)||(D[type]||[]).find(x=>x.id===id)||null}
 const pericias=()=>cat('pericias');
 const perNome=id=>(pericias().find(p=>p.id===id)||{}).nome||id;
+/* ---------- Filtro por livro (usado em todas as listas) ----------
+   fonteChave: de qual livro vem (ou 'hb' para homebrew); filtroLivros: botões com os livros presentes; porLivro: aplica a escolha.
+   A escolha fica em S.ff[chave] (uma por lista); se o livro escolhido não está na lista, mostra tudo. */
+const fonteChave=x=>!x?'core':x._hb?'hb':x.fonte||'core';
+const fonteRotulo=k=>k==='hb'?'Homebrew':k==='manual'?'Criados na ficha':FONTE(k).sigla;
+const ordFonte=k=>{if(k==='hb')return 998;if(k==='manual')return 999;const i=(D&&D.fontes||[]).findIndex(f=>f.id===k);return i<0?997:i};
+function filtroLivros(lista,k,chave=fonteChave){
+  const conta={};lista.forEach(x=>{const c=chave(x);conta[c]=(conta[c]||0)+1});const ks=Object.keys(conta).sort((a,b)=>ordFonte(a)-ordFonte(b));
+  if(ks.length<2)return '';const cur=(S.ff||{})[k]||'';const vale=ks.includes(cur)?cur:'';
+  return `<div class="chips filtros livros" role="group" aria-label="Filtrar por livro"><span class="eyebrow">Livro</span><button class="btn sm" aria-pressed="${!vale}" data-act="ffSet" data-k="${h(k)}" data-v="">Todos</button>${ks.map(id=>`<button class="btn sm" aria-pressed="${vale===id}" data-act="ffSet" data-k="${h(k)}" data-v="${h(id)}" title="${h(id==='hb'?'Seu homebrew':id==='manual'?'Itens criados direto na ficha':FONTE(id).nome)}">${h(fonteRotulo(id))} <small>${conta[id]}</small></button>`).join('')}</div>`}
+function porLivro(lista,k,chave=fonteChave){const cur=(S.ff||{})[k];if(!cur||!lista.some(x=>chave(x)===cur))return lista;return lista.filter(x=>chave(x)===cur)}
 const fonteBadge=x=>x._hb?`<span class="badge hb" title="Homebrew · ${h(x.pacote||'Minha mesa')}">${h(x.pacote||'homebrew')}</span>`:(x.fonte&&x.fonte!=='core'?`<span class="badge src" title="${h(FONTE(x.fonte).nome)}">${h(FONTE(x.fonte).sigla)}</span>`:'');
 
 /* ============================== FICHA ============================== */

@@ -216,7 +216,8 @@ function paneHab(f,r){
 }
 /* Poderes da ficha agrupados por tipo (classe, gerais, paranormais por elemento), com filtro (S.filtroPod). */
 function podGrupos(f,r){
-  const it=f.poderes.map(p=>{const d=byId('poderes',p.ref)||{};const t=d.tipo||'';const k=t==='paranormal'?'p:'+(d.elemento||''):t==='geral'?'geral':t?'classe':'outros';return {p,k,el:d.elemento||''}});
+  const it0=f.poderes.map(p=>{const d=byId('poderes',p.ref)||{};const t=d.tipo||'';const k=t==='paranormal'?'p:'+(d.elemento||''):t==='geral'?'geral':t?'classe':'outros';return {p,d,k,el:d.elemento||''}});
+  const livros=filtroLivros(it0,'hab',x=>fonteChave(x.d));const it=porLivro(it0,'hab',x=>fonteChave(x.d));
   const ord=k=>k==='classe'?0:k==='geral'?1:k.startsWith('p:')?2+ordEl(k.slice(2)):20;
   const nome=k=>k==='classe'?'Poderes de classe':k==='geral'?'Poderes gerais':k.startsWith('p:')?'Paranormais · '+(k.slice(2)?ELEM[k.slice(2)]:'Qualquer elemento'):'Outros';
   const ks=[...new Set(it.map(x=>x.k))].sort((a,b)=>ord(a)-ord(b));
@@ -225,7 +226,7 @@ function podGrupos(f,r){
   const els=ks.filter(k=>k.startsWith('p:'));
   const chips=ks.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar poderes"><button class="btn sm" aria-pressed="${!cur}" data-act="filtroPod" data-v="">Todos</button>${tipos.includes('classe')?`<button class="btn sm" aria-pressed="${cur==='classe'}" data-act="filtroPod" data-v="classe">De classe</button>`:''}${tipos.includes('geral')?`<button class="btn sm" aria-pressed="${cur==='geral'}" data-act="filtroPod" data-v="geral">Gerais</button>`:''}${tipos.includes('par')?`<button class="btn sm" aria-pressed="${cur==='par'}" data-act="filtroPod" data-v="par">Paranormais</button>`:''}${els.length>1?els.map(k=>`<button class="btn sm el el-${k.slice(2)||'x'}" aria-pressed="${cur===k}" data-act="filtroPod" data-v="${k}">${k.slice(2)?ELEM[k.slice(2)]:'Qualquer'}</button>`).join(''):''}</div>`:'';
   const vis=ks.filter(k=>!cur||k===cur||fil(k)===cur);
-  return chips+vis.map(k=>{const l=it.filter(x=>x.k===k);return `${ks.length>1?`<div class="grp-h"><h3>${h(nome(k))}</h3><span class="hint">${l.length} poder${l.length>1?'es':''}</span></div>`:''}<div class="cards">${l.map(x=>poderCard(x.p,f,r)).join('')}</div>`}).join('');
+  return livros+chips+vis.map(k=>{const l=it.filter(x=>x.k===k);return `${ks.length>1?`<div class="grp-h"><h3>${h(nome(k))}</h3><span class="hint">${l.length} poder${l.length>1?'es':''}</span></div>`:''}<div class="cards">${l.map(x=>poderCard(x.p,f,r)).join('')}</div>`}).join('');
 }
 function tipoPoderNome(t){if(t==='geral')return 'Poder geral';if(t==='paranormal')return 'Poder paranormal';const c=byId('classes',t);return c?'Poder de '+c.nome:t}
 function poderCard(p,f,r){
@@ -277,7 +278,7 @@ function paneRit(f,r){
    <p class="hint">“Conjurar” desconta ${r.det?'PD':'PE'} (incluindo penalidades de condições) e, se ligado na Mesa, faz sozinho o teste do Custo do Paranormal (Ocultismo DT 20 + custo) e aplica a perda de ${r.det?'PD':'Sanidade'}. Rituais de Medo sempre cobram Sanidade. Efeitos em você mesmo vão para a aba Bônus.</p>
    ${(f.retidos||[]).length?`<div class="alert"><p><b>Rituais retidos</b> — ${r.retido} ${r.det?'PD':'PE'} presos (fora do atual e do máximo). Soltar encerra o efeito; o máximo volta, o atual não. Ou faça Ocultismo (DT 20 + custo) para recuperar também o atual.</p>${f.retidos.map((x,i)=>`<div class="row"><b>${h(x.nome||(byId('rituais',x.rit)||{}).nome||'ritual')}</b> · ${x.pe} ${r.det?'PD':'PE'} <button class="btn sm" data-act="soltarRet" data-i="${i}">Soltar</button><button class="btn sm" data-act="soltarRetRec" data-i="${i}">Soltar e recuperar (Ocultismo DT ${20+x.pe})</button></div>`).join('')}</div>`:''}
    ${r.ritCircLivre?'':(r.ritCirc||[]).filter(x=>x.usado>x.max).map(x=>`<p class="warnline">${x.usado} ritua${x.usado>1?'is':'l'} de ${x.c}º círculo ou maior, mas o NEX só permite ${x.max}: cada NEX dá um ritual do círculo liberado <i>naquele</i> NEX (2º a partir de 25%, 3º de 55%, 4º de 85%). Rituais concedidos por trilha, poder ou item não contam.</p>`).join('')}
-   ${rits.length?ritFiltros(rits)+ritGrupos(rits,r):'<div class="empty">Nenhum ritual aprendido. Ocultistas começam com 3 rituais de 1º círculo; outras classes aprendem com o poder Aprender Ritual.</div>'}</div>`;
+   ${rits.length?filtroLivros(rits,'rit')+ritFiltros(porLivro(rits,'rit'))+ritGrupos(porLivro(rits,'rit'),r):'<div class="empty">Nenhum ritual aprendido. Ocultistas começam com 3 rituais de 1º círculo; outras classes aprendem com o poder Aprender Ritual.</div>'}</div>`;
 }
 const ORD_EL=['sangue','morte','conhecimento','energia','medo',''];
 const ordEl=e=>{const i=ORD_EL.indexOf(e||'');return i<0?9:i};
@@ -312,12 +313,13 @@ function paneInv(f,r){
 const ORD_TIPO=Object.keys(TIPO_ITEM);
 function invGrupos(f,r){
   const ck=S.filtroCat??'';const cats=[...new Set(f.inventario.map(it=>catItem(it,r)))].sort();
-  const g={};f.inventario.forEach((it,i)=>{if(ck!==''&&String(catItem(it,r))!==ck)return;(g[it.tipo]=g[it.tipo]||[]).push([it,i])});
+  const livroDe=it=>{if(!it.ref)return 'manual';const c=byId('itens',it.ref);return c?fonteChave(c):it.fonte||'manual'};const livros=filtroLivros(f.inventario,'inv',livroDe);const noLivro=new Set(porLivro(f.inventario,'inv',livroDe));
+  const g={};f.inventario.forEach((it,i)=>{if(!noLivro.has(it))return;if(ck!==''&&String(catItem(it,r))!==ck)return;(g[it.tipo]=g[it.tipo]||[]).push([it,i])});
   const tipos=Object.keys(g).sort((a,b)=>(ORD_TIPO.indexOf(a)+99)%99-(ORD_TIPO.indexOf(b)+99)%99);const cur=S.filtroInv||'';
   const chips=tipos.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar por tipo"><button class="btn sm" aria-pressed="${!cur}" data-act="filtroInv" data-v="">Todos</button>${tipos.map(t=>`<button class="btn sm" aria-pressed="${cur===t}" data-act="filtroInv" data-v="${h(t)}">${TIPO_ITEM[t]||h(t)} (${g[t].length})</button>`).join('')}</div>`:'';
   const chipsCat=cats.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar por categoria"><span class="eyebrow">Categoria</span><button class="btn sm" aria-pressed="${ck===''}" data-act="filtroCat" data-v="">Todas</button>${cats.map(k=>`<button class="btn sm" aria-pressed="${ck===String(k)}" data-act="filtroCat" data-v="${k}">${CAT_NOME[k]}</button>`).join('')}</div>`:'';
-  if(!tipos.length)return chipsCat+'<p class="hint">Nenhum item nesta categoria.</p>';
-  return chipsCat+chips+tipos.filter(t=>!cur||cur===t||!g[cur]).map(t=>`<div class="grp-h"><h3>${TIPO_ITEM[t]||h(t)}</h3><span class="hint">${g[t].reduce((s,[it])=>s+espItem(it)*(+it.qtd||1),0)} esp.</span></div>
+  if(!tipos.length)return livros+chipsCat+'<p class="hint">Nenhum item nesta categoria.</p>';
+  return livros+chipsCat+chips+tipos.filter(t=>!cur||cur===t||!g[cur]).map(t=>`<div class="grp-h"><h3>${TIPO_ITEM[t]||h(t)}</h3><span class="hint">${g[t].reduce((s,[it])=>s+espItem(it)*(+it.qtd||1),0)} esp.</span></div>
     <div class="items">${g[t].map(([it,i])=>itemRow(it,i,f,r)).join('')}</div>`).join('');
 }
 const imgDe=it=>it.img||(it.ref&&S.cfg.imgs[it.ref])||'';

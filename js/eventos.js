@@ -241,6 +241,7 @@ document.addEventListener('click',e=>{
    case 'pick':openPick(ds.type);return;
    case 'pickMod':openPick('mods',+ds.i);return;
    case 'pickF':pickState[ds.k]=ds.v;renderPick();return;
+   case 'ffSet':S.ff=S.ff||{};S.ff[ds.k]=ds.v;if(ds.k.startsWith('pick:')){renderPick();return}break;
    case 'filtroRit':S.filtroRit=ds.v;break;
    case 'filtroPod':S.filtroPod=ds.v;break;
    case 'filtroInv':S.filtroInv=ds.v;break;

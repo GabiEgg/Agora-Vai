@@ -26,7 +26,7 @@ function renderHB(){
   const t=S.hbType;const hbl=S.hb[t]||[];const q=slug(S.hbQ);
   if(t==='criaturas'&&!S.cri)carregarCriaturas().catch(()=>{});
   const catBase=t==='criaturas'?(S.cri||[]):(D[t]||[]);
-  const baseAll=catBase.filter(b=>!hbl.some(x=>x.id===b.id));const base=q?baseAll.filter(x=>slug(x.nome).includes(q)):baseAll;
+  const baseAll=catBase.filter(b=>!hbl.some(x=>x.id===b.id));const baseQ=q?baseAll.filter(x=>slug(x.nome).includes(q)):baseAll;const base=porLivro(baseQ,'hb:'+t);
   const cur=hbCur();const baseSel=!cur&&S.hbSel&&catBase.find(b=>b.id===S.hbSel);
   const grupos={};base.slice(0,400).forEach(x=>(grupos[x.fonte]=grupos[x.fonte]||[]).push(x));
   return `<div class="sheet"><div class="sheet-head"><div class="name"><span class="eyebrow">Conteúdo da sua mesa</span><h2 class="bigh">Homebrew</h2></div>
@@ -34,7 +34,7 @@ function renderHB(){
    <div class="tabs" role="tablist">${HB_TYPES.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${t===k}" data-act="hbType" data-v="${k}">${l}${(S.hb[k]||[]).length?` (${S.hb[k].length})`:''}</button>`).join('')}</div>
    <div class="pane"><div class="hb-layout"><div class="sec">
      <button class="btn pri" data-act="hbNew">+ Criar ${HB_NOVO[t]}</button>
-     <input class="inp" id="hb-q" placeholder="Buscar no catálogo…" value="${h(S.hbQ)}">
+     <input class="inp" id="hb-q" placeholder="Buscar no catálogo…" value="${h(S.hbQ)}">${filtroLivros(baseQ,'hb:'+t)}
      <div class="hb-list"><div class="grp">Seu homebrew</div>${hbl.length?hbl.map(x=>`<button data-act="hbSel" data-id="${h(x.id)}" aria-current="${S.hbSel===x.id}"><span>${h(x.nome||'Sem nome')}</span><span class="badge ${pacoteOn(x.pacote)?'hb':''}">${h(x.pacote||'Minha mesa')}</span>${catBase.some(b=>b.id===x.id)?'<span class="badge acc">ajuste</span>':''}</button>`).join(''):'<p class="hint" style="padding:4px 8px;margin:0">Nada criado ainda.</p>'}
       ${Object.entries(grupos).map(([fid,list])=>`<div class="grp">${h(FONTE(fid).sigla)}${fonteOn(fid)?'':' · desligado'}</div>${list.map(x=>`<button data-act="hbSel" data-id="${h(x.id)}" aria-current="${S.hbSel===x.id}"><span>${h(x.nome)}</span></button>`).join('')}`).join('')}</div></div>
     <div class="sec">${cur?(t==='criaturas'?criForm(cur):hbForm(t,cur)):baseSel?(t==='criaturas'?criBaseView(baseSel):hbBaseView(t,baseSel)):`<div class="empty">Crie um conteúdo novo ou selecione algo do catálogo para ver e ajustar.<br>Tudo que você cria fica num <b>pacote</b> com nome, que pode ser ligado e desligado na aba Mesa e exportado para outras pessoas.</div>`}</div>
@@ -159,6 +159,7 @@ function renderPick(){
   if(type==='poderes'&&!all){const tg=new Set(D.extras.tornarGeral||[]);list=list.filter(p=>p.tipo==='geral'||p.tipo===f.classe||(tg.has(p.id)&&fonteOn('sah')))}
   if(type==='rituais'&&!all)list=list.filter(x=>+x.circulo<=r.circ&&(!x.trilha||true));
   if(qq)list=list.filter(x=>slug(x.nome+' '+(x.desc||'')+' '+(x.poderDesc||'')+' '+(x.bonus||'')).includes(qq));
+  const livrosHtml=filtroLivros(list,'pick:'+type);list=porLivro(list,'pick:'+type);
   // filtros por círculo/elemento (rituais) e tipo (itens)
   const elsX=x=>(x.elementos||[x.elemento]).filter(Boolean);
   if(type==='rituais'){const base=list;list=list.filter(x=>(!pickState.fc||+x.circulo===+pickState.fc)&&(!pickState.fe||(pickState.fe==='_'?!elsX(x).length:elsX(x).includes(pickState.fe))));pickState._base=base}
@@ -187,7 +188,7 @@ function renderPick(){
   const cab=x=>{if(!grupo)return '';const [k,l]=grupo(x);const key=k+'|'+l;if(key===ultimo)return '';ultimo=key;return `<div class="grp">${h(l)}</div>`};
   modal(titulo,`<div class="modal-h" style="padding-top:8px"><input class="inp" id="pick-q" placeholder="Buscar…" value="${h(q)}" style="flex:1 1 200px">${filtroL?`<label class="row" style="font-size:12px;gap:4px"><input type="checkbox" id="pick-all" ${all?'checked':''}> ${filtroL}</label>`:''}${src==='poderes'?`<label class="row" style="font-size:12px;gap:4px" title="Confere atributos, perícias, NEX, poderes e rituais da ficha"><input type="checkbox" data-act="soPosso" ${S.soPosso?'checked':''}> Só os que posso pegar</label>`:''}</div>
    ${type==='transcender'?`<p class="hint" style="padding:0 14px">O poder entra marcado como Transcender: −${r.det?((D.extras.classesExtra[f.classe]||{}).pdNex||0)+' PD':(r.c?r.c.sanNex:0)+' SAN'} máximos.</p>`:''}
-   ${filtros}
+   ${livrosHtml}${filtros}
    <div class="modal-b">${lim.length?lim.map(x=>cab(x)+`<button class="pick ${has(x)?'has':''}" data-act="pickAdd" data-id="${h(x.id)}"><b>${h(x.nome)} ${elBadge(x.elemento)} ${fonteBadge(x)}${has(x)?' <span class="badge">já adicionado</span>':''}</b><span class="meta">${h(sub(x))}</span>${src==='poderes'&&pickState._pre&&pickState._pre.get(x.id)?(c=>(c.faltam.length?`<p class="warnline">Falta: ${h(c.faltam.join('; '))}</p>`:'')+(c.narrativo.length?`<p class="hint">Confira com o mestre: ${h(c.narrativo.join('; '))}</p>`:''))(pickState._pre.get(x.id)):''}${x.desc?`<p>${h(x.desc)}</p>`:''}${x.afinidade?`<p><i>Afinidade:</i> ${h(x.afinidade)}</p>`:''}</button>`).join('')+(list.length>300?`<p class="hint">Mostrando 300 de ${list.length}. Refine a busca.</p>`:''):'<div class="empty">Nada encontrado. Verifique as fontes ligadas na aba Mesa ou crie o que falta em Homebrew.</div>'}</div>`);
   const qi=document.getElementById('pick-q');qi.focus();qi.setSelectionRange(q.length,q.length);
 }
