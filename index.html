@@ -520,6 +520,13 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .ini-olho{display:inline-flex;gap:4px;align-items:center;min-width:32px;justify-content:center}
 .ini-row.oculto{background:repeating-linear-gradient(135deg,transparent 0 10px,color-mix(in srgb,var(--muted) 10%,transparent) 10px 20px);border-style:dashed}
 .ini-row.oculto .ini-olho{color:var(--accent);font-size:11px}
+
+/* ---------- Referência do mestre ---------- */
+.ref{display:grid;gap:8px}.ref .sec-h{flex-wrap:wrap;gap:8px}
+.ref-sec{border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.ref-sec>summary{cursor:pointer;padding:10px 14px;font-weight:600;list-style-position:inside}
+.ref-sec[open]>summary{border-bottom:1px solid var(--line)}
+.ref-corpo{padding:10px 14px;display:grid;gap:8px}.ref-corpo ul{margin:0;padding-left:18px;display:grid;gap:6px}.ref-corpo li{line-height:1.45}
 </style>
 
 <div class="wrap">

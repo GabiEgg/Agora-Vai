@@ -207,14 +207,42 @@ function criFicha(c){
 }
 
 /* ---------- referência ---------- */
+/* Referência rápida do mestre: resumo das regras usadas em mesa. Seções recolhíveis e busca.
+   Textos de perícias e condições vêm dos dados do app (resumos dos livros); o resto é resumo do capítulo de regras. */
 function escRef(){
   const conds=(D.condicoes||[]).filter(c=>fonteOn(c.fonte||'core'));
-  return `<div class="sec"><div class="sec-h"><h2>Dificuldades</h2></div>
-    <div class="chips"><span class="chip">Fácil DT 5</span><span class="chip">Média DT 10</span><span class="chip">Difícil DT 15</span><span class="chip">Desafiadora DT 20</span><span class="chip">Formidável DT 25</span><span class="chip">Heroica DT 30</span><span class="chip">Quase impossível DT 40</span></div>
-    <p class="hint">Teste oposto: quem tirar mais vence; empate favorece quem defende. Ajuda: cada ajudante que passa em DT 10 dá +1 (+2 com 20, +3 com 30).</p></div>
-   <div class="sec"><div class="sec-h"><h2>Alcances</h2></div>
-    <div class="chips"><span class="chip">Curto 9m</span><span class="chip">Médio 18m</span><span class="chip">Longo 36m</span><span class="chip">Extremo 90m</span></div></div>
-   <div class="sec"><div class="sec-h"><h2>Condições</h2></div><div class="condgrid">${conds.map(c=>`<div class="condbtn" style="cursor:default"><b>${h(c.nome)}</b><span>${h(c.desc||'')}</span></div>`).join('')}</div></div>`;
+  const uso=(per,nome)=>{const p=pericias().find(x=>x.id===per);const u=p&&(p.usos||[]).find(x=>x[0]===nome);return u?u[2]:''};
+  const reg=(t,corpo,tags='')=>`<details class="ref-sec" data-busca="${h((t+' '+tags+' '+corpo.replace(/<[^>]+>/g,' ')).toLowerCase())}"><summary>${t}</summary><div class="ref-corpo">${corpo}</div></details>`;
+  const li=a=>`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+  const c=id=>{const x=conds.find(z=>z.id===id);return x?`<b>${h(x.nome)}:</b> ${h(x.desc)}`:''};
+  return `<div class="sec ref"><div class="sec-h"><h2>Referência rápida</h2>
+     <input class="inp" id="ref-q" type="search" placeholder="Buscar regra (ex.: invisível, caído, agarrar)" aria-label="Buscar na referência" style="max-width:340px">
+     <button class="btn sm ghost" data-act="refAbrir">Abrir tudo</button><button class="btn sm ghost" data-act="refFechar">Fechar tudo</button></div>
+   <p class="hint" style="margin:0">Resumo para consulta rápida; na dúvida, vale o texto do livro.</p>
+   ${reg('Testes e dificuldades',`<div class="chips"><span class="chip">Fácil DT 5</span><span class="chip">Média DT 10</span><span class="chip">Difícil DT 15</span><span class="chip">Desafiadora DT 20</span><span class="chip">Formidável DT 25</span><span class="chip">Heroica DT 30</span><span class="chip">Quase impossível DT 40</span></div>
+     ${li((D.periciasGeral||[]).map(h).concat(['<b>Teste oposto:</b> quem tirar mais vence; empate favorece quem defende.']))}`,'dt ajuda oposto atributo')}
+   ${reg('Invisível, escuridão e alvos que não dá para ver',li([
+     '<b>Invisível</b> conta como <b>camuflagem total</b> (é assim que os rituais de invisibilidade descrevem o efeito).',
+     '<b>Camuflagem leve</b> (penumbra, fumaça rala, folhagem): 20% de chance de o ataque falhar, rolando 1–2 em 1d10.',
+     '<b>Camuflagem total</b> (invisível, escuridão total, você cego): 50% de chance de falhar, rolando 1–5 em 1d10, e é preciso atacar o espaço certo.',
+     `<b>Achar quem você não vê:</b> ${h(((uso('percepcao','Ouvir')||'').match(/Perceber um ser[\s\S]*$/)||[''])[0].replace(/^Perceber um ser que não pode ver:\s*/,'teste de Percepção contra '))||'teste de Percepção.'} Saber o espaço não tira a chance de falha da camuflagem total.`,
+     c('cego'),
+     `<b>Esconder-se:</b> ${h(uso('furtividade','Esconder-se'))}`,
+     'Efeitos que “ignoram camuflagem” ou fazem “ver o invisível” (alguns rituais, itens e poderes) anulam essa chance de falha.']),'invisivel invisibilidade camuflagem escuridao escuro cego esconder furtividade nevoa fumaça ver')}
+   ${reg('Cobertura',li(['<b>Cobertura leve</b> (mureta, carro, árvore, outra criatura no caminho): +5 na Defesa contra ataques à distância e efeitos que precisem de linha de visão.','<b>Cobertura total</b> (parede inteira): não pode ser alvo de ataques nem de efeitos que precisem atingi-lo diretamente.']),'cobertura parede atras proteção')}
+   ${reg('Atacar',li([`<b>Corpo a corpo (Luta):</b> ${h(uso('luta','Atacar'))}`,`<b>À distância (Pontaria):</b> ${h(uso('pontaria','Atacar'))}`,
+     '<b>Alcances:</b> curto 9m · médio 18m · longo 36m · extremo 90m.',
+     `<b>Fintar (Enganação):</b> ${h(uso('enganacao','Fintar'))||'teste oposto aos Reflexos do alvo; ele fica desprevenido contra o seu próximo ataque.'}`,
+     c('desprevenido'),c('caido'),c('agarrado')].filter(Boolean)),'ataque atacar luta pontaria distancia arma fintar alcance acertar')}
+   ${reg('Manobras de combate',li([h(uso('luta','Manobra de combate')),`<b>Atropelar:</b> ${h(uso('luta','Atropelar'))}`,`<b>Passar por inimigo (Acrobacia):</b> ${h(uso('acrobacia','Passar por Inimigo'))}`].filter(x=>x&&!x.endsWith('</b> '))),'manobra agarrar derrubar desarmar empurrar quebrar atropelar')}
+   ${reg('Defender-se: Esquiva e Bloqueio',li(['Uma vez por rodada, ao ser atacado, o agente pode usar uma <b>ação especial de defesa</b> (é uma reação).','<b>Esquiva</b> (exige treino em Reflexos): soma o bônus de Reflexos na Defesa contra aquele ataque.','<b>Bloqueio</b> (exige treino em Fortitude): o bônus de Fortitude vira resistência a dano contra aquele ataque corpo a corpo.','A ficha de cada agente já mostra Esquiva e Bloqueio prontos, com poderes e itens somados.']),'defesa esquiva bloqueio reação reacao defender')}
+   ${reg('Ações no turno',li(['Em cada turno: uma <b>ação padrão</b> e uma <b>ação de movimento</b> (ou uma <b>ação completa</b> no lugar das duas). Dá para trocar a padrão por outra de movimento.','<b>Ações livres</b> (falar algo curto, soltar um item) não têm limite fixo; o mestre segura exageros.','<b>Reações</b> acontecem fora do turno, quando algo as dispara (ex.: Esquiva, Bloqueio).',
+     `<b>Levantar-se:</b> ação de movimento. ${h(uso('acrobacia','Levantar-se Rapidamente'))}`,`<b>Correr:</b> ${h(uso('atletismo','Corrida'))}`]),'acao ações turno padrao movimento completa livre reação levantar correr')}
+   ${reg('Dano, morte e loucura',li([c('machucado'),'<b>Dano massivo:</b> ao perder metade ou mais dos PV totais de uma vez, teste de Fortitude (DT 15); se falhar, cai a 0 PV e fica morrendo.',c('morrendo'),`<b>Primeiros socorros (Medicina):</b> ${h(uso('medicina','Primeiros Socorros'))}`,c('inconsciente'),c('indefeso'),c('perturbado'),c('enlouquecendo'),c('sangrando'),c('em_chamas')].filter(Boolean)),'dano morte morrer morrendo massivo pv cura socorro sanidade louco enlouquecendo inconsciente sangrando fogo')}
+   ${reg('Movimento e ambiente',li([`<b>Escalar:</b> ${h(uso('atletismo','Escalar'))}`,`<b>Nadar:</b> ${h(uso('atletismo','Natação'))}`,`<b>Saltar:</b> ${h(uso('atletismo','Saltar'))}`,`<b>Equilíbrio:</b> ${h(uso('acrobacia','Equilíbrio'))}`,`<b>Amortecer queda:</b> ${h(uso('acrobacia','Amortecer Queda'))}`,c('asfixiado'),c('lento'),c('imovel'),c('enredado')].filter(x=>x&&!/<\/b> $/.test(x))),'movimento escalar nadar agua afogar saltar queda cair equilibrio terreno asfixia respirar')}
+   ${reg('Perceber e investigar',li([`<b>Observar:</b> ${h(uso('percepcao','Observar'))}`,`<b>Ouvir:</b> ${h(uso('percepcao','Ouvir'))}`,`<b>Seguir alguém:</b> ${h(uso('furtividade','Seguir'))}`].filter(x=>!/<\/b> $/.test(x))),'perceber percepção percepcao ouvir observar seguir notar')}
+   ${reg(`Todas as condições (${conds.length})`,`<div class="condgrid">${conds.map(x=>`<div class="condbtn" style="cursor:default"><b>${h(x.nome)}</b><span>${h(x.desc||'')}</span></div>`).join('')}</div>`,'condicoes condição '+conds.map(x=>x.nome).join(' '))}
+  </div>`;
 }
 
 /* ---------- jogador: aviso de iniciativa na ficha ---------- */
@@ -337,3 +365,8 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act=
   try{await iniPost({acao:'ocultar',chave:t.dataset.ch,oculto:t.dataset.v==='1'});await atualizarIni();toast(t.dataset.v==='1'?'Escondido dos jogadores.':'Agora os jogadores veem.')}catch(err){toast(err.message||String(err))}});
 document.addEventListener('change',e=>{if(e.target.id==='ini-oculto-padrao'){S.iniOcultoPadrao=e.target.checked;try{localStorage.setItem('cristopher-ini-oculto',S.iniOcultoPadrao?'1':'')}catch(err){}}});
 try{S.iniOcultoPadrao=!!localStorage.getItem('cristopher-ini-oculto')}catch(e){}
+
+/* Busca e abrir/fechar da referência (sem redesenhar a tela). */
+document.addEventListener('input',e=>{if(e.target.id!=='ref-q')return;const q=slug(e.target.value).replace(/_/g,' ').trim();
+  document.querySelectorAll('.ref-sec').forEach(d=>{const ok=!q||slug(d.dataset.busca).replace(/_/g,' ').includes(q);d.hidden=!ok;if(q&&ok)d.open=true})});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act="refAbrir"],[data-act="refFechar"]');if(!t)return;const ab=t.dataset.act==='refAbrir';document.querySelectorAll('.ref-sec').forEach(d=>{if(!d.hidden)d.open=ab})});
