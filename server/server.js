@@ -294,6 +294,12 @@ function rolarD20(expr){const m=String(expr||'').replace(/–/g,'-').match(/^\s*
   const k=Math.max(1,Math.min(10,+(m[2]||1)));const rs=Array.from({length:k},()=>1+crypto.randomInt(20));const pick=m[1]?Math.min(...rs):Math.max(...rs);
   const bonus=m[3]?+m[3].replace(/\s/g,''):0;return {total:pick+bonus,txt:`${k}d20${m[1]?' (pior)':''} [${rs.join(', ')}] ${bonus>=0?'+':'−'} ${Math.abs(bonus)}`}}
 const semPV=(r,mestre)=>{if(mestre||r.alvoTipo==='agente')return r;const {pvAntes,pvDepois,pvMax,...resto}=r;return resto};
+/* Grava um acontecimento do combate carimbando se o alvo ou o autor estavam ocultos naquele momento:
+   assim o registro continua escondido dos jogadores mesmo depois que o combate acaba. */
+async function gravarLog(mesaId,uid,quando,reg){
+  const oc=async ch=>{if(!ch)return false;const e=await db.get(Q.iniDados,mesaId,ch);try{return !!(e&&e.dados&&JSON.parse(e.dados).oculto)}catch(x){return false}};
+  const r={...reg};if(await oc(r.alvoChave||(r.t==='turno'?r.chave:null)))r.alvoOculto=true;if(await oc(r.autorChave))r.autorOculto=true;
+  await db.run(Q.logAdd,mesaId,uid,quando,JSON.stringify(r))}
 async function rotaIniciativa(req,res,u,m,mesa,mestre){
   const agora=Date.now();
   if(m==='GET'){
@@ -309,7 +315,8 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     const out={pedido:est.pedido,turno:ocultos.has(est.turno)?null:est.turno,rodada:est.rodada,entradas:lista,nLog:Number((await db.get(Q.logContar,mesa.id)).n)};
     if(/[?&]log=1/.test(req.url||'')){const dep=Math.max(0,+((req.url||'').match(/[?&]depois=(\d+)/)||[])[1]||0);
       out.log=(await db.all(Q.logLista,mesa.id,dep)).map(r=>{try{return semPV({id:r.id,criado:r.criado,...JSON.parse(r.dados)},mestre)}catch(e){return null}}).filter(Boolean)
-        .filter(x=>!ocultos.has(x.alvoChave)&&!(x.t==='turno'&&ocultos.has(x.chave))).map(x=>ocultos.has(x.autorChave)?{...x,autor:'???',autorChave:null}:x)}
+        .filter(x=>mestre||(!x.alvoOculto&&!ocultos.has(x.alvoChave)&&!(x.t==='turno'&&ocultos.has(x.chave))))
+        .map(x=>{if(mestre)return x;const {alvoOculto,autorOculto,...y}=x;return autorOculto||ocultos.has(x.autorChave)?{...y,autor:'???',autorChave:null}:y})}
     return enviar(res,200,out)}
   if(m!=='POST')return erro(res,405,'Método não permitido');
   const b=await lerJSON(req)||{};const acao=String(b.acao||'');
@@ -343,7 +350,7 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     const est=await db.get(Q.iniEstado,mesa.id)||{rodada:0};
     const reg={t:acao,alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,bruto,valor:calc.valor,tipos,nota:calc.nota,origem:txtCurto(b.origem,80)||null,rodada:est.rodada||0,pvAntes,pvDepois,pvMax:dd&&+dd.pvMax||null,caiu:pvAntes!=null&&pvAntes>0&&pvDepois<=0};
     if((await db.get(Q.logContar,mesa.id)).n>=2000)return erro(res,400,'Registro do combate cheio.');
-    await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(reg));return enviar(res,200,{ok:true,...semPV(reg,mestre)})}
+    await gravarLog(mesa.id,u.id,agora,reg);return enviar(res,200,{ok:true,...semPV(reg,mestre)})}
   if(acao==='ataque'){ /* teste de ataque contra a Defesa do alvo; o jogador só fica sabendo se acertou */
     const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.alvo,120));if(!ent)return erro(res,404,'Alvo não está no combate.');
     if(!mestre&&ent.tipo==='agente')return erro(res,403,'Jogadores só atacam criaturas e NPCs pelo app.');
@@ -356,7 +363,7 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     const est=await db.get(Q.iniEstado,mesa.id)||{rodada:0};
     const reg={t:'ataque',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,valor,acertou,critico:!!b.critico,origem:txtCurto(b.origem,80)||null,rodada:est.rodada||0};
     if((await db.get(Q.logContar,mesa.id)).n>=2000)return erro(res,400,'Registro do combate cheio.');
-    await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(reg));return enviar(res,200,{ok:true,...reg})}
+    await gravarLog(mesa.id,u.id,agora,reg);return enviar(res,200,{ok:true,...reg})}
   if(acao==='ritual'){ /* ritual num alvo da iniciativa: teste de resistência da criatura, dano/cura e efeito */
     const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.alvo,120));if(!ent)return erro(res,404,'Alvo não está no combate.');
     let dd=null;try{dd=ent.dados?JSON.parse(ent.dados):null}catch(e){}
@@ -386,7 +393,7 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     const notaE=notaT.replace('passou (metade)','passou (efeito parcial)');
     if(!regs.length)regs.push({t:'efeito',alvo:ent.nome,alvoChave:ent.chave,alvoTipo:ent.tipo,autor,autorChave,origem:nomeRit,nota:notaE,rodada:est.rodada||0,efeito});
     if((await db.get(Q.logContar,mesa.id)).n>=1990)return erro(res,400,'Registro do combate cheio.');
-    for(const r of regs)await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(r));
+    for(const r of regs)await gravarLog(mesa.id,u.id,agora,r);
     return enviar(res,200,{ok:true,alvo:ent.nome,teste,passou,anula,valor,bruto,cura,nota:[bruto!=null?notaT:notaE,notaD].filter(Boolean).join(', '),efeito,caiu:regs.some(r=>r.caiu)})}
   if(acao==='registro'){ /* jogador relata dano/cura que aplicou na própria ficha; mestre registra turnos e efeitos */
     const t=['recebido','curado','turno','nota'].includes(b.t)?b.t:null;if(!t)return erro(res,400,'Registro inválido.');
@@ -396,7 +403,7 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
       efeitos:(Array.isArray(b.efeitos)?b.efeitos:[]).slice(0,20).map(x=>txtCurto(x,60)).filter(Boolean),texto:txtCurto(b.texto,200)||null,tipos:(Array.isArray(b.tipos)?b.tipos:[]).map(x=>txtCurto(x,20)).filter(x=>TIPOS_DANO.includes(x)).slice(0,4)};
     if(!mestre)reg.alvoChave='a:'+u.id+':'+txtCurto(b.ficha,64);
     if((await db.get(Q.logContar,mesa.id)).n>=2000)return erro(res,400,'Registro do combate cheio.');
-    await db.run(Q.logAdd,mesa.id,u.id,agora,JSON.stringify(reg));return enviar(res,200,{ok:true})}
+    await gravarLog(mesa.id,u.id,agora,reg);return enviar(res,200,{ok:true})}
   if(!mestre)return so();
   if(acao==='pedir'){await db.run(Q.logApagar,mesa.id);await db.run(Q.iniDelAgentes,mesa.id);await db.run(Q.iniZerar,agora,mesa.id);await estado({pedido:agora,turno:null,rodada:1});return enviar(res,200,{ok:true,pedido:agora})}
   if(acao==='entrada'){ /* criatura ou NPC do mestre */
