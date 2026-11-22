@@ -72,6 +72,7 @@ const Q={
   iniDados:'SELECT chave,usuario_id,tipo,nome,dados FROM mesa_ini WHERE mesa_id=? AND chave=?',
   iniSetDados:'UPDATE mesa_ini SET dados=?,atualizado=? WHERE mesa_id=? AND chave=?',
   membrosIds:`SELECT u.id,u.usuario,mm.papel FROM mesa_membros mm JOIN usuarios u ON u.id=mm.usuario_id WHERE mm.mesa_id=? ORDER BY mm.entrou`,
+  docUm:'SELECT dados FROM docs WHERE usuario_id=? AND doc_id=?',
   pingAdd:'INSERT INTO mesa_ping(mesa_id,de_id,para,criado,dados) VALUES(?,?,?,?,?)',
   /* Pings para mim: enviados ao meu id, ou "mestre" nas campanhas que mestro, ou "todos" nas campanhas em que jogo. */
   pingMeus:`SELECT p.id,p.mesa_id,p.criado,p.dados,p.para,p.de_id,mm.papel,u.usuario de,m.nome mesa FROM mesa_ping p JOIN mesa_membros mm ON mm.mesa_id=p.mesa_id AND mm.usuario_id=? JOIN usuarios u ON u.id=p.de_id JOIN mesas m ON m.id=p.mesa_id
@@ -238,6 +239,17 @@ async function rotasMesa(req,res,u,p,m,url){
     return enviar(res,200,{modo,membros})}
   if(sub==='/grupo'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre escolhe o que o grupo vê.');const b=await lerJSON(req)||{};
     const cfg=await lerCfgMesa(mesa.id);cfg.grupo=modoGrupo(b.modo);await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true,modo:cfg.grupo})}
+  /* Mestre remove um item do inventário de um agente da campanha: grava na ficha do jogador e avisa o app dele (pelo canal do ping). */
+  if(sub==='/fichaitem'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre pode mexer na ficha de outro jogador.');const b=await lerJSON(req)||{};
+    const alvo=await db.get(Q.membroPorNome,mesa.id,txtCurto(b.usuario,40));if(!alvo)return erro(res,404,'Jogador não está nesta campanha.');
+    const fid=txtCurto(b.ficha,64);const uid=txtCurto(b.uid,64);if(!/^[\w-]{1,64}$/.test(fid)||!uid)return erro(res,400,'Pedido inválido.');
+    const row=await db.get(Q.docUm,alvo.id,'f-'+fid);let doc=null;try{doc=row&&JSON.parse(row.dados)}catch(e){}
+    const f=doc&&doc.ficha;if(!f||f.mesa!==mesa.id)return erro(res,404,'Ficha não encontrada nesta campanha.');
+    const inv=Array.isArray(f.inventario)?f.inventario:[];const it=inv.find(x=>x&&x.uid===uid);if(!it)return erro(res,404,'O item já não está na ficha.');
+    f.inventario=inv.filter(x=>x!==it);f.atualizado=Date.now();await db.run(Q.gravarDoc,alvo.id,'f-'+fid,JSON.stringify(doc),Date.now());
+    const nomeIt=txtCurto(it.nome,80)||'item';
+    await db.run(Q.pingAdd,mesa.id,u.id,alvo.id,Date.now(),JSON.stringify({texto:`O mestre removeu “${nomeIt}” da ficha de ${txtCurto(f.nome,80)||'seu agente'}.`,ordem:{tipo:'rmItem',ficha:fid,uid}}));
+    return enviar(res,200,{ok:true,nome:nomeIt})}
   if(sub==='/membros'&&m==='GET')return enviar(res,200,(await db.all(Q.membrosIds,mesa.id)).map(x=>({id:mestre||x.papel==='mestre'?x.id:undefined,usuario:x.usuario,papel:x.papel})));
   if(sub==='/ping'&&m==='POST'){if(pingDemais(u.id))return erro(res,429,'Calma: muitos pings seguidos. Espere alguns segundos.');
     const b=await lerJSON(req)||{};const texto=txtCurto(b.texto,300);if(!texto)return erro(res,400,'Escreva a mensagem do ping.');
@@ -290,9 +302,14 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
       const meu=r.usuario_id===u.id;
       const caido=r.tipo!=='agente'&&dados&&+dados.pvMax?(dados.pv??+dados.pvMax)<=0:undefined; /* jogadores sabem se caiu, não os PV */
       return {chave:r.chave,tipo:r.tipo,nome:r.nome,valor:r.valor,fonte:r.fonte,usuario:r.usuario||null,meu,caido,dados:mestre||meu?dados:null}});
-    const out={pedido:est.pedido,turno:est.turno,rodada:est.rodada,entradas,nLog:Number((await db.get(Q.logContar,mesa.id)).n)};
+    /* Participantes escondidos pelo mestre não existem para os jogadores: nem na ordem, nem a vez, nem o dano que sofrem. */
+    const ocultos=new Set();let lista=entradas;
+    if(!mestre){const todos=await db.all(Q.iniLista,mesa.id);for(const r of todos){try{if(r.dados&&JSON.parse(r.dados).oculto)ocultos.add(r.chave)}catch(e){}}lista=entradas.filter(e=>!ocultos.has(e.chave))}
+    else entradas.forEach(e=>{if(e.dados&&e.dados.oculto)e.oculto=true});
+    const out={pedido:est.pedido,turno:ocultos.has(est.turno)?null:est.turno,rodada:est.rodada,entradas:lista,nLog:Number((await db.get(Q.logContar,mesa.id)).n)};
     if(/[?&]log=1/.test(req.url||'')){const dep=Math.max(0,+((req.url||'').match(/[?&]depois=(\d+)/)||[])[1]||0);
-      out.log=(await db.all(Q.logLista,mesa.id,dep)).map(r=>{try{return semPV({id:r.id,criado:r.criado,...JSON.parse(r.dados)},mestre)}catch(e){return null}}).filter(Boolean)}
+      out.log=(await db.all(Q.logLista,mesa.id,dep)).map(r=>{try{return semPV({id:r.id,criado:r.criado,...JSON.parse(r.dados)},mestre)}catch(e){return null}}).filter(Boolean)
+        .filter(x=>!ocultos.has(x.alvoChave)&&!(x.t==='turno'&&ocultos.has(x.chave))).map(x=>ocultos.has(x.autorChave)?{...x,autor:'???',autorChave:null}:x)}
     return enviar(res,200,out)}
   if(m!=='POST')return erro(res,405,'Método não permitido');
   const b=await lerJSON(req)||{};const acao=String(b.acao||'');
@@ -396,6 +413,9 @@ async function rotaIniciativa(req,res,u,m,mesa,mestre){
     for(const k of ['saves','defs'])if(b[k]&&typeof b[k]==='object')dd[k]=b[k];
     const txt=JSON.stringify(dd);if(txt.length>6000)return erro(res,413,'Dados grandes demais.');
     await db.run(Q.iniSetDados,txt,agora,mesa.id,ent.chave);return enviar(res,200,{ok:true})}
+  if(acao==='ocultar'){if(!mestre)return erro(res,403,'Só o mestre esconde participantes.');const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.chave,120));if(!ent)return erro(res,404,'Entrada não encontrada.');
+    if(ent.tipo==='agente')return erro(res,400,'Agentes dos jogadores não podem ser escondidos.');
+    let dd={};try{dd=ent.dados?JSON.parse(ent.dados):{}}catch(e){}dd.oculto=!!b.oculto;await db.run(Q.iniSetDados,JSON.stringify(dd),agora,mesa.id,ent.chave);return enviar(res,200,{ok:true,oculto:dd.oculto})}
   if(acao==='efeitos'){const ent=await db.get(Q.iniDados,mesa.id,txtCurto(b.chave,120));if(!ent)return erro(res,404,'Entrada não encontrada.');
     let dd={};try{dd=ent.dados?JSON.parse(ent.dados):{}}catch(e){}dd.conds=(Array.isArray(b.conds)?b.conds:[]).slice(0,12).map(x=>txtCurto(x,40)).filter(Boolean);
     await db.run(Q.iniSetDados,JSON.stringify(dd),agora,mesa.id,ent.chave);return enviar(res,200,{ok:true})}

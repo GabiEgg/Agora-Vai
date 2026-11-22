@@ -158,6 +158,12 @@ document.addEventListener('click',e=>{
   if(a==='closeModal'){if(t.classList.contains('modal')&&e.target!==t)return;closeModal();return}
   if(t.tagName==='INPUT')return; /* checkboxes com data-act são tratados no change */
   const f=F();const ds=t.dataset;
+  /* Exclusões pedem confirmação: o 1º clique arma o botão por 4 s; o 2º executa. */
+  if(ds.confirma!==undefined){const k=a+'|'+(ds.i||'')+'|'+(ds.id||'')+'|'+(ds.uid||'');
+    if(S._armado!==k){document.querySelectorAll('.armado').forEach(b=>{b.classList.remove('armado');if(b.dataset.txt!=null)b.innerHTML=b.dataset.txt});
+      S._armado=k;t.dataset.txt=t.innerHTML;t.textContent=ds.confirma||'Excluir mesmo?';t.classList.add('armado');clearTimeout(S._armT);
+      S._armT=setTimeout(()=>{S._armado=null;if(t.isConnected&&t.classList.contains('armado')){t.classList.remove('armado');t.innerHTML=t.dataset.txt}},4000);return}
+    S._armado=null;clearTimeout(S._armT)}
   switch(a){
    case 'view':S.view=ds.v;S.confirm=null;S.alheia=null;if(ds.v==='campanha')carregarMesas();if(ds.v==='escudo'){abrirEscudo();return}if(ds.v==='ficha')atualizarIniJogador();break;
    case 'contaMenu':contaModal();return;
@@ -287,6 +293,10 @@ document.addEventListener('click',e=>{
      saveF();toast(msg,6000);break}
    case 'itemNovo':{const it={uid:uid(),ref:null,nome:'Item novo',tipo:'geral',cat:0,esp:1,qtd:1,equipado:false,dano:'',critico:'',alcance:'',tipoDano:'',defesa:0,notas:'',mods:[],modsAplicadas:[]};f.inventario.push(it);S.open[it.uid]=true;saveF();break}
    case 'rmItem':f.inventario.splice(+ds.i,1);saveF();break;
+   case 'mestreRmItem':{const fa=S.alheia;if(!fa||!fa.mesa)return;const it=(fa.inventario||[]).find(x=>x.uid===ds.uid);
+     Api.req('POST',`/api/mesas/${encodeURIComponent(fa.mesa)}/fichaitem`,{usuario:fa._dono,ficha:fa.id,uid:ds.uid}).then(r=>{
+       fa.inventario=(fa.inventario||[]).filter(x=>x.uid!==ds.uid);const md=(S.mesaDados&&S.mesaDados.fichas||[]).find(x=>x.usuario===fa._dono&&x.ficha&&x.ficha.id===fa.id);if(md)md.ficha.inventario=(md.ficha.inventario||[]).filter(x=>x.uid!==ds.uid);
+       toast(`“${r.nome}” removido da ficha de ${fa.nome}. O jogador recebe um aviso.`);render()}).catch(e=>toast(e.message||'Não foi possível remover.'));return}
    case 'rmMod':f.inventario[+ds.i].modsAplicadas.splice(+ds.k,1);saveF();break;
    case 'usarItem':usarItem(f,+ds.i);break;
    case 'toggle':S.open[ds.id]=!S.open[ds.id];break;

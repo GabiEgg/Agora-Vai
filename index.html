@@ -513,6 +513,13 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .ini-ordem li.caido{opacity:.55}.ini-ordem li.caido .io-nome{text-decoration:line-through}
 .ini-ordem .io-vez{font:600 10px var(--f-mono,monospace);text-transform:uppercase;letter-spacing:.05em;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:1px 4px}
 .ini-ordem .io-vez.caiu{background:var(--muted);color:var(--paper)}
+
+/* ---------- Confirmação e participantes ocultos ---------- */
+.armado{background:var(--pv)!important;color:#fff!important;border-color:var(--pv)!important;animation:armado .25s ease-out}
+@keyframes armado{from{transform:scale(.92)}to{transform:none}}
+.ini-olho{display:inline-flex;gap:4px;align-items:center;min-width:32px;justify-content:center}
+.ini-row.oculto{background:repeating-linear-gradient(135deg,transparent 0 10px,color-mix(in srgb,var(--muted) 10%,transparent) 10px 20px);border-style:dashed}
+.ini-row.oculto .ini-olho{color:var(--accent);font-size:11px}
 </style>
 
 <div class="wrap">

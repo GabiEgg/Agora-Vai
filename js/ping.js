@@ -19,6 +19,7 @@ async function pingBuscar(){
   try{const r=await Api.req('GET','/api/ping?depois='+(S.pingUlt||0));
     S.pingUlt=Math.max(r.ultimo||0,S.pingUlt||0);try{localStorage.setItem(pingChave(),S.pingUlt)}catch(e){}
     const novos=(r.pings||[]).filter(p=>!S.pings.some(x=>x.id===p.id));
+    novos.forEach(pingOrdem);
     if(novos.length){r.pings=novos;r.pings.forEach(p=>S.pings.push(p));pingSom(r.pings.some(p=>p.urgente));pingMostrar();pingTitulo()}
   }catch(e){}
 }
@@ -99,3 +100,8 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{if(e.target.id==='ping-mesa'){S.pingMesa=e.target.value;const m=(S.mesas||[]).find(x=>x.id===S.pingMesa);if(m)pingCompor({mesa:m.id,de:'',texto:''}).then(()=>{const q=document.querySelector('.ping-cit');if(q)q.remove()})}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)&&e.target.id==='ping-txt'){e.preventDefault();pingEnviar()}});
+
+/* Ordens do mestre que chegam junto com o ping (só o servidor cria, e só a pedido do mestre da campanha). */
+function pingOrdem(p){const o=p&&p.ordem;if(!o||p.souMestre)return;
+  if(o.tipo==='rmItem'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;const antes=(f.inventario||[]).length;f.inventario=(f.inventario||[]).filter(x=>x.uid!==o.uid);
+    if(f.inventario.length!==antes){saveF(f);if(F()===f)render()}}}

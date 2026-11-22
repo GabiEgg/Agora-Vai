@@ -32,7 +32,7 @@ async function atualizarIni(){
     completarCriaturas(d,m.id);
     if(k!==S._iniKey){S._iniKey=k;S.ini=d;if(S.view==='escudo'&&!document.activeElement.closest('.cb-painel,.mapa-lado'))render()}}catch(e){}
 }
-const iniPost=(corpo,mesaId)=>Api.req('POST',`/api/mesas/${encodeURIComponent(mesaId||S.mesaAberta)}/iniciativa`,corpo);
+const iniPost=(corpo,mesaId)=>{if(corpo&&corpo.acao==='entrada'&&!corpo.chave&&S.iniOcultoPadrao)corpo={...corpo,dados:{...(corpo.dados||{}),oculto:true}};return Api.req('POST',`/api/mesas/${encodeURIComponent(mesaId||S.mesaAberta)}/iniciativa`,corpo)};
 
 /* ---------- rolagens de criatura ("3d20+10" = rola 3d20, fica com o maior, soma 10) ---------- */
 function rollCri(label,expr){
@@ -76,8 +76,10 @@ function escCombate(m){
     const extra=`<div class="ini-extra">${efs.map((n,k)=>`<span class="cond">${h(n)}${e.tipo!=='agente'?` <button class="linkbtn" data-act="efDel" data-ch="${h(e.chave)}" data-k="${k}" aria-label="Tirar ${h(n)}">✕</button>`:''}</span>`).join('')}
       ${e.tipo!=='agente'?`<select class="inp sm" data-act-change="efAdd" data-ch="${h(e.chave)}" aria-label="Adicionar efeito em ${h(e.nome)}"><option value="">+ efeito</option>${(D.condicoes||[]).filter(c=>fonteOn(c.fonte||'core')).map(c=>`<option>${h(c.nome)}</option>`).join('')}<option value="_">Outro…</option></select>`:''}
       ${atks.map(a=>`<button class="rollchip" data-act="criRoll" data-id="${h(cri.id)}" data-ch="${h(e.chave)}" data-l="${h(a.nome)}" data-x="${h(a.teste)}">${h(a.nome)} ${h(a.teste)}</button><button class="rollchip" data-act="criDano" data-id="${h(cri.id)}" data-ch="${h(e.chave)}" data-l="${h(a.nome)}" data-x="${h(a.dano)}">Dano ${h(a.dano)}</button>`).join('')}</div>`;
-    return `<div class="ini-row ${atual?'atual':''}" ${atual?'aria-current="true"':''}>
+    const oc=e.oculto||(e.dados&&e.dados.oculto);
+    return `<div class="ini-row ${atual?'atual':''} ${oc?'oculto':''}" ${atual?'aria-current="true"':''}>
       <span class="ini-pos">${e.valor==null?'–':i+1}</span>
+      ${e.tipo!=='agente'?`<button class="btn sm ghost ini-olho" data-act="iniOcultar" data-ch="${h(e.chave)}" data-v="${oc?'0':'1'}" aria-pressed="${!!oc}" title="${oc?'Escondido: os jogadores não veem. Clique para mostrar.':'Visível para os jogadores. Clique para esconder.'}">${oc?'<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M2 4.3 3.3 3l17.7 17.7-1.3 1.3-3.3-3.3A10.7 10.7 0 0 1 12 20C6 20 2.6 15 1.5 12a12 12 0 0 1 4-5.2L2 4.3zm10 3.2a4.5 4.5 0 0 1 4.5 4.5l-.1.9-5.3-5.3.9-.1zM12 4c6 0 9.4 5 10.5 8a12.4 12.4 0 0 1-3 4.3l-1.4-1.4a10 10 0 0 0 2.2-2.9C19.2 9.6 16.3 6 12 6c-1 0-2 .2-2.8.5L7.6 4.9A10.8 10.8 0 0 1 12 4zM7.6 10.7a4.5 4.5 0 0 0 5.7 5.7l-1.6-1.6a2.5 2.5 0 0 1-2.5-2.5l-1.6-1.6z"/></svg> oculto':'<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 4c6 0 9.4 5 10.5 8C21.4 15 18 20 12 20S2.6 15 1.5 12C2.6 9 6 4 12 4zm0 2C7.7 6 4.8 9.6 3.6 12c1.2 2.4 4.1 6 8.4 6s7.2-3.6 8.4-6C19.2 9.6 16.3 6 12 6zm0 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>'}</button>`:'<span class="ini-olho"></span>'}
       <div class="ini-nome"><button class="linkbtn ${((S.cb||{}).alvos||[]).includes(e.chave)?'cb-marcado':''}" data-act="cbAlvo" data-ch="${h(e.chave)}" title="Marcar ou desmarcar como alvo do dano" aria-pressed="${((S.cb||{}).alvos||[]).includes(e.chave)}"><b>${h(e.nome)}</b></button> <span class="badge ${e.tipo==='agente'?'acc':''}">${e.tipo==='agente'?h(e.usuario||'agente'):e.tipo==='npc'?'NPC':'criatura'}</span>${e.fonte?` <span class="hint">${e.fonte==='fisico'?'dados físicos':e.fonte==='app'?'rolado no app':'mestre'}</span>`:''}
        ${cri?` <button class="linkbtn hint" data-act="criVer" data-id="${h(cri.id)}">ficha</button>`:''}${dd.def?` <span class="hint">Defesa ${dd.def}</span>`:''}${ra?` <span class="hint">Defesa ${ra.defesa}</span>`:''}${dd.defs&&defesasTxt(dd.defs)?` <span class="hint">· ${h(defesasTxt(dd.defs))}</span>`:''}</div>
       ${pv}${pvAg}
@@ -89,7 +91,8 @@ function escCombate(m){
      ${pend.map(x=>`<div class="row" style="margin-top:4px"><span>${h(x.ficha.nome)} <span class="hint">(${h(x.usuario)})</span></span><input class="inp num sm" type="number" id="ini-p-${h(x.ficha.id)}" data-keep style="width:64px" aria-label="Iniciativa de ${h(x.ficha.nome)}"><button class="btn sm" data-act="iniPend" data-ficha="${h(x.ficha.id)}" data-u="${h(x.usuario)}" data-nome="${h(x.ficha.nome)}">OK</button></div>`).join('')}</div>`:'';
   return `<div class="sec"><div class="sec-h"><h2>Iniciativa</h2>${d.pedido?`<span class="chip ok">Rodada ${d.rodada||1}</span>`:''}
      <div class="row"><button class="btn sm acc" data-act="iniPedir">${d.pedido?'Pedir de novo':'Pedir iniciativa'}</button>
-      ${es.length?`<button class="btn sm" data-act="iniProx">Próximo turno</button>`:''}${d.pedido||es.length?`<button class="btn sm ghost" data-act="iniFim">Encerrar combate</button>`:''}${!d.pedido&&d.nLog?`<button class="btn sm" data-act="resumoVer" data-m="${h(m.id)}">Resumo do último combate</button>`:''}</div></div>
+      ${es.length?`<button class="btn sm" data-act="iniProx">Próximo turno</button>`:''}${d.pedido||es.length?`<button class="btn sm ghost" data-act="iniFim">Encerrar combate</button>`:''}
+      <label class="chk" title="Criaturas e NPCs adicionados daqui em diante já entram escondidos dos jogadores"><input type="checkbox" id="ini-oculto-padrao" ${S.iniOcultoPadrao?'checked':''}> Novas criaturas entram ocultas</label>${!d.pedido&&d.nLog?`<button class="btn sm" data-act="resumoVer" data-m="${h(m.id)}">Resumo do último combate</button>`:''}</div></div>
     ${!d.pedido&&!es.length?'<p class="hint">Clique em “Pedir iniciativa”: cada jogador com ficha ligada a esta campanha recebe um aviso para rolar no app ou digitar o valor dos dados físicos. Adicione criaturas pelo Bestiário ou abaixo.</p>':''}
     ${pendHtml}
     ${es.length?painelDano(es):''}
@@ -328,3 +331,9 @@ document.addEventListener('change',async e=>{const ac=e.target.dataset.actChange
     const ent=((S.ini||{}).entradas||[]).find(x=>x.chave===e.target.dataset.ch);if(!ent)return;const cs=[...((ent.dados||{}).conds||[])];if(!cs.includes(v))cs.push(v);
     try{await iniPost({acao:'efeitos',chave:ent.chave,conds:cs});await atualizarIni()}catch(err){toast(err.message)}return}
   if(ac==='escMesa'){S.mesaAberta=e.target.value;S.ini=null;S._iniKey=null;S.mesaDados=null;S._mesaKey=null;S.mesaEventos=[];S.mesaUltimo=0;render();atualizarMesa(true).then(atualizarIni)}});
+
+/* Mestre: esconder/mostrar participantes para os jogadores. */
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-act="iniOcultar"]');if(!t)return;
+  try{await iniPost({acao:'ocultar',chave:t.dataset.ch,oculto:t.dataset.v==='1'});await atualizarIni();toast(t.dataset.v==='1'?'Escondido dos jogadores.':'Agora os jogadores veem.')}catch(err){toast(err.message||String(err))}});
+document.addEventListener('change',e=>{if(e.target.id==='ini-oculto-padrao'){S.iniOcultoPadrao=e.target.checked;try{localStorage.setItem('cristopher-ini-oculto',S.iniOcultoPadrao?'1':'')}catch(err){}}});
+try{S.iniOcultoPadrao=!!localStorage.getItem('cristopher-ini-oculto')}catch(e){}
