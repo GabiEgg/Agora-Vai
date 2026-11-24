@@ -19,8 +19,8 @@ async function pingBuscar(){
   try{const r=await Api.req('GET','/api/ping?depois='+(S.pingUlt||0));
     S.pingUlt=Math.max(r.ultimo||0,S.pingUlt||0);try{localStorage.setItem(pingChave(),S.pingUlt)}catch(e){}
     const novos=(r.pings||[]).filter(p=>!S.pings.some(x=>x.id===p.id));
-    novos.forEach(pingOrdem);
-    if(novos.length){r.pings=novos;r.pings.forEach(p=>S.pings.push(p));pingSom(r.pings.some(p=>p.urgente));pingMostrar();pingTitulo()}
+    novos.forEach(pingOrdem);const visiveis=novos.filter(p=>!p.silencioso&&p.texto);
+    if(visiveis.length){r.pings=visiveis;r.pings.forEach(p=>S.pings.push(p));pingSom(r.pings.some(p=>p.urgente));pingMostrar();pingTitulo()}
   }catch(e){}
 }
 let _pingTick=0;
@@ -104,6 +104,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKe
 
 /* Ordens do mestre que chegam junto com o ping (só o servidor cria, e só a pedido do mestre da campanha). */
 function pingOrdem(p){const o=p&&p.ordem;if(!o||p.souMestre)return;
+  if(o.tipo==='fichaAtualizada'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;
+    Api.req('GET','/api/docs').then(d=>{const v=d&&d['f-'+o.ficha];if(!v||!v.ficha)return;S.fichas[o.ficha]=migrar(v.ficha);Store.saveLocal();if(S.active===o.ficha&&!S.alheia)render()}).catch(()=>{});return}
   if(o.tipo==='vital'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa||!['pv','pe','san'].includes(o.k))return;f[o.k]=+o.valor;saveF(f);if(F()===f)render();return}
   if(o.tipo==='zerarSessao'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;f.retrato=f.retrato||{};f.retrato.sessao={quedas:0,loucuras:0,desde:Date.now()};saveF(f);if(F()===f)render();return}
   if(o.tipo==='rmItem'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;const antes=(f.inventario||[]).length;f.inventario=(f.inventario||[]).filter(x=>x.uid!==o.uid);

@@ -247,6 +247,17 @@ async function rotasMesa(req,res,u,p,m,url){
     const cfg=await lerCfgMesa(mesa.id);if(b.modo!==undefined)cfg.grupo=modoGrupo(b.modo);
     if(b.ficha!==undefined){const fid=txtCurto(b.ficha,64);if(!/^[\w-]{1,64}$/.test(fid))return erro(res,400,'Ficha inválida.');const l=new Set(Array.isArray(cfg.fichasOcultas)?cfg.fichasOcultas:[]);if(b.oculta)l.add(fid);else l.delete(fid);cfg.fichasOcultas=[...l].slice(0,200)}
     await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true,modo:modoGrupo(cfg.grupo),fichasOcultas:cfg.fichasOcultas||[]})}
+  /* Mestre edita a ficha inteira de um agente da campanha: grava na conta do jogador e avisa o app dele para recarregar. */
+  if(sub==='/ficha'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre edita a ficha de outro jogador.');let b;try{b=await lerJSON(req)}catch(e){return erro(res,e.status||400,'Ficha grande demais.')}b=b||{};
+    const alvo=await db.get(Q.membroPorNome,mesa.id,txtCurto(b.usuario,40));if(!alvo)return erro(res,404,'Jogador não está nesta campanha.');
+    const nova=b.ficha;if(!nova||typeof nova!=='object'||!/^[\w-]{1,64}$/.test(String(nova.id||'')))return erro(res,400,'Ficha inválida.');
+    const docId='f-'+nova.id;const row=await db.get(Q.docUm,alvo.id,docId);let doc=null;try{doc=row&&JSON.parse(row.dados)}catch(e){}
+    if(!doc||!doc.ficha||doc.ficha.mesa!==mesa.id)return erro(res,404,'Ficha não encontrada nesta campanha.');
+    const limpa={...nova,mesa:mesa.id,atualizado:Date.now()};delete limpa._alheia;delete limpa._dono;delete limpa._mestre;
+    const txt=JSON.stringify({...doc,ficha:limpa});if(txt.length>MAX_JSON)return erro(res,413,'Ficha grande demais.');
+    await db.run(Q.gravarDoc,alvo.id,docId,txt,Date.now());
+    await db.run(Q.pingAdd,mesa.id,u.id,alvo.id,Date.now(),JSON.stringify({texto:b.avisar?`O mestre está editando a ficha de ${txtCurto(limpa.nome,80)||'seu agente'}.`:'',silencioso:!b.avisar||undefined,ordem:{tipo:'fichaAtualizada',ficha:String(nova.id)}}));
+    return enviar(res,200,{ok:true})}
   /* Mestre muda PV, PE (ou PD) ou SAN de um agente: grava na ficha do jogador e avisa o app dele. */
   if(sub==='/fichavital'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre altera os pontos de um agente.');const b=await lerJSON(req)||{};
     const fid=txtCurto(b.ficha,64);const k=['pv','pe','san'].includes(b.k)?b.k:null;const v=Math.round(+b.valor);if(!fid||!k||!Number.isFinite(v))return erro(res,400,'Pedido inválido.');
@@ -263,7 +274,7 @@ async function rotasMesa(req,res,u,p,m,url){
   /* Histórico de pings da campanha: o mestre vê todos; o jogador, os que mandou e os que recebeu. O mestre pode apagar qualquer um. */
   if(sub==='/pings'&&m==='GET'){const lista=await db.all(Q.pingHist,mesa.id);
     const out=[];for(const x of lista){const meu=x.de_id===u.id;const paraMim=x.para===u.id||(x.para==='todos'&&!mestre)||(x.para==='mestre'&&mestre);
-      if(!mestre&&!meu&&!paraMim)continue;let d={};try{d=JSON.parse(x.dados)}catch(e){}
+      if(!mestre&&!meu&&!paraMim)continue;let d={};try{d=JSON.parse(x.dados)}catch(e){}if(d.silencioso)continue;
       out.push({id:x.id,criado:x.criado,de:x.de,deMestre:x.de_id===mesa.mestre_id,meu,para:x.para==='todos'?'todos':x.para==='mestre'?'mestre':(x.paraNome||'jogador'),texto:d.texto||'',urgente:!!d.urgente,agente:d.agente,ordem:d.ordem?d.ordem.tipo:undefined})}
     return enviar(res,200,{pings:out,podeApagar:mestre})}
   if(sub==='/pingdel'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre apaga pings do histórico.');const b=await lerJSON(req)||{};

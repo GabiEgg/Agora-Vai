@@ -47,7 +47,7 @@ function retContadores(f,{curto=false}={}){const s=((f.retrato||{}).sessao)||{qu
 function retratoMini(f,r){if(!f.classe)return '';
   return `<button class="ret-mini" data-act="retAbrir" title="Retrato de ${h(f.nome||'agente')}: clique para ver, trocar as artes ou começar nova sessão">${retFigura(f,r)}${retContadores(f,{curto:true})}</button>`}
 /* Janela do retrato: grande, barras, contadores, artes por estado. */
-function retratoModal(){const f=F();if(!f)return;const r=calc(f);const rt=retDados(f);const ro=!!f._alheia;
+function retratoModal(){const f=F();if(!f)return;const r=calc(f);const rt=retDados(f);const ro=!!f._alheia&&!f._mestre;
   modal('Retrato · '+(f.nome||'Agente'),`<div class="modal-b ret-modal">
    <div class="ret-topo">${retFigura(f,r,{grande:true})}<div class="ret-lado">${retBarras(f,r,'grandes')}${retContadores(f)}
      ${ro?'':`<div class="row"><button class="btn sm" data-act="retSessao">${S.retConf?'Confirmar: zerar contadores da sessão':'Nova sessão'}</button><button class="btn sm ${rt.morto?'acc':'ghost danger'}" data-act="retMorto">${rt.morto?'Reviver (tirar “morto”)':'Marcar como morto'}</button></div>
@@ -64,7 +64,7 @@ function retAnimar(){requestAnimationFrame(()=>requestAnimationFrame(()=>documen
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act;const f=F();if(!f)return;
   if(a==='retAbrir'){S.retConf=false;retratoModal();return}
-  if(f._alheia)return;
+  if(f._alheia&&!f._mestre)return;
   if(a==='retSessao'){if(!S.retConf){S.retConf=true;retratoModal();return}S.retConf=false;const rt=retDados(f);rt.sessao={quedas:0,loucuras:0,desde:Date.now()};saveF();render();retratoModal();toast('Nova sessão: contadores zerados.');return}
   if(a==='retMorto'){const rt=retDados(f);rt.morto=!rt.morto;saveF();render();retratoModal();return}
   if(a==='retArte'){const k=t.dataset.k;upload(id=>{retDados(f).arte[k]=id;saveF();render();retratoModal()});return}

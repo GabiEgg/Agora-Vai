@@ -180,7 +180,7 @@ document.addEventListener('click',e=>{
    case 'mesaDel':S.confirm='mesaDel:'+ds.id;break;
    case 'mesaExcluir':Api.req('DELETE','/api/mesas/'+encodeURIComponent(ds.id)).then(()=>{S.confirm=null;if(S.mesaAberta===ds.id)S.mesaAberta=null;toast('Campanha excluída.');carregarMesas()}).catch(e=>toast(e.message));return;
    case 'mesaSair':Api.req('POST','/api/mesas/'+encodeURIComponent(ds.id)+'/sair').then(()=>{toast('Você saiu da campanha.');carregarMesas()}).catch(e=>toast(e.message));return;
-   case 'verFicha':{const x=S.mesaDados.fichas[+ds.i];const fa=migrar(clone(x.ficha));fa._alheia=true;fa._dono=x.usuario;S.alheia=fa;S.view='ficha';S.tab='dossie';break}
+   case 'verFicha':{const x=S.mesaDados.fichas[+ds.i];const fa=migrar(clone(x.ficha));fa._alheia=true;fa._dono=x.usuario;fa._mestre=!!(fa.mesa&&typeof pingSouMestre==='function'&&pingSouMestre(fa.mesa));S.alheia=fa;S.view='ficha';S.tab='dossie';break}
    case 'voltarCampanha':S.alheia=null;S.view='escudo';break;
    case 'sair':Api.req('POST','/api/sair').catch(()=>{}).finally(()=>{try{localStorage.removeItem(LKEY)}catch(e){}location.reload()});return;
    case 'tab':S.tab=ds.v;S.confirm=null;break;
@@ -384,7 +384,7 @@ document.addEventListener('change',e=>{
   const t=e.target;const f=F();const ds=t.dataset;
   if(t.id==='pick-all'){pickState.all=t.checked;renderPick();return}
   if(ds.act==='soPosso'){S.soPosso=t.checked;try{localStorage.setItem('cristopher-soPosso',S.soPosso?'1':'')}catch(e){}renderPick();return}
-  if(ds.act==='ritGrim'){if(!f||f._alheia)return;const l=f.grimorio=(f.grimorio||[]).filter(id=>id!==ds.id);if(t.checked)l.push(ds.id);saveF();render();return}
+  if(ds.act==='ritGrim'){if(!f||(f._alheia&&!f._mestre))return;const l=f.grimorio=(f.grimorio||[]).filter(id=>id!==ds.id);if(t.checked)l.push(ds.id);saveF();render();return}
   if(t.type==='checkbox'&&ds.act){
     switch(ds.act){
      case 'tglFonte':{const C=cfgAlvo(S.mesaAlvo);C.fontes[ds.id]=t.checked;salvarAlvoRegras();break}
