@@ -242,7 +242,7 @@ function mestreSalvarFicha(f){S._mfT=S._mfT||{};clearTimeout(S._mfT[f.id]);S._mf
   const {_alheia,_dono,_mestre,...limpa}=f;
   try{await Api.req('PUT',`/api/mesas/${encodeURIComponent(f.mesa)}/ficha`,{usuario:_dono,ficha:limpa});setStatus('db');
     const md=(S.mesaDados&&S.mesaDados.fichas||[]).find(x=>x.usuario===_dono&&x.ficha&&x.ficha.id===f.id);if(md){md.ficha=clone(limpa);md.atualizado=Date.now()}}
-  catch(e){toast('Não foi possível salvar na ficha do jogador: '+(e.message||e),6000)}},900)}
+  catch(e){toast('Não foi possível salvar na ficha do jogador: '+(e.message||e),6000)}},450)}
 function saveF(f=F()){if(f&&f._alheia&&f._mestre){f.atualizado=Date.now();if(typeof retMonitor==='function')retMonitor(f);mestreSalvarFicha(f);return}if(!f||f._alheia)return;if(f._exemplo)delete f._exemplo;f.atualizado=Date.now();if(typeof retMonitor==='function')retMonitor(f);if(typeof monitorPV==='function')monitorPV(f);Store.touch('f-'+f.id)}
 function saveHB(){S._hbv++;Store.touch('homebrew')}
 function saveCfg(){Store.touch('config');if(typeof publicarRegras==='function')publicarRegras()}

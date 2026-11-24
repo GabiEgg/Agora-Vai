@@ -24,7 +24,7 @@ async function pingBuscar(){
   }catch(e){}
 }
 let _pingTick=0;
-setInterval(()=>{_pingTick++;pingBotao();if(document.visibilityState==='visible'||_pingTick%4===0)pingBuscar()},4000);
+setInterval(()=>{_pingTick++;pingBotao();const ao=typeof aoVivo==='function'&&aoVivo();if(ao?_pingTick%8===0:(document.visibilityState==='visible'||_pingTick%4===0))pingBuscar()},4000);
 setTimeout(()=>{pingBotao();pingBuscar()},1500);
 
 /* Som curto (dois bipes) e vibração no celular. */

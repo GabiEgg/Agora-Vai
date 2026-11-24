@@ -67,5 +67,6 @@ function janStream(x){const art=retArte({retrato:{arte:x.arte||{}}},x.estado);co
     const {b,k}=edAlvo;const novo=modo==='='?x.total:modo==='+'?Math.min(b.max,b.v+x.total):b.v-x.total;
     try{const r=await Api.req('POST',`/api/mesas/${encodeURIComponent(mid)}/fichavital`,{ficha:edAlvo.x.id,k,valor:novo});pop.hidden=true;edAlvo=null;ultimo='';await atualizar();
       toast(`${{pv:'PV',pe:'PE/PD',san:'SAN'}[k]}: ${r.valor}${r.max?'/'+r.max:''}${/d/i.test(corpo)?' ('+x.txt+')':''}`)}catch(err){toast(err.message||'Não foi possível alterar.')}});
-  atualizar();setInterval(()=>{if(document.visibilityState==='visible'&&pop.hidden)atualizar()},3000);
+  window.janAtualizar=()=>{if(pop.hidden){ultimo='';atualizar()}};let jt=0;
+  atualizar();setInterval(()=>{jt++;if(document.visibilityState==='visible'&&pop.hidden&&(!(typeof aoVivo==='function'&&aoVivo())||jt%10===0))atualizar()},3000);
 })();

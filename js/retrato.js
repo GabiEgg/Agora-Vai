@@ -99,7 +99,7 @@ function grupoModoSel(mid){const g=S.grupo[mid];if(!g){grupoBuscar(mid);return '
 document.addEventListener('change',async e=>{const m=e.target.dataset&&e.target.dataset.grupoModo;if(!m)return;
   try{await Api.req('PUT',`/api/mesas/${encodeURIComponent(m)}/grupo`,{modo:e.target.value});await grupoBuscar(m,true);toast('Pronto: '+(GRUPO_MODOS.find(x=>x[0]===e.target.value)||[])[1]+'.')}catch(err){toast(err.message||'Não foi possível salvar.')}});
 /* Atualiza o grupo a cada 12 s com a ficha aberta. */
-setInterval(()=>{if(document.visibilityState!=='visible'||S.view!=='ficha')return;const f=F();if(f&&f.mesa&&!f._alheia)grupoBuscar(f.mesa,true)},12000);
+setInterval(()=>{if(document.visibilityState!=='visible'||S.view!=='ficha')return;if(typeof aoVivo==='function'&&aoVivo()&&(S._gTick=(S._gTick||0)+1)%3)return;const f=F();if(f&&f.mesa&&!f._alheia)grupoBuscar(f.mesa,true)},12000);
 
 /* ============================== ZOOM ==============================
    Clique num retrato do Grupo (ou do Escudo → Agentes) para ver grande.

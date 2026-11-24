@@ -292,7 +292,7 @@ async function enviarIniMeu(valor,fonte){
 
 /* Atualiza sozinho: mestre no Escudo a cada 6 s; jogador com ficha ligada a cada 8 s. */
 let _tickEsc=0;
-setInterval(()=>{if(document.visibilityState!=='visible')return;_tickEsc++;
+setInterval(()=>{if(document.visibilityState!=='visible')return;_tickEsc++;if(typeof aoVivo==='function'&&aoVivo()&&_tickEsc%5)return;
   if(S.view==='escudo'&&S.mesaAberta){atualizarMesa(_tickEsc%5===0||!!(S.ini&&S.ini.pedido));atualizarIni()}
   else if(S.view==='ficha'&&_tickEsc%4!==1)atualizarIniJogador()},6000);
 

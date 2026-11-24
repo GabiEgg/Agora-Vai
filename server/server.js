@@ -106,6 +106,13 @@ async function abrirSessao(res,usuarioId){
 // Limite simples de tentativas de login/cadastro por IP (10 por minuto).
 const tentativas=new Map();
 function ipDe(req){const xf=TRUST_PROXY&&String(req.headers['x-forwarded-for']||'').split(',')[0].trim();return xf||req.socket.remoteAddress||'?'}
+/* ---------------- canal de mudanças (long polling) ----------------
+   Cada campanha tem uma versão que sobe a cada mudança, com o tipo (ini, ping, ficha, cfg, aviso).
+   O app fica com GET /api/mudancas aberto; o servidor responde assim que algo muda (ou em 25 s). */
+const mudVersao=new Map(),mudTipos=new Map(),mudEspera=new Set();
+function tocar(mesaId,...tipos){if(!mesaId)return;const v=(mudVersao.get(mesaId)||0)+1;mudVersao.set(mesaId,v);
+  const l=mudTipos.get(mesaId)||[];tipos.forEach(t=>l.push([v,t]));while(l.length>60)l.shift();mudTipos.set(mesaId,l);
+  for(const w of [...mudEspera])if(w.mesas.includes(mesaId)){mudEspera.delete(w);w.responder()}}
 const pingsPorUsuario=new Map();
 /* Até 15 pings por minuto por pessoa. */
 function pingDemais(uid){const agora=Date.now();const l=(pingsPorUsuario.get(uid)||[]).filter(t=>agora-t<60e3);l.push(agora);pingsPorUsuario.set(uid,l);return l.length>15}
@@ -174,7 +181,9 @@ async function rotear(req,res){
   if(md){const id=decodeURIComponent(md[1]);if(!ID_DOC.test(id))return erro(res,400,'Identificador inválido');
     if(m==='PUT'){const dados=await lerJSON(req);if(!dados||typeof dados!=='object'||Array.isArray(dados))return erro(res,400,'Documento inválido');
       if(!(await db.get(Q.existeDoc,u.id,id))&&Number((await db.get(Q.contarDocs,u.id)).n)>=MAX_DOCS)return erro(res,507,'Limite de documentos da conta atingido.');
-      await db.run(Q.gravarDoc,u.id,id,JSON.stringify(dados),Date.now());return enviar(res,200,{ok:true})}
+      await db.run(Q.gravarDoc,u.id,id,JSON.stringify(dados),Date.now());
+      if(id.startsWith('f-')&&dados&&dados.ficha&&typeof dados.ficha.mesa==='string')tocar(dados.ficha.mesa,'ficha'); /* ficha de agente mudou: mestre e grupo atualizam */
+      return enviar(res,200,{ok:true})}
     if(m==='DELETE'){await db.run(Q.apagarDoc,u.id,id);return enviar(res,200,{ok:true})}}
   if(p==='/api/imagens'&&m==='POST'){const tipo=String(req.headers['content-type']||'').split(';')[0].trim();
     if(!TIPOS_IMG[tipo])return erro(res,415,'Use PNG, JPG, GIF ou WebP.');
@@ -188,6 +197,16 @@ async function rotear(req,res){
     if(!depois&&!lista.length){const r=await db.get(Q.pingUltimo);return enviar(res,200,{ultimo:(r&&r.n)||0,pings:[]})}
     if(Math.random()<0.02)await db.run(Q.pingPodar,Date.now()-30*86400e3);
     return enviar(res,200,{ultimo:lista.length?lista[lista.length-1].id:depois,pings:lista.map(x=>{let d={};try{d=JSON.parse(x.dados)}catch(e){}return {id:x.id,mesa:x.mesa_id,mesaNome:x.mesa,de:x.de,deId:x.papel==='mestre'?x.de_id:undefined,souMestre:x.papel==='mestre',criado:x.criado,paraTodos:x.para==='todos',...d}})})}
+  if(p==='/api/mudancas'&&m==='GET'){
+    const pedidas=String(url.searchParams.get('m')||'').split(',').filter(x=>/^[\w-]{1,64}$/.test(x)).slice(0,20);const vs=String(url.searchParams.get('v')||'').split(',').map(x=>+x||0);
+    const mesas=[];for(const id of pedidas)if(await db.get(Q.papel,id,u.id))mesas.push(id);
+    const resposta=()=>{const v={},tipos={};mesas.forEach((id,i)=>{const atual=mudVersao.get(id)||0;v[id]=atual;const de=pedidas.indexOf(id)>=0?vs[pedidas.indexOf(id)]:0;
+        if(atual>de)tipos[id]=[...new Set((mudTipos.get(id)||[]).filter(([vv])=>vv>de).map(([,t])=>t))]});return {v,tipos}};
+    const reinicio=mesas.some(id=>(mudVersao.get(id)||0)<(vs[pedidas.indexOf(id)]||0));
+    const r0=resposta();if(reinicio){mesas.forEach(id=>{r0.tipos[id]=['tudo']})}
+    if(Object.keys(r0.tipos).length||!mesas.length||url.searchParams.get('agora'))return enviar(res,200,r0);
+    const w={mesas,responder:()=>{clearTimeout(w.t);if(!res.writableEnded)enviar(res,200,resposta())}};w.t=setTimeout(()=>{mudEspera.delete(w);w.responder()},25000);
+    mudEspera.add(w);req.on('close',()=>{clearTimeout(w.t);mudEspera.delete(w)});return}
   if(p.startsWith('/api/mesas'))return rotasMesa(req,res,u,p,m,url);
   return erro(res,404,'Não encontrado');
 }
@@ -215,6 +234,8 @@ async function rotasMesa(req,res,u,p,m,url){
   const mm=p.match(/^\/api\/mesas\/([\w-]{1,64})(\/[a-z]+)?$/);if(!mm)return erro(res,404,'Não encontrado');
   const mesa=await db.get(Q.mesa,mm[1]);const pap=mesa&&(await db.get(Q.papel,mesa.id,u.id));if(!mesa||!pap)return erro(res,404,'Campanha não encontrada.');
   const mestre=pap.papel==='mestre';const sub=mm[2]||'';
+  if(m!=='GET'){const tipos={'/iniciativa':['ini'],'/ping':['ping'],'/pingdel':['ping'],'/ficha':['ficha','ping'],'/fichaitem':['ficha','ping'],'/fichavital':['ficha','ping'],'/zerarsessao':['ficha','ping'],'/regras':['cfg'],'/grupo':['cfg'],'/eventos':['aviso']}[sub]||['cfg'];
+    res.on('finish',()=>{if(res.statusCode<400)tocar(mesa.id,...tipos)})}
   if(sub===''&&m==='DELETE'){if(!mestre)return erro(res,403,'Só o mestre pode excluir a campanha.');await db.run(Q.apagarMembros,mesa.id);await db.run(Q.apagarEventos,mesa.id);await db.run(Q.apagarPings,mesa.id);await db.run(Q.iniDelTudo,mesa.id);await db.run(Q.iniDelEstado,mesa.id);await db.run(Q.logApagar,mesa.id);await db.run(Q.cfgMesaDel,mesa.id);await db.run(Q.apagarMesa,mesa.id);return enviar(res,200,{ok:true})}
   if(sub==='/sair'&&m==='POST'){if(mestre)return erro(res,400,'O mestre não sai da própria campanha; exclua-a se quiser.');await db.run(Q.tirarMembro,mesa.id,u.id);return enviar(res,200,{ok:true})}
   if(sub==='/fichas'&&m==='GET'){if(!mestre)return erro(res,403,'Só o mestre vê as fichas da campanha.');
