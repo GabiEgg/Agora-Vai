@@ -288,7 +288,7 @@ document.addEventListener('click',e=>{
      if(cura){const v=rollExpr(cura,r.A);pushRoll({t:`${ac.nome||x.nome}: cura`,v:v.total,d:v.txt,acts:[{l:'Aplicar em mim',a:'curaEmMim',v:v.total}]})}
      break}
    case 'perito':{const l=f.perito=f.perito||[];const i=l.indexOf(ds.id);if(i>=0)l.splice(i,1);else{const pm=calc(f).peritoMax||2;if(l.length>=pm){toast(`Perito: escolha só ${pm} perícias.`);return}l.push(ds.id)}saveF();break}
-   case 'rmRit':f.rituais=f.rituais.filter(x=>x!==ds.id);saveF();break;
+   case 'rmRit':f.rituais=f.rituais.filter(x=>x!==ds.id);if(f.grimorio)f.grimorio=f.grimorio.filter(x=>x!==ds.id);saveF();break;
    case 'castModal':castModal(ds.id);return;
    case 'castGo':if(conjurar(f,ds.id))closeModal();break;
    case 'ritDano':{const x=byId('rituais',ds.id);rollDano(`${x.nome}: dano`,x.dano,calc(f).A);return}
@@ -381,6 +381,7 @@ document.addEventListener('change',e=>{
   const t=e.target;const f=F();const ds=t.dataset;
   if(t.id==='pick-all'){pickState.all=t.checked;renderPick();return}
   if(ds.act==='soPosso'){S.soPosso=t.checked;try{localStorage.setItem('cristopher-soPosso',S.soPosso?'1':'')}catch(e){}renderPick();return}
+  if(ds.act==='ritGrim'){if(!f||f._alheia)return;const l=f.grimorio=(f.grimorio||[]).filter(id=>id!==ds.id);if(t.checked)l.push(ds.id);saveF();render();return}
   if(t.type==='checkbox'&&ds.act){
     switch(ds.act){
      case 'tglFonte':{const C=cfgAlvo(S.mesaAlvo);C.fontes[ds.id]=t.checked;salvarAlvoRegras();break}

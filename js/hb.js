@@ -205,6 +205,7 @@ function castModal(id){
   const dis=x.discente?(String(x.discente).match(/\+(\d+)\s*PE/)||[])[1]:null;const ver=x.verdadeiro?(String(x.verdadeiro).match(/\+(\d+)\s*PE/)||[])[1]:null;
   const temEf=x.ef||x.efD||x.efV;const pode=n=>{const m=String(n==='d'?x.discente:x.verdadeiro).match(/Requer (\d)º/);return !m||+m[1]<=r.circ};
   modal('Conjurar '+x.nome,`<div class="modal-b">
+   ${(f.grimorio||[]).includes(x.id)?`<p class="alert" style="margin:0"><b>Ritual do grimório:</b> empunhe o grimório e gaste uma <b>ação completa</b> folheando antes de conjurar.</p>`:''}
    <div class="meta"><span>${x.circulo}º círculo</span><span>DT ${r.dt+(r.dtElem[x.elemento]||0)}${r.dtElem[x.elemento]?' (Especialista em Elemento)':''}</span><span>Limite por turno ${r.peLimRit} ${r.det?'PD':'PE'}</span>${x.duracao?`<span>${h(x.duracao)}</span>`:''}</div>
    <div class="row" role="radiogroup" aria-label="Forma">${[['n','Normal',custo],dis&&['d','Discente',custo+ +dis],ver&&['v','Verdadeiro',custo+ +ver]].filter(Boolean).map(([k,l,c],i)=>`<label class="btn sm"><input type="radio" name="forma" value="${k}" data-c="${c}" ${i?'':'checked'} ${k!=='n'&&!pode(k)?'disabled':''}> ${l} · ${c+r.custoExtra} ${r.det?'PD':'PE'}</label>`).join('')}</div>
    ${r.custoExtra?`<p class="hint">Inclui +${r.custoExtra} por condição (alquebrado).</p>`:''}
