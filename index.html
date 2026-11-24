@@ -3,7 +3,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%2284%200%20266%20446%22%20fill%3D%22none%22%20stroke%3D%22%238a6d1d%22%20stroke-width%3D%2226%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%22148%22%20cy%3D%2298%22%20r%3D%2218%22/%3E%3Cpath%20d%3D%22M163%2082C166%2042%20196%2014%20236%2014C282%2014%20304%2048%20300%2086C297%20117%20270%20136%20242%20146C221%20153%20215%20160%20216%20176L217%20418%22/%3E%3Cpath%20d%3D%22M101%20114L176%20278%22/%3E%3Cpath%20d%3D%22M107%20124C135%20175%20175%20200%20216%20210%22/%3E%3Cpath%20d%3D%22M219%20214C250%20192%20290%20140%20326%20130C334%20128%20334%20138%20331%20152L310%20249%22/%3E%3Ccircle%20cx%3D%22307%22%20cy%3D%22264%22%20r%3D%2213%22/%3E%3Cpath%20d%3D%22M296%20274L272%20299L222%20292%22/%3E%3Cpath%20d%3D%22M214%20280C178%20276%20146%20302%20145%20340C145%20360%20190%20400%20222%20428%22/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Cormorant+Garamond:wght@600;700&display=swap">
 <style>
 /* Layout: arquivo de agente — lista de dossiês à esquerda, ficha em abas à direita; cores dos cinco elementos como semântica. */
 :root{
@@ -552,7 +552,7 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .ping-lista .ping-del{position:absolute;top:6px;right:6px}
 
 /* ---------- Janela do grupo ---------- */
-body.janela>*:not(#janela):not(#modal){display:none!important}body.janela{padding:10px;background:var(--bg)}
+body.janela>*:not(#janela):not(#modal):not(.jan-opcoes){display:none!important}body.janela{padding:10px;background:var(--bg)}
 #janela{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
 .jan-msg{color:var(--muted);text-align:center;width:100%;margin:40px 0}
 .jan-card{display:flex;gap:10px;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:220px;flex:1 1 220px;max-width:320px}
@@ -565,6 +565,40 @@ body.janela>*:not(#janela):not(#modal){display:none!important}body.janela{paddin
 .jan-info{display:grid;gap:4px;min-width:0;flex:1}.jan-info b{font-size:16px}.jan-info small{color:var(--muted);margin-top:-3px}
 .jan-info .ret-bar{font-size:12px}.jan-info .ret-trilho{height:10px}
 @media (prefers-reduced-motion:reduce){.jan-card.mudou,.jan-icone{animation:none!important}}
+
+/* ---------- Janela: opções e estilo transmissão ---------- */
+html.jan-transp,body.jan-transp{background:transparent!important}
+.jan-opcoes{position:fixed;top:6px;right:8px;z-index:5;display:flex;gap:10px;flex-wrap:wrap;font-size:12px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:4px 8px;opacity:0;transition:opacity .25s}
+body.janela:hover .jan-opcoes,.jan-opcoes:focus-within{opacity:1}
+body.janela .jan-opcoes{display:flex!important}
+.jan-opcoes select{font:inherit;padding:2px}
+body[data-jan-tam="p"] .jan-fig .ret-fig{width:72px}body[data-jan-tam="g"] .jan-fig .ret-fig{width:130px}
+body[data-jan-estilo="transmissao"] #janela{gap:8px 28px;align-items:flex-end}
+.js-ag{--t:1;position:relative;width:calc(300px*var(--t));height:calc(210px*var(--t));font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;color:#fff}
+body[data-jan-tam="p"] .js-ag{--t:.7}body[data-jan-tam="g"] .js-ag{--t:1.4}
+.js-arte{position:absolute;left:0;bottom:0;width:calc(190px*var(--t));height:calc(210px*var(--t));display:grid;place-items:end center}
+.js-arte::before{content:"";position:absolute;inset:12% 6% 0;border-radius:50%;background:radial-gradient(circle at 50% 55%,rgba(0,0,0,.75),rgba(0,0,0,.35) 55%,transparent 72%);filter:blur(2px)}
+.js-arte img{position:relative;max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.6));transition:filter .6s,transform .6s}
+.js-ini{position:relative;font-size:calc(64px*var(--t));font-weight:700;color:#ddd;margin-bottom:20%;text-shadow:0 2px 8px #000}
+.js-nums{position:absolute;left:calc(178px*var(--t));bottom:calc(20px*var(--t));display:grid;gap:0;line-height:.95}
+.js-num{font-size:calc(46px*var(--t));font-weight:600;letter-spacing:.5px;white-space:nowrap;font-variant-numeric:lining-nums;-webkit-text-stroke:.5px rgba(0,0,0,.35)}
+.js-num.pv{color:#ffd0d4;text-shadow:0 0 10px rgba(255,60,80,.85),0 0 2px #7a0010,0 2px 4px #000}
+.js-num.san{color:#eef3ff;text-shadow:0 0 10px rgba(120,170,255,.9),0 0 2px #10306a,0 2px 4px #000}
+.js-num.pd{color:#ecd9ff;text-shadow:0 0 10px rgba(170,90,255,.9),0 0 2px #3a0a6a,0 2px 4px #000}
+.js-pe{position:absolute;left:calc(0px*var(--t));bottom:calc(6px*var(--t));font-size:calc(40px*var(--t))}
+.js-num.pe{color:#d8ffe0;text-shadow:0 0 10px rgba(60,220,120,.9),0 0 2px #0a4a20,0 2px 4px #000}
+.js-bar{display:block;width:calc(120px*var(--t));height:calc(8px*var(--t));border-radius:4px;background:rgba(0,0,0,.45);margin:calc(10px*var(--t)) 0;overflow:hidden;box-shadow:0 0 6px rgba(0,0,0,.6)}
+.js-bar i{display:block;height:100%;transition:width .8s}.js-bar.pv i{background:#ff5a6a}.js-bar.san i{background:#8fb8ff}.js-bar.pd i{background:#b47cf2}
+.js-est{position:absolute;left:calc(150px*var(--t));top:calc(40px*var(--t));width:calc(28px*var(--t));height:calc(28px*var(--t));border-radius:50%;display:grid;place-items:center;color:var(--ic);background:rgba(0,0,0,.6);border:1.5px solid var(--ic);box-shadow:0 0 8px var(--ic)}
+.js-ag.est-normal .js-est{opacity:0}
+.js-nome{position:absolute;left:calc(180px*var(--t));top:calc(30px*var(--t));font-size:calc(18px*var(--t));color:#f3f0ea;text-shadow:0 1px 4px #000;font-weight:600}
+.js-ag.est-machucado .js-arte img{filter:drop-shadow(0 0 10px rgba(220,30,40,.8)) saturate(1.1)}
+.js-ag.est-perturbado .js-arte img{filter:drop-shadow(0 4px 10px rgba(0,0,0,.6)) saturate(.55) contrast(1.1)}
+.js-ag.est-caido .js-arte img{filter:grayscale(.7) brightness(.7) drop-shadow(0 0 10px rgba(200,0,20,.7));transform:rotate(-10deg) translateY(6%)}
+.js-ag.est-louco .js-arte img{filter:hue-rotate(250deg) saturate(1.6) contrast(1.2) drop-shadow(0 0 12px rgba(160,80,255,.8));animation:retLouco 2.4s infinite}
+.js-ag.est-morto .js-arte img{filter:grayscale(1) brightness(.45) contrast(1.2)}
+.js-ag.est-caido .js-est,.js-ag.est-louco .js-est{animation:janPulsa 1.4s ease-in-out infinite}
+.js-ag.mudou .js-arte{animation:janMudaS .9s ease-out}@keyframes janMudaS{40%{filter:brightness(1.6)}}
 </style>
 
 <div class="wrap">

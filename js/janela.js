@@ -12,16 +12,37 @@ const JAN_ICON={
 function abrirJanelaGrupo(mid){if(!mid){toast('Escolha uma campanha primeiro.');return}
   const w=window.open(location.pathname+'?janela=grupo&mesa='+encodeURIComponent(mid),'cristopher-grupo-'+mid,'width=980,height=360');
   if(!w)toast('O navegador bloqueou a janela. Permita pop-ups para este site e tente de novo.',6000)}
+/* Opções da janela: estilo (cartoes | transmissao), fundo (normal | transparente), tamanho (p | m | g). Ficam na URL e no navegador. */
+function janOpcoes(){const q=new URLSearchParams(location.search);let g={};try{g=JSON.parse(localStorage.getItem('cristopher-janela')||'{}')}catch(e){}
+  return {estilo:q.get('estilo')||g.estilo||'cartoes',fundo:q.get('fundo')||g.fundo||'normal',tam:q.get('tam')||g.tam||'m'}}
+function janSalvar(o){try{localStorage.setItem('cristopher-janela',JSON.stringify(o))}catch(e){}const q=new URLSearchParams(location.search);['estilo','fundo','tam'].forEach(k=>q.set(k,o[k]));history.replaceState(null,'','?'+q.toString())}
+/* Um agente no estilo transmissão: arte recortada, números grandes com brilho (PV, SAN ou PD, e PE no canto). */
+function janStream(x){const art=retArte({retrato:{arte:x.arte||{}}},x.estado);const [rot,cor,svg]=JAN_ICON[x.estado]||JAN_ICON.normal;
+  const ini=String(x.nome||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const num=(b,cls,tit)=>!b?'':b.v!=null?`<span class="js-num ${cls}" title="${tit}">${b.v}/${b.max}</span>`:`<span class="js-bar ${cls}" title="${tit}"><i style="width:${b.pct}%"></i></span>`;
+  const pe=x.pe&&!x.det?x.pe:null;
+  return `<article class="js-ag est-${x.estado}" aria-label="${h(x.nome)}: ${rot}">
+    <div class="js-arte ${art&&!art.proprio?'reserva':''}">${art?`<img src="${retSrc(art.id)}" alt="">`:`<span class="js-ini">${h(ini)}</span>`}</div>
+    <div class="js-nums">${num(x.pv,'pv','Vida')}${x.det?num(x.pe,'pd','Determinação'):num(x.san,'san','Sanidade')}</div>
+    ${pe?`<span class="js-num pe js-pe" title="Pontos de esforço">${pe.v!=null?pe.v:''}</span>`:''}
+    <span class="js-est" style="--ic:${cor}" title="${rot}"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">${svg}</svg></span>
+    <span class="js-nome">${h(x.nome)}</span></article>`}
 (function(){
   const q=new URLSearchParams(location.search);if(q.get('janela')!=='grupo')return;const mid=q.get('mesa');
   document.body.classList.add('janela');document.title='Grupo · Cristopher';
+  let O=janOpcoes();const aplicarO=()=>{document.body.classList.toggle('jan-transp',O.fundo==='transparente');document.documentElement.classList.toggle('jan-transp',O.fundo==='transparente');document.body.dataset.janTam=O.tam;document.body.dataset.janEstilo=O.estilo};aplicarO();
+  const barra=document.createElement('div');barra.className='jan-opcoes';barra.innerHTML=`<label>Estilo <select data-jo="estilo"><option value="cartoes">Cartões</option><option value="transmissao">Transmissão</option></select></label>
+    <label>Fundo <select data-jo="fundo"><option value="normal">Normal</option><option value="transparente">Transparente (OBS)</option></select></label>
+    <label>Tamanho <select data-jo="tam"><option value="p">Pequeno</option><option value="m">Médio</option><option value="g">Grande</option></select></label>`;
+  document.body.appendChild(barra);barra.querySelectorAll('select').forEach(sel=>{sel.value=O[sel.dataset.jo];sel.addEventListener('change',()=>{O={...O,[sel.dataset.jo]:sel.value};janSalvar(O);aplicarO();ultimo='';atualizar()})});
   const raiz=document.createElement('main');raiz.id='janela';raiz.setAttribute('aria-live','polite');document.body.appendChild(raiz);
   S._janEst={};let ultimo='';
   async function atualizar(){
     let r;try{r=await Api.req('GET',`/api/mesas/${encodeURIComponent(mid)}/grupo`)}catch(e){raiz.innerHTML=`<p class="jan-msg">${e.status===401?'Entre na sua conta na janela principal do Cristopher e recarregue esta.':h(e.message||'Sem conexão com o servidor.')}</p>`;return}
     const L=(r.membros||[]).slice().sort((a,b)=>(b.minha?1:0)-(a.minha?1:0)||String(a.nome).localeCompare(b.nome,'pt'));
-    const chave=JSON.stringify(L);if(chave===ultimo)return;ultimo=chave;
+    const chave=O.estilo+JSON.stringify(L);if(chave===ultimo)return;ultimo=chave;
     if(!L.length){raiz.innerHTML=`<p class="jan-msg">${r.modo==='oculto'?'O mestre não está mostrando o grupo agora.':'Nenhum agente ligado a esta campanha ainda.'}</p>`;return}
+    if(O.estilo==='transmissao'){raiz.innerHTML=L.map(x=>{const mudou=S._janEst[x.id]&&S._janEst[x.id]!==x.estado;S._janEst[x.id]=x.estado;return janStream(x).replace('class="js-ag','class="js-ag'+(mudou?' mudou':''))}).join('');return}
     raiz.innerHTML=L.map(x=>{const [rot,cor,svg]=JAN_ICON[x.estado]||JAN_ICON.normal;const mudou=S._janEst[x.id]&&S._janEst[x.id]!==x.estado;S._janEst[x.id]=x.estado;const s=x.sessao||{};
       return `<article class="jan-card est-${x.estado} ${mudou?'mudou':''}" aria-label="${h(x.nome)}: ${rot}">
         <div class="jan-fig">${retFiguraDe({nome:x.nome,est:x.estado,arte:x.arte})}<span class="jan-icone" style="--ic:${cor}" title="${rot}"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">${svg}</svg></span></div>

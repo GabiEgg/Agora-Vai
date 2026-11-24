@@ -240,7 +240,7 @@ async function rotasMesa(req,res,u,p,m,url){
       if(rt.morto)e.estado='morto';
       if(modo==='numeros'||modo==='barras'){const barra=k=>{const c=Math.round(+pub[k]),mx=Math.round(+pub[k+'Max']);if(!(mx>0)||!Number.isFinite(c))return undefined;
           return modo==='numeros'?{v:Math.max(-999,Math.min(9999,c)),max:Math.min(9999,mx)}:{pct:Math.round(Math.max(0,Math.min(100,c/mx*100)))}};
-        e.det=!!pub.det;e.pv=barra('pv');if(pub.det)e.pe=barra('pe');else e.san=barra('san')}
+        e.det=!!pub.det;e.pv=barra('pv');if(pub.det||modo==='numeros')e.pe=barra('pe');if(!pub.det)e.san=barra('san')}
       membros.push(e)}
     return enviar(res,200,{modo:mestre?modoCfg:modo,membros})}
   if(sub==='/grupo'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre escolhe o que o grupo vê.');const b=await lerJSON(req)||{};
