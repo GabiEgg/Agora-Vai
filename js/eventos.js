@@ -203,7 +203,16 @@ document.addEventListener('click',e=>{
    case 'rollPer':{const r=calc(f);const p=pericias().find(x=>x.id===ds.id);const x=r.per[p.id];const roll=rollTest(`${f.nome}: ${p.nome}${x.bloq?' (exige treino)':''}`,x.dados,x.bonus,{attr:x.attr,per:p.id});
      if(r.perito&&(f.perito||[]).includes(p.id)){const k=f.nex>=85?3:f.nex>=55?2:f.nex>=25?1:0;roll.acts.unshift({l:`Perito +1d${[6,8,10,12][k]} (${2+k} ${r.det?'PD':'PE'})`,a:'perito',dado:'1d'+[6,8,10,12][k],pe:2+k});renderRolls()}
      return}
+   case 'recarregar':{const it=f.inventario[+ds.i];if(!it)return;const cap=+it.pente||0;if(!cap){toast('Digite a capacidade do pente desta arma primeiro.');return}
+     const car=it.carregado??cap;const falta=cap-car;if(falta<=0){toast('O pente já está cheio.');return}
+     const alvo=slug(it.municao||'');const pac=f.inventario.find(x=>x.tipo==='municao'&&alvo&&(slug(x.nome).includes(alvo)||alvo.includes(slug(x.nome))));
+     if(!pac){toast(`Nenhum pacote de ${it.municao||'munição desta arma'} no inventário. Ajuste o pente à mão se quiser.`,5000);return}
+     let disp=pac.balas??20;const tira=Math.min(falta,disp);it.carregado=car+tira;disp-=tira;let msg=`${it.nome} recarregada: ${it.carregado}/${cap}.`;
+     if(disp<=0){if((+pac.qtd||1)>1){pac.qtd=(+pac.qtd||1)-1;pac.balas=20;msg+=` Um pacote de ${pac.nome} acabou (restam ${pac.qtd}).`}else{f.inventario.splice(f.inventario.indexOf(pac),1);msg+=` O último pacote de ${pac.nome} acabou.`}}
+     else{pac.balas=disp;msg+=` Restam ${disp} disparos no pacote.`}
+     saveF();toast(msg,5000);break}
    case 'atk':{const it=f.inventario[+ds.i];const r=calc(f);const ai=armaInfo(it,r,f);
+     if(regraOn('contagem_municao')&&(it.municao||it.forma==='fogo')&&+it.pente){const car=it.carregado??+it.pente;if(car<=0){toast(`${it.nome}: pente vazio! Recarregue (ação de movimento).`,5000);return}it.carregado=car-1;saveF()}
      const roll=rollTest(`Ataque: ${it.nome} (${perNome(ai.per)})${ai.semProf?' · sem proficiência −2d20':''} · crítico ${ai.margem}/x${ai.mult}`,ai.dados,ai.atk,{attr:r.per[ai.per].attr,margem:ai.margem,arma:+ds.i});
      const extra=[];
      if(r.ataqueEspecial)extra.push({l:'Ataque Especial: +5 no ataque (2 PE)',a:'atkEsp',alvo:'ataque'},{l:'Ataque Especial: +5 no dano (2 PE)',a:'atkEsp',alvo:'dano'});
@@ -247,11 +256,9 @@ document.addEventListener('click',e=>{
    case 'pick':openPick(ds.type);return;
    case 'pickMod':openPick('mods',+ds.i);return;
    case 'pickF':pickState[ds.k]=ds.v;renderPick();return;
-   case 'ffSet':S.ff=S.ff||{};S.ff[ds.k]=ds.v;if(ds.k.startsWith('pick:')){renderPick();return}break;
-   case 'filtroRit':S.filtroRit=ds.v;break;
-   case 'filtroPod':S.filtroPod=ds.v;break;
-   case 'filtroInv':S.filtroInv=ds.v;break;
-   case 'filtroCat':S.filtroCat=ds.v;break;
+   case 'togF':case 'togTodos':case 'togNenhum':{const k=ds.k;let off=S.off[k]||[];
+     if(a==='togF'){off=off.includes(ds.v)?off.filter(x=>x!==ds.v):off.concat(ds.v)}else if(a==='togTodos')off=[];else off=(ds.vs||'').split('|');
+     S.off[k]=off;if(/^(livro:)?pick:/.test(k)){renderPick();return}break}
    case 'pickAdd':{const ty=pickState.type,id=ds.id;let nome='';
      if(ty==='poderes'||ty==='transcender'){const d=byId('poderes',id);if(d.id==='ger_transcender'){openPick('transcender');return}
        if(f.poderes.some(p=>p.ref===id)&&!d.repetivel){toast('Este poder já está na ficha.');return}

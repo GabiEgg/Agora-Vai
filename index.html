@@ -527,6 +527,17 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .ref-sec>summary{cursor:pointer;padding:10px 14px;font-weight:600;list-style-position:inside}
 .ref-sec[open]>summary{border-bottom:1px solid var(--line)}
 .ref-corpo{padding:10px 14px;display:grid;gap:8px}.ref-corpo ul{margin:0;padding-left:18px;display:grid;gap:6px}.ref-corpo li{line-height:1.45}
+
+/* ---------- Filtros liga/desliga ---------- */
+.modal .filtros{padding:0 14px}
+.filtros.tog .btn[aria-pressed="false"]{opacity:.55;text-decoration:line-through;text-decoration-thickness:1px}
+.filtros.tog .btn small{opacity:.75;font-variant-numeric:tabular-nums}
+.filtros.tog .tog-x{font-size:12px;padding-inline:8px}.filtros.tog .tog-x[disabled]{opacity:.35}
+
+/* ---------- DT calculada ---------- */
+.dt-calc{font-weight:700;color:var(--accent);white-space:nowrap;cursor:help}
+/* ---------- Pente ---------- */
+.pente{display:inline-flex;gap:4px;align-items:center}.pente.vazio{color:var(--pv);font-weight:600}.pente.vazio input:first-of-type{border-color:var(--pv)}
 </style>
 
 <div class="wrap">

@@ -107,15 +107,22 @@ const pericias=()=>cat('pericias');
 const perNome=id=>(pericias().find(p=>p.id===id)||{}).nome||id;
 /* ---------- Filtro por livro (usado em todas as listas) ----------
    fonteChave: de qual livro vem (ou 'hb' para homebrew); filtroLivros: botões com os livros presentes; porLivro: aplica a escolha.
-   A escolha fica em S.ff[chave] (uma por lista); se o livro escolhido não está na lista, mostra tudo. */
+   Cada livro começa ligado; desligar esconde o que vem dele (veja chipsTog). */
 const fonteChave=x=>!x?'core':x._hb?'hb':x.fonte||'core';
 const fonteRotulo=k=>k==='hb'?'Homebrew':k==='manual'?'Criados na ficha':FONTE(k).sigla;
 const ordFonte=k=>{if(k==='hb')return 998;if(k==='manual')return 999;const i=(D&&D.fontes||[]).findIndex(f=>f.id===k);return i<0?997:i};
+/* ---------- Filtros liga/desliga ----------
+   Todo valor começa ligado; clicar desliga (ou religa). S.off[chave] guarda só os desligados.
+   chipsTog: desenha o grupo (com “Todos” e “Nenhum”); ligado: o valor está ligado? */
+S.off={};
+const ligado=(k,v)=>!(S.off[k]||[]).includes(String(v));
+function chipsTog(k,titulo,ops){if(ops.length<2)return '';const off=S.off[k]||[];const algum=ops.some(o=>off.includes(String(o[0])));const todosOff=ops.every(o=>off.includes(String(o[0])));
+  return `<div class="chips filtros tog" role="group" aria-label="${h(titulo||'Filtro')}">${titulo?`<span class="eyebrow">${h(titulo)}</span>`:''}${ops.map(([v,l,cls,n,tt])=>`<button class="btn sm ${cls||''}" aria-pressed="${!off.includes(String(v))}" data-act="togF" data-k="${h(k)}" data-v="${h(v)}"${tt?` title="${h(tt)}"`:''}>${l}${n!=null?` <small>${n}</small>`:''}</button>`).join('')}<button class="btn sm ghost tog-x" data-act="togTodos" data-k="${h(k)}" ${algum?'':'disabled'}>Todos</button><button class="btn sm ghost tog-x" data-act="togNenhum" data-k="${h(k)}" data-vs="${h(ops.map(o=>o[0]).join('|'))}" ${todosOff?'disabled':''}>Nenhum</button></div>`}
+/* Filtro por livro (todas as listas): fonteChave diz de qual livro vem; 'hb' = homebrew. */
 function filtroLivros(lista,k,chave=fonteChave){
   const conta={};lista.forEach(x=>{const c=chave(x);conta[c]=(conta[c]||0)+1});const ks=Object.keys(conta).sort((a,b)=>ordFonte(a)-ordFonte(b));
-  if(ks.length<2)return '';const cur=(S.ff||{})[k]||'';const vale=ks.includes(cur)?cur:'';
-  return `<div class="chips filtros livros" role="group" aria-label="Filtrar por livro"><span class="eyebrow">Livro</span><button class="btn sm" aria-pressed="${!vale}" data-act="ffSet" data-k="${h(k)}" data-v="">Todos</button>${ks.map(id=>`<button class="btn sm" aria-pressed="${vale===id}" data-act="ffSet" data-k="${h(k)}" data-v="${h(id)}" title="${h(id==='hb'?'Seu homebrew':id==='manual'?'Itens criados direto na ficha':FONTE(id).nome)}">${h(fonteRotulo(id))} <small>${conta[id]}</small></button>`).join('')}</div>`}
-function porLivro(lista,k,chave=fonteChave){const cur=(S.ff||{})[k];if(!cur||!lista.some(x=>chave(x)===cur))return lista;return lista.filter(x=>chave(x)===cur)}
+  return chipsTog('livro:'+k,'Livro',ks.map(id=>[id,h(fonteRotulo(id)),'',conta[id],id==='hb'?'Seu homebrew':id==='manual'?'Itens criados direto na ficha':FONTE(id).nome]))}
+function porLivro(lista,k,chave=fonteChave){return lista.filter(x=>ligado('livro:'+k,chave(x)))}
 const fonteBadge=x=>x._hb?`<span class="badge hb" title="Homebrew · ${h(x.pacote||'Minha mesa')}">${h(x.pacote||'homebrew')}</span>`:(x.fonte&&x.fonte!=='core'?`<span class="badge src" title="${h(FONTE(x.fonte).nome)}">${h(FONTE(x.fonte).sigla)}</span>`:'');
 
 /* ============================== FICHA ============================== */
@@ -140,7 +147,7 @@ function migrar(f){
   n.poderes.forEach(p=>{if(!p.uid)p.uid=uid();const d=(D.poderes||[]).find(x=>x.id===p.ref);if(d&&d.tipo==='paranormal'&&p.transcender==null)p.transcender=true});
   n.inventario.forEach(i=>{if(!i.uid)i.uid=uid();if(!i.modsAplicadas)i.modsAplicadas=[];
     // itens adicionados antes de uma atualização: completa campos de regra que o catálogo ganhou depois
-    const c=i.ref&&(D.itens||[]).find(x=>x.id===i.ref);if(c)['rd','ritConcedido','efUso','equipavel','acao','cura','bonusPericia','escolhePericia','consumivel','municao','agil','arremesso','somaFor'].forEach(k=>{if(i[k]==null&&c[k]!=null)i[k]=clone(c[k])})});
+    const c=i.ref&&(D.itens||[]).find(x=>x.id===i.ref);if(c)['rd','ritConcedido','efUso','equipavel','acao','cura','bonusPericia','escolhePericia','consumivel','municao','agil','arremesso','somaFor','pente'].forEach(k=>{if(i[k]==null&&c[k]!=null)i[k]=clone(c[k])})});
   return n;
 }
 function exemplo(){const f=novaFicha();Object.assign(f,{nome:'Lia Moreira',conceito:'Ficha de exemplo — edite à vontade ou exclua',idade:'27',

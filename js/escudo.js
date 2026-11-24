@@ -167,20 +167,18 @@ function escAvisos(){
 const TIPO_CRI={criatura:'Criaturas',pessoa:'Pessoas',animal:'Animais',relíquia:'Relíquias',modelo:'Modelos'};
 function escBestiario(){
   if(!S.cri)return '<p class="hint">Abrindo os arquivos de criaturas…</p>';
-  const bf=S.bf||{};const q=slug(S.bq||'');
+  const q=slug(S.bq||'');
   let list=criaturasOn();
-  if(bf.e)list=list.filter(c=>c.elemento===bf.e||c.elemento2===bf.e||(bf.e==='_'&&!c.elemento));
-  if(bf.t)list=list.filter(c=>(c.tipo||'criatura')===bf.t);
-  if(bf.f)list=list.filter(c=>(c.fonte||'hb')===bf.f);
+  const elsC=c=>{const e=[c.elemento,c.elemento2].filter(Boolean);return e.length?e:['_']};
+  const todas=criaturasOn();
+  list=list.filter(c=>elsC(c).some(e=>ligado('best:el',e))&&ligado('best:tipo',c.tipo||'criatura')&&ligado('livro:best',c.fonte||'hb'));
   if(q)list=list.filter(c=>slug(c.nome+' '+(c.acoes||[]).map(a=>a.nome).join(' ')).includes(q));
   list=list.slice().sort((a,b)=>(a.vd??999)-(b.vd??999)||a.nome.localeCompare(b.nome));
-  const fontes=[...new Set(criaturasOn().map(c=>c.fonte||'hb'))];
-  const chip=(k,v,l,cls='')=>`<button class="btn sm ${cls}" aria-pressed="${(bf[k]||'')===v}" data-act="criF" data-k="${k}" data-v="${v}">${l}</button>`;
   return `<div class="sec"><div class="sec-h"><h2>Bestiário</h2><span class="hint">${list.length} de ${criaturasOn().length}</span></div>
    <input class="inp" id="cri-q" data-keep placeholder="Buscar criatura, NPC ou habilidade…" value="${h(S.bq||'')}" aria-label="Buscar no bestiário">
-   <div class="chips filtros">${chip('e','','Todos')}${['sangue','morte','conhecimento','energia','medo'].map(e=>chip('e',e,ELEM[e],'el el-'+e)).join('')}${chip('e','_','Sem elemento')}</div>
-   <div class="chips filtros">${chip('t','','Todos os tipos')}${Object.entries(TIPO_CRI).map(([k,l])=>chip('t',k,l)).join('')}</div>
-   ${fontes.length>1?`<div class="chips filtros">${chip('f','','Todas as fontes')}${fontes.map(fid=>chip('f',fid,fid==='hb'?'Homebrew':FONTE(fid).sigla)).join('')}</div>`:''}
+   ${chipsTog('best:el','Elemento',['sangue','morte','conhecimento','energia','medo','_'].filter(e=>todas.some(c=>elsC(c).includes(e))).map(e=>[e,e==='_'?'Sem elemento':ELEM[e],e==='_'?'':'el el-'+e,todas.filter(c=>elsC(c).includes(e)).length]))}
+   ${chipsTog('best:tipo','Tipo',Object.entries(TIPO_CRI).filter(([k])=>todas.some(c=>(c.tipo||'criatura')===k)).map(([k,l])=>[k,l,'',todas.filter(c=>(c.tipo||'criatura')===k).length]))}
+   ${filtroLivros(todas,'best',c=>c.fonte||'hb')}
    <p class="hint">Testes no formato “3d20+10”: role 3d20, fique com o maior e some 10. Clique em qualquer teste ou dano para rolar. “Combate” coloca a criatura na iniciativa com a vida dela.</p>
    ${list.length?`<div class="cri-list">${list.slice(0,150).map(criCard).join('')}</div>${list.length>150?'<p class="hint">Mostrando 150. Refine a busca.</p>':''}`:'<div class="empty">Nada encontrado.</div>'}</div>`;
 }
@@ -341,7 +339,6 @@ document.addEventListener('click',async e=>{
    case 'iniRolar':{const f=F();const r=calc(f);const p=r.per.iniciativa;const roll=rollTest(`${f.nome}: Iniciativa`,p.dados,p.bonus,{attr:p.attr});enviarIniMeu(roll.v,'app');return}
    case 'iniMeu':{const v=val('ini-meu');if(v===''||isNaN(+v)){toast('Digite o valor que você tirou.');return}enviarIniMeu(Math.round(+v),'fisico');return}
    case 'criTgl':S.criAbertas=S.criAbertas||{};S.criAbertas[ds.id]=!S.criAbertas[ds.id];render();return;
-   case 'criF':S.bf=S.bf||{};S.bf[ds.k]=ds.v;render();return;
    case 'criAdd':try{await addCriaturaCombate(ds.id)}catch(err){erroT(err)}return;
    case 'criRoll':{const c=criPorId(ds.id);const ent=ds.ch&&((S.ini||{}).entradas||[]).find(x=>x.chave===ds.ch);if(rollCri(`${ent?ent.nome:c?c.nome:''}: ${ds.l}`,ds.x)==null)return;
      const atk=ent&&c&&(c.acoes||[]).find(a=>a.ataque&&a.nome===ds.l);

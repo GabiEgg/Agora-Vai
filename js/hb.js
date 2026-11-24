@@ -149,6 +149,7 @@ function openPick(type,ctx=null){pickState={type,q:'',all:false,ctx};renderPick(
 function modal(titulo,body,extraHead=''){
   document.getElementById('modal').innerHTML=`<div class="modal" data-act="closeModal"><div class="modal-box" role="dialog" aria-modal="true" aria-label="${h(titulo)}">
    <div class="modal-h"><h3>${h(titulo)}</h3>${extraHead}<button class="btn sm" data-act="closeModal">Fechar</button></div>${body}</div></div>`;
+  if(S.view==='ficha'&&typeof dtAplicar==='function')dtAplicar(document.getElementById('modal'));
 }
 function renderPick(){
   const f=F();const r=calc(f);const {type,q,all,ctx}=pickState;const qq=slug(q);
@@ -162,9 +163,10 @@ function renderPick(){
   const livrosHtml=filtroLivros(list,'pick:'+type);list=porLivro(list,'pick:'+type);
   // filtros por círculo/elemento (rituais) e tipo (itens)
   const elsX=x=>(x.elementos||[x.elemento]).filter(Boolean);
-  if(type==='rituais'){const base=list;list=list.filter(x=>(!pickState.fc||+x.circulo===+pickState.fc)&&(!pickState.fe||(pickState.fe==='_'?!elsX(x).length:elsX(x).includes(pickState.fe))));pickState._base=base}
-  if(src==='poderes'){pickState._pre=new Map(list.map(x=>[x.id,preReqCheck(x,f,r)]));if(S.soPosso)list=list.filter(x=>pickState._pre.get(x.id).ok&&!(f.poderes.some(p=>p.ref===x.id)&&!x.repetivel));pickState._base=list;list=list.filter(x=>(!pickState.fp||(pickState.fp==='_classe'?!['geral','paranormal'].includes(x.tipo):x.tipo===pickState.fp))&&(!pickState.fpe||(pickState.fpe==='_'?!x.elemento:x.elemento===pickState.fpe)))}
-  if(type==='itens'){pickState._base=list;list=list.filter(x=>(!pickState.ft||x.tipo===pickState.ft)&&(pickState.fk==null||pickState.fk===''||String(+x.cat||0)===pickState.fk))}
+  const elsK=x=>{const e=elsX(x);return e.length?e:['_']};
+  if(type==='rituais'){const base=list;list=list.filter(x=>ligado('pick:circ',x.circulo)&&elsK(x).some(e=>ligado('pick:rel',e)));pickState._base=base}
+  if(src==='poderes'){pickState._pre=new Map(list.map(x=>[x.id,preReqCheck(x,f,r)]));if(S.soPosso)list=list.filter(x=>pickState._pre.get(x.id).ok&&!(f.poderes.some(p=>p.ref===x.id)&&!x.repetivel));pickState._base=list;const ptk=x=>['geral','paranormal'].includes(x.tipo)?x.tipo:'_classe';list=list.filter(x=>ligado('pick:ptipo',ptk(x))&&ligado('pick:pel',x.elemento||'_'))}
+  if(type==='itens'){pickState._base=list;list=list.filter(x=>ligado('pick:tipo',x.tipo)&&ligado('pick:cat',+x.cat||0))}
   const has=x=>(src==='poderes')?f.poderes.some(p=>p.ref===x.id)&&!x.repetivel:type==='rituais'?f.rituais.includes(x.id):type==='aliados'?(f.aliados||[]).some(a=>a.ref===x.id):false;
   const titulo={poderes:'Adicionar poder',transcender:'Transcender: poder paranormal',rituais:'Aprender ritual',itens:'Adicionar item',aliados:'Adicionar aliado',mods:'Modificação ou maldição'}[type];
   const filtroL={poderes:'Mostrar poderes de outras classes',rituais:'Mostrar círculos acima do permitido',mods:'Mostrar todas'}[type]||'';
@@ -176,14 +178,14 @@ function renderPick(){
   else if(type==='transcender'){grupo=x=>[ordEl(x.elemento),x.elemento?ELEM[x.elemento]:'Qualquer elemento'];list=list.slice().sort((a,b)=>ordEl(a.elemento)-ordEl(b.elemento)||ordenar(a,b))}
   else if(src==='poderes'){const ord=t=>t===f.classe?0:t==='geral'?1:t==='paranormal'?3:2;grupo=x=>x.tipo==='paranormal'?[30+ordEl(x.elemento),'Paranormal · '+(x.elemento?ELEM[x.elemento]:'Qualquer elemento')]:[ord(x.tipo),tipoPoderNome(x.tipo)];list=list.slice().sort((a,b)=>ord(a.tipo)-ord(b.tipo)||String(a.tipo).localeCompare(b.tipo)||(a.tipo==='paranormal'?ordEl(a.elemento)-ordEl(b.elemento):0)||ordenar(a,b))}
   const lim=list.slice(0,300);
-  const elChips=(k,base)=>['sangue','morte','conhecimento','energia','medo'].filter(e=>base.some(x=>x.elemento===e)).concat(base.some(x=>x.tipo==='paranormal'&&!x.elemento)?['_']:[]).map(e=>`<button class="btn sm ${e!=='_'?'el el-'+e:''}" aria-pressed="${pickState[k]===e}" data-act="pickF" data-k="${k}" data-v="${e}">${e==='_'?'Qualquer':ELEM[e]}</button>`).join('');
-  const tiposP=src==='poderes'?[...new Set((pickState._base||[]).map(x=>x.tipo))]:[];
-  const filtroPod=src==='poderes'?`<div class="chips filtros" style="padding:0 14px">${type==='poderes'?`<span class="eyebrow">Tipo</span><button class="btn sm" aria-pressed="${!pickState.fp}" data-act="pickF" data-k="fp" data-v="">Todos</button>${tiposP.some(t=>!['geral','paranormal'].includes(t))?`<button class="btn sm" aria-pressed="${pickState.fp==='_classe'}" data-act="pickF" data-k="fp" data-v="_classe">De classe</button>`:''}${tiposP.includes('geral')?`<button class="btn sm" aria-pressed="${pickState.fp==='geral'}" data-act="pickF" data-k="fp" data-v="geral">Gerais</button>`:''}${tiposP.includes('paranormal')?`<button class="btn sm" aria-pressed="${pickState.fp==='paranormal'}" data-act="pickF" data-k="fp" data-v="paranormal">Paranormais</button>`:''}`:''}
-     ${(pickState._base||[]).some(x=>x.elemento)?`<span class="eyebrow" style="margin-left:8px">Elemento</span><button class="btn sm" aria-pressed="${!pickState.fpe}" data-act="pickF" data-k="fpe" data-v="">Todos</button>${elChips('fpe',pickState._base||[])}`:''}</div>`:'';
-  const filtros=src==='poderes'?filtroPod:type==='rituais'?`<div class="chips filtros" style="padding:0 14px"><span class="eyebrow">Círculo</span>${['',1,2,3,4].map(c=>`<button class="btn sm" aria-pressed="${String(pickState.fc||'')===String(c)}" data-act="pickF" data-k="fc" data-v="${c}">${c?c+'º':'Todos'}</button>`).join('')}
-     <span class="eyebrow" style="margin-left:8px">Elemento</span>${['','sangue','morte','conhecimento','energia','medo','_'].map(e=>`<button class="btn sm ${e&&e!=='_'?'el el-'+e:''}" aria-pressed="${(pickState.fe||'')===e}" data-act="pickF" data-k="fe" data-v="${e}">${e===''?'Todos':e==='_'?'Varia':ELEM[e]}</button>`).join('')}</div>`
-   :type==='itens'?`<div class="chips filtros" style="padding:0 14px"><button class="btn sm" aria-pressed="${!pickState.ft}" data-act="pickF" data-k="ft" data-v="">Todos</button>${ORD_TIPO.filter(t=>(pickState._base||[]).some(x=>x.tipo===t)).map(t=>`<button class="btn sm" aria-pressed="${pickState.ft===t}" data-act="pickF" data-k="ft" data-v="${t}">${TIPO_ITEM[t]}</button>`).join('')}</div>
-     <div class="chips filtros" style="padding:0 14px"><span class="eyebrow">Categoria</span><button class="btn sm" aria-pressed="${!pickState.fk}" data-act="pickF" data-k="fk" data-v="">Todas</button>${[0,1,2,3,4].filter(k=>(pickState._base||[]).some(x=>(+x.cat||0)===k)).map(k=>`<button class="btn sm" aria-pressed="${pickState.fk===String(k)}" data-act="pickF" data-k="fk" data-v="${k}">${CAT_NOME[k]}</button>`).join('')}</div>`:'';
+  const B0=pickState._base||[];const conta=(f2)=>B0.filter(f2).length;
+  const ELS=['sangue','morte','conhecimento','energia','medo'];
+  const filtroPod=src==='poderes'?(type==='poderes'?chipsTog('pick:ptipo','Tipo',[['_classe','De classe'],['geral','Gerais'],['paranormal','Paranormais']].filter(([k])=>B0.some(x=>(['geral','paranormal'].includes(x.tipo)?x.tipo:'_classe')===k)).map(([k,l])=>[k,l,'',conta(x=>(['geral','paranormal'].includes(x.tipo)?x.tipo:'_classe')===k)])):'')
+     +chipsTog('pick:pel','Elemento',ELS.filter(e=>B0.some(x=>x.elemento===e)).map(e=>[e,ELEM[e],'el el-'+e,conta(x=>x.elemento===e)]).concat(B0.some(x=>!x.elemento)?[['_',type==='transcender'?'Qualquer':'Sem elemento','',conta(x=>!x.elemento)]]:[])):'';
+  const filtros=src==='poderes'?filtroPod:type==='rituais'?chipsTog('pick:circ','Círculo',[1,2,3,4].filter(c=>B0.some(x=>+x.circulo===c)).map(c=>[c,c+'º','',conta(x=>+x.circulo===c)]))
+     +chipsTog('pick:rel','Elemento',ELS.filter(e=>B0.some(x=>elsK(x).includes(e))).map(e=>[e,ELEM[e],'el el-'+e,conta(x=>elsK(x).includes(e))]).concat(B0.some(x=>elsK(x).includes('_'))?[['_','Varia','',conta(x=>elsK(x).includes('_'))]]:[]))
+   :type==='itens'?chipsTog('pick:tipo','Tipo',ORD_TIPO.filter(t=>B0.some(x=>x.tipo===t)).map(t=>[t,TIPO_ITEM[t],'',conta(x=>x.tipo===t)]))
+     +chipsTog('pick:cat','Categoria',[0,1,2,3,4].filter(k=>B0.some(x=>(+x.cat||0)===k)).map(k=>[k,CAT_NOME[k],'',conta(x=>(+x.cat||0)===k)])):'';
   let ultimo=null;
   const cab=x=>{if(!grupo)return '';const [k,l]=grupo(x);const key=k+'|'+l;if(key===ultimo)return '';ultimo=key;return `<div class="grp">${h(l)}</div>`};
   modal(titulo,`<div class="modal-h" style="padding-top:8px"><input class="inp" id="pick-q" placeholder="Buscar…" value="${h(q)}" style="flex:1 1 200px">${filtroL?`<label class="row" style="font-size:12px;gap:4px"><input type="checkbox" id="pick-all" ${all?'checked':''}> ${filtroL}</label>`:''}${src==='poderes'?`<label class="row" style="font-size:12px;gap:4px" title="Confere atributos, perícias, NEX, poderes e rituais da ficha"><input type="checkbox" data-act="soPosso" ${S.soPosso?'checked':''}> Só os que posso pegar</label>`:''}</div>
@@ -307,6 +309,7 @@ function nomesDaFicha(f,r){
   const c=byId('classes',f.classe);(c&&c.habilidades||[]).forEach(x=>{if(+x.nex<=f.nex)add(x.nome)});
   const t=byId('trilhas',f.trilha);(t&&t.habilidades||[]).forEach(x=>{if(+x.nex<=f.nex)add(x.nome)});
   const o=byId('origens',f.origem);if(o)add(o.poderNome);
+  f.poderes.forEach(p=>{if(p.ref==='esp_flashback'&&p.escolha){const ob=byId('origens',p.escolha);if(ob)add(ob.poderNome)}});
   return s;
 }
 function preReqCheck(x,f,r){
@@ -348,13 +351,13 @@ function preReqCheck(x,f,r){
    (o arquivo também pode ser importado de volta). Abre em qualquer navegador, sem internet. */
 function fichaArquivoHtml(){
   const f=F();if(!f)return null;const r=calc(f);
-  const antes={tab:S.tab,fr:S.filtroRit,fp:S.filtroPod};S.filtroRit='';S.filtroPod='';
+  const antes={tab:S.tab,off:S.off};S.off={}; /* o arquivo mostra tudo, sem os filtros da tela */
   const secs=[];let head='',vitals='';
   try{TABS.forEach(([k,l])=>{if(k==='interludio'&&!(f.bonus||[]).length&&!(f.interludio||[]).length)return;
       S.tab=k;renderNow();const sh=document.querySelector('.sheet');if(!sh)return;
       if(!head){const hd=sh.querySelector('.sheet-head');head=hd?hd.outerHTML:'';const vt=sh.querySelector('.vitals');vitals=vt?vt.outerHTML:''}
       const pane=sh.querySelector('.pane');if(pane&&!pane.querySelector('.empty:only-child'))secs.push([l,pane.innerHTML])})}
-  finally{S.tab=antes.tab;S.filtroRit=antes.fr;S.filtroPod=antes.fp;renderNow()}
+  finally{S.tab=antes.tab;S.off=antes.off;renderNow()}
   // transforma em leitura: campos viram texto, botões de ação somem
   const box=document.createElement('div');
   box.innerHTML=`<header class="arq-head">${head}${vitals}</header>`+secs.map(([l,x])=>`<details class="arq-sec" open><summary>${h(l)}</summary><div class="pane">${x}</div></details>`).join('');

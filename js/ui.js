@@ -10,7 +10,7 @@ function guardarCampos(){const ids=['mesa-nome','mesa-codigo','hb-q','cri-q',...
   const at=document.activeElement;return {v,foco:at&&at.id&&ids.includes(at.id)?at.id:null}}
 function restaurarCampos(g){Object.entries(g.v).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val});
   if(g.foco){const el=document.getElementById(g.foco);if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}}
-function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender();if(typeof retAnimar==='function')retAnimar();if(typeof iniOrdemRolar==='function')iniOrdemRolar()}
+function renderNow(){const g=guardarCampos();renderTela();restaurarCampos(g);if(typeof fxDepoisRender==='function')fxDepoisRender();if(typeof retAnimar==='function')retAnimar();if(typeof iniOrdemRolar==='function')iniOrdemRolar();if(S.view==='ficha')dtAplicar(document.getElementById('app'))}
 function renderTela(){
   const navs=[['ficha','Fichas'],...(S.conta&&S.conta.usuario?[['campanha','Campanha']]:[]),...(souMestre()?[['escudo','Escudo do Mestre']]:[]),['mesa','Mesa'],['hb','Homebrew'],['guia','Guia']];
   document.getElementById('nav').innerHTML=navs.map(([k,l])=>`<button class="btn" aria-pressed="${S.view===k}" data-act="view" data-v="${k}">${l}${k==='hb'&&hbCount()?` <span class="badge hb">${hbCount()}</span>`:''}${k==='mesa'?` <span class="badge">${D.fontes.filter(x=>!x.viaRegra&&fonteOn(x.id)).length+pacotesHB().filter(pacoteOn).length}</span>`:''}</button>`).join('')+(S.conta?(S.conta.usuario?`<button class="btn" data-act="contaMenu" title="Conta no servidor">${h(S.conta.usuario)}</button>`:`<button class="btn acc" data-act="contaMenu">Entrar</button>`):'');
@@ -214,18 +214,18 @@ function paneHab(f,r){
    ${f.poderes.length?podGrupos(f,r)
      :'<div class="empty">Nenhum poder ainda. Poderes chegam em NEX 15%, 30%, 45%, 60%, 75% e 90%. Para um poder paranormal, use “Transcender”: a perda de Sanidade (ou de PD) é aplicada sozinha.</div>'}</div>`;
 }
-/* Poderes da ficha agrupados por tipo (classe, gerais, paranormais por elemento), com filtro (S.filtroPod). */
+/* Poderes da ficha agrupados por tipo (classe, gerais, paranormais por elemento), com filtros liga/desliga. */
 function podGrupos(f,r){
   const it0=f.poderes.map(p=>{const d=byId('poderes',p.ref)||{};const t=d.tipo||'';const k=t==='paranormal'?'p:'+(d.elemento||''):t==='geral'?'geral':t?'classe':'outros';return {p,d,k,el:d.elemento||''}});
   const livros=filtroLivros(it0,'hab',x=>fonteChave(x.d));const it=porLivro(it0,'hab',x=>fonteChave(x.d));
   const ord=k=>k==='classe'?0:k==='geral'?1:k.startsWith('p:')?2+ordEl(k.slice(2)):20;
   const nome=k=>k==='classe'?'Poderes de classe':k==='geral'?'Poderes gerais':k.startsWith('p:')?'Paranormais · '+(k.slice(2)?ELEM[k.slice(2)]:'Qualquer elemento'):'Outros';
   const ks=[...new Set(it.map(x=>x.k))].sort((a,b)=>ord(a)-ord(b));
-  const fil=k=>k==='classe'||k==='geral'?k:k.startsWith('p:')?'par':'outros';
-  const tipos=[...new Set(ks.map(fil))];let cur=S.filtroPod||'';if(cur&&!tipos.includes(cur)&&!ks.includes(cur))cur='';
-  const els=ks.filter(k=>k.startsWith('p:'));
-  const chips=ks.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar poderes"><button class="btn sm" aria-pressed="${!cur}" data-act="filtroPod" data-v="">Todos</button>${tipos.includes('classe')?`<button class="btn sm" aria-pressed="${cur==='classe'}" data-act="filtroPod" data-v="classe">De classe</button>`:''}${tipos.includes('geral')?`<button class="btn sm" aria-pressed="${cur==='geral'}" data-act="filtroPod" data-v="geral">Gerais</button>`:''}${tipos.includes('par')?`<button class="btn sm" aria-pressed="${cur==='par'}" data-act="filtroPod" data-v="par">Paranormais</button>`:''}${els.length>1?els.map(k=>`<button class="btn sm el el-${k.slice(2)||'x'}" aria-pressed="${cur===k}" data-act="filtroPod" data-v="${k}">${k.slice(2)?ELEM[k.slice(2)]:'Qualquer'}</button>`).join(''):''}</div>`:'';
-  const vis=ks.filter(k=>!cur||k===cur||fil(k)===cur);
+  /* Grupos liga/desliga (chave 'hab:grp'): de classe, gerais e cada elemento paranormal. */
+  const curto=k=>k==='classe'?'De classe':k==='geral'?'Gerais':k.startsWith('p:')?(k.slice(2)?ELEM[k.slice(2)]:'Paranormal sem elemento'):'Outros';
+  const chips=chipsTog('hab:grp','Mostrar',ks.map(k=>[k,curto(k),k.startsWith('p:')&&k.slice(2)?'el el-'+k.slice(2):'',it.filter(x=>x.k===k).length]));
+  const vis=ks.filter(k=>ligado('hab:grp',k));
+  if(!vis.length&&ks.length)return livros+chips+'<p class="hint">Todos os grupos estão desligados no filtro.</p>';
   return livros+chips+vis.map(k=>{const l=it.filter(x=>x.k===k);return `${ks.length>1?`<div class="grp-h"><h3>${h(nome(k))}</h3><span class="hint">${l.length} poder${l.length>1?'es':''}</span></div>`:''}<div class="cards">${l.map(x=>poderCard(x.p,f,r)).join('')}</div>`}).join('');
 }
 function tipoPoderNome(t){if(t==='geral')return 'Poder geral';if(t==='paranormal')return 'Poder paranormal';const c=byId('classes',t);return c?'Poder de '+c.nome:t}
@@ -244,6 +244,8 @@ function poderCard(p,f,r){
    ${d.id==='ocu_dominar_habilidade_ritualistica'?(()=>{const dm=r.dominar[p.uid];const outras=cat('trilhas').filter(tr=>tr.classe==='ocultista'&&tr.id!==f.trilha&&(tr.habilidades||[]).length);
      return `<label class="fld"><span>Trilha</span><select class="inp" data-pod="${p.uid}" data-k="escolha">${opt('','Escolha…',p.escolha)}${outras.map(tr=>opt(tr.id,tr.nome,p.escolha)).join('')}</select></label>
       ${!p.escolha?'<p class="warnline">Escolha a trilha para receber a habilidade.</p>':''}${dm&&dm.x?`<div class="afin"><b>${h(dm.x.nome)}</b> <span class="hint">(${h(dm.t.nome)}, NEX ${dm.x.nex}%)</span>${dm.bloq?` <span class="badge warnb">precisa de NEX ${dm.x.nex}%</span>`:''}<br>${h(dm.x.desc||'')}${dm.bloq?'':'<br><span class="hint">Aparece também na seção Trilha.</span>'}</div>`:dm&&!dm.x?`<p class="warnline">Você já tem todas as habilidades dessa trilha.</p>`:''}`})():''}
+   ${d.id==='esp_flashback'?(()=>{const os=cat('origens').filter(o=>o.id!==f.origem);const ob=p.escolha&&byId('origens',p.escolha);
+     return `<label class="fld"><span>Origem do flashback</span><select class="inp" data-pod="${p.uid}" data-k="escolha">${opt('','Escolha uma origem…',p.escolha)}${grupoFonte(os,p.escolha)}</select></label>${ob?`<p class="afin"><b>${h(ob.poderNome||'Poder de origem')}</b> <span class="hint">(${h(ob.nome)})</span>: ${h(ob.poderDesc||'')}</p>`:'<p class="hint">Escolha a origem para receber o poder dela; os bônus automáticos entram na ficha.</p>'}`})():''}
    ${precisaEscolha?`<label class="fld"><span>Escolha</span><select class="inp" data-pod="${p.uid}" data-k="escolha">${opt('','—',p.escolha)}${d.escolheElemento?Object.entries(ELEM).filter(([k])=>k&&k!=='medo').map(([k,v])=>opt(k,v,p.escolha)).join(''):pericias().map(x=>opt(x.id,x.nome,p.escolha)).join('')}</select></label>`:''}
    ${d.tipo==='paranormal'?`<div class="row" style="font-size:12px"><label class="row" style="gap:4px"><input type="checkbox" data-pod="${p.uid}" data-k="transcender" ${p.transcender?'checked':''}> Via Transcender (−${sanN} ${r.det?'PD':'SAN'})</label>
      ${regraOn('transcender_itens')?`<label class="row" style="gap:4px"><input type="checkbox" data-pod="${p.uid}" data-k="viaItem" ${p.viaItem?'checked':''}> Via item amaldiçoado (sem custo)</label>`:''}
@@ -283,12 +285,12 @@ function paneRit(f,r){
 const ORD_EL=['sangue','morte','conhecimento','energia','medo',''];
 const ordEl=e=>{const i=ORD_EL.indexOf(e||'');return i<0?9:i};
 const elsDe=x=>(x.elementos||[x.elemento]).filter(Boolean);
-/* Chips de filtro por elemento (S.filtroRit) */
-function ritFiltros(rits){const els=[...new Set(rits.flatMap(x=>x._gone?[]:(elsDe(x).length?elsDe(x):[''])))].sort((a,b)=>ordEl(a)-ordEl(b));
-  if(els.length<2)return '';const cur=S.filtroRit||'';
-  return `<div class="chips filtros" role="group" aria-label="Filtrar por elemento"><button class="btn sm" aria-pressed="${!cur}" data-act="filtroRit" data-v="">Todos</button>${els.map(e=>`<button class="btn sm el el-${e||'x'}" aria-pressed="${cur===(e||'_')}" data-act="filtroRit" data-v="${e||'_'}">${e?ELEM[e]:'Varia'}</button>`).join('')}</div>`}
+/* Rituais da ficha: filtro de elemento liga/desliga (chave 'rit:el'). */
+const elsRit=x=>{const e=elsDe(x);return e.length?e:['_']};
+function ritFiltros(rits){const ok=rits.filter(x=>!x._gone);const els=[...new Set(ok.flatMap(elsRit))].sort((a,b)=>ordEl(a==='_'?'':a)-ordEl(b==='_'?'':b));
+  return chipsTog('rit:el','Elemento',els.map(e=>[e,e==='_'?'Varia':ELEM[e],'el el-'+(e==='_'?'x':e),ok.filter(x=>elsRit(x).includes(e)).length]))}
 function ritGrupos(rits,r){
-  const cur=S.filtroRit||'';const vis=rits.filter(x=>x._gone||!cur||(cur==='_'?!elsDe(x).length:elsDe(x).includes(cur)));
+  const vis=rits.filter(x=>x._gone||elsRit(x).some(e=>ligado('rit:el',e)));
   const porC={};vis.forEach(x=>(porC[x._gone?0:+x.circulo]=porC[x._gone?0:+x.circulo]||[]).push(x));
   return Object.keys(porC).map(Number).sort((a,b)=>(a||9)-(b||9)).map(c=>{const l=porC[c].sort((a,b)=>ordEl(a.elemento)-ordEl(b.elemento)||String(a.nome).localeCompare(b.nome));
     return `<div class="grp-h"><h3>${c?c+'º círculo':'Indisponíveis'}</h3><span class="hint">${c?CUSTO_CIRC[c]+' '+(r.det?'PD':'PE')+' · ':''}${l.length} ritua${l.length>1?'is':'l'}</span></div>
@@ -312,14 +314,16 @@ function paneInv(f,r){
 }
 const ORD_TIPO=Object.keys(TIPO_ITEM);
 function invGrupos(f,r){
-  const ck=S.filtroCat??'';const cats=[...new Set(f.inventario.map(it=>catItem(it,r)))].sort();
-  const livroDe=it=>{if(!it.ref)return 'manual';const c=byId('itens',it.ref);return c?fonteChave(c):it.fonte||'manual'};const livros=filtroLivros(f.inventario,'inv',livroDe);const noLivro=new Set(porLivro(f.inventario,'inv',livroDe));
-  const g={};f.inventario.forEach((it,i)=>{if(!noLivro.has(it))return;if(ck!==''&&String(catItem(it,r))!==ck)return;(g[it.tipo]=g[it.tipo]||[]).push([it,i])});
-  const tipos=Object.keys(g).sort((a,b)=>(ORD_TIPO.indexOf(a)+99)%99-(ORD_TIPO.indexOf(b)+99)%99);const cur=S.filtroInv||'';
-  const chips=tipos.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar por tipo"><button class="btn sm" aria-pressed="${!cur}" data-act="filtroInv" data-v="">Todos</button>${tipos.map(t=>`<button class="btn sm" aria-pressed="${cur===t}" data-act="filtroInv" data-v="${h(t)}">${TIPO_ITEM[t]||h(t)} (${g[t].length})</button>`).join('')}</div>`:'';
-  const chipsCat=cats.length>1?`<div class="chips filtros" role="group" aria-label="Filtrar por categoria"><span class="eyebrow">Categoria</span><button class="btn sm" aria-pressed="${ck===''}" data-act="filtroCat" data-v="">Todas</button>${cats.map(k=>`<button class="btn sm" aria-pressed="${ck===String(k)}" data-act="filtroCat" data-v="${k}">${CAT_NOME[k]}</button>`).join('')}</div>`:'';
-  if(!tipos.length)return livros+chipsCat+'<p class="hint">Nenhum item nesta categoria.</p>';
-  return livros+chipsCat+chips+tipos.filter(t=>!cur||cur===t||!g[cur]).map(t=>`<div class="grp-h"><h3>${TIPO_ITEM[t]||h(t)}</h3><span class="hint">${g[t].reduce((s,[it])=>s+espItem(it)*(+it.qtd||1),0)} esp.</span></div>
+  /* Filtros liga/desliga: livro ('livro:inv'), categoria ('inv:cat') e tipo ('inv:tipo'). */
+  const livroDe=it=>{if(!it.ref)return 'manual';const c=byId('itens',it.ref);return c?fonteChave(c):it.fonte||'manual'};
+  const inv=f.inventario.map((it,i)=>[it,i]);const livros=filtroLivros(f.inventario,'inv',livroDe);
+  const cats=[...new Set(inv.map(([it])=>catItem(it,r)))].sort();const tiposT=[...new Set(inv.map(([it])=>it.tipo))].sort((a,b)=>(ORD_TIPO.indexOf(a)+99)%99-(ORD_TIPO.indexOf(b)+99)%99);
+  const chipsCat=chipsTog('inv:cat','Categoria',cats.map(k=>[k,CAT_NOME[k],'',inv.filter(([it])=>catItem(it,r)===k).length]));
+  const chips=chipsTog('inv:tipo','Tipo',tiposT.map(t=>[t,TIPO_ITEM[t]||h(t),'',inv.filter(([it])=>it.tipo===t).length]));
+  const g={};inv.forEach(([it,i])=>{if(!ligado('livro:inv',livroDe(it))||!ligado('inv:cat',catItem(it,r))||!ligado('inv:tipo',it.tipo))return;(g[it.tipo]=g[it.tipo]||[]).push([it,i])});
+  const tipos=tiposT.filter(t=>g[t]);
+  if(!tipos.length)return livros+chipsCat+chips+'<p class="hint">Nenhum item com estes filtros.</p>';
+  return livros+chipsCat+chips+tipos.map(t=>`<div class="grp-h"><h3>${TIPO_ITEM[t]||h(t)}</h3><span class="hint">${g[t].reduce((s,[it])=>s+espItem(it)*(+it.qtd||1),0)} esp.</span></div>
     <div class="items">${g[t].map(([it,i])=>itemRow(it,i,f,r)).join('')}</div>`).join('');
 }
 const imgDe=it=>it.img||(it.ref&&S.cfg.imgs[it.ref])||'';
@@ -333,7 +337,9 @@ function itemRow(it,i,f,r){const open=S.open[it.uid];const arma=it.tipo==='arma'
    ${arma&&ai.ocult?'<span class="badge acc" title="Lâmina Maldita">Ocultismo</span>':''}${arma&&ai.fav?'<span class="badge acc">favorita</span>':''}${arma?`<span class="meta">${h(danoExpr(ai,false))} · ${ai.margem<20?ai.margem+'/':''}x${ai.mult} · ${ALCANCE[it.alcance]||h(it.alcance||'')}</span><button class="btn sm" data-act="atk" data-i="${i}">${D20} ${h(perNome(ai.per))} ${sgn(ai.atk)}</button><button class="btn sm" data-act="dmg" data-i="${i}">Dano</button>`:''}
    ${it.tipo==='protecao'?`<span class="meta">Defesa +${+it.defesa||0}</span>`:''}
    ${it.tipo==='acessorio'&&it.bonusPericia?`<span class="meta">${typeof it.bonusPericia==='number'?(it.pericia?`+${it.bonusPericia+ms.reduce((a,mm)=>a+(+(mm.efeitos||{}).bonusPericia||0),0)} em ${h(perNome(it.pericia))}`:'escolha a perícia em Detalhes'):''}${it.equipado?'':' (equipe para valer)'}</span>`:''}
-   ${regraOn('contagem_municao')&&(it.tipo==='municao'||it.municao)?`<span class="meta">Munição <input class="inp num sm" type="number" data-f="${b}balas" data-num value="${it.balas??20}" style="width:56px"></span>`:''}
+   ${regraOn('contagem_municao')&&it.tipo==='municao'?`<span class="meta" title="Cada pacote tem munição para 20 ataques">Disparos no pacote <input class="inp num sm" type="number" min="0" data-f="${b}balas" data-num value="${it.balas??20}" style="width:56px" aria-label="Disparos restantes no pacote de ${h(it.nome)}"></span>`:''}
+   ${regraOn('contagem_municao')&&arma&&(it.municao||it.forma==='fogo')?(()=>{const cap=+it.pente||0;const car=it.carregado??cap;
+     return `<span class="meta pente ${cap&&car<=0?'vazio':''}" title="Balas no pente / capacidade (edite se sua mesa usa outro valor)">Pente <input class="inp num sm" type="number" min="0" data-f="${b}carregado" data-num value="${cap?car:(it.carregado??'')}" style="width:52px" aria-label="Balas carregadas em ${h(it.nome)}"> / <input class="inp num sm" type="number" min="0" data-f="${b}pente" data-num data-r value="${cap||''}" placeholder="?" style="width:52px" aria-label="Capacidade do pente de ${h(it.nome)}"></span><button class="btn sm" data-act="recarregar" data-i="${i}" title="Ação de movimento: enche o pente com um pacote de ${h(it.municao||'munição')}">Recarregar</button>`})():''}
    ${usavel?`<button class="btn sm acc" data-act="usarItem" data-i="${i}">Usar</button>`:''}
    ${equip?`<label class="row" style="gap:4px;font-size:12px"><input type="checkbox" data-f="${b}equipado" data-r ${it.equipado?'checked':''}> ${it.tipo==='arma'?'Empunhada':'Equipado'}</label>`:''}
    <button class="btn sm ghost" data-act="toggle" data-id="${it.uid}">${open?'Fechar':'Detalhes'}</button>${f._alheia?(f.mesa&&typeof pingSouMestre==='function'&&pingSouMestre(f.mesa)?`<button class="btn sm ghost danger" data-act="mestreRmItem" data-uid="${h(it.uid)}" data-confirma="Remover da ficha?" title="Remove o item da ficha do jogador">Remover</button>`:''):`<button class="btn sm ghost danger" data-act="rmItem" data-i="${i}" data-confirma="Excluir?" aria-label="Remover ${h(it.nome)}">✕</button>`}</div>
@@ -505,3 +511,21 @@ function regraRotulo(id){const y=D.regras.find(z=>z.id===id);return y?`${y.nome}
 function contaFonte(id){const n=['origens','trilhas','poderes','rituais','itens'].reduce((s,k)=>s+(D[k]||[]).filter(x=>x.fonte===id).length,0);return n+' itens'}
 function tgl(id,nome,desc,on,attrs,tag='',extra=''){
   return `<label class="tgl ${on?'on':''}" for="${id}"><input type="checkbox" id="${id}" ${on?'checked':''} ${attrs}><span class="sw" aria-hidden="true"></span><span class="tx"><span class="tl-h"><b>${h(nome)}</b>${tag?` <span class="badge">${h(tag)}</span>`:''}${extra?` <span class="badge acc">${h(extra)}</span>`:''}</span><small>${h(desc)}</small></span></label>`}
+
+/* ---------- DT calculada nos textos ----------
+   “DT Agi”, “DT Int+5”, “DT Pre” etc. em descrições de itens, poderes e habilidades ganham o valor ao lado:
+   10 + limite de PE + atributo (+ bônus escrito). Vale para a ficha aberta. */
+const DT_ATTR={agi:'AGI',agilidade:'AGI',for:'FOR','força':'FOR',forca:'FOR',int:'INT',intelecto:'INT',pre:'PRE','presença':'PRE',presenca:'PRE',vig:'VIG',vigor:'VIG'};
+const DT_RE=/\bDT\s*(Agilidade|Agi|Força|For|Intelecto|Int|Presença|Pre|Vigor|Vig)\b(\s*\+\s*(\d+))?/gi;
+function dtAplicar(raiz){
+  const f=F();if(!raiz||!f||!f.classe)return;let r;try{r=calc(f)}catch(e){return}
+  const w=document.createTreeWalker(raiz,NodeFilter.SHOW_TEXT,{acceptNode:n=>{const p=n.parentElement;if(!p||p.closest('input,textarea,select,option,script,style,.dt-calc'))return NodeFilter.FILTER_REJECT;
+    DT_RE.lastIndex=0;return DT_RE.test(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});
+  const nos=[];let n;while((n=w.nextNode()))nos.push(n);
+  nos.forEach(no=>{if(no.nextSibling&&no.nextSibling.classList&&no.nextSibling.classList.contains('dt-calc'))return;
+    const txt=no.nodeValue;const frag=document.createDocumentFragment();let ult=0;DT_RE.lastIndex=0;let m;
+    while((m=DT_RE.exec(txt))){const at=DT_ATTR[m[1].toLowerCase()];if(!at)continue;const extra=+(m[3]||0);const v=10+(r.peLim||0)+(r.A[at]||0)+extra;
+      frag.appendChild(document.createTextNode(txt.slice(ult,m.index+m[0].length)));
+      const sp=document.createElement('span');sp.className='dt-calc';sp.textContent=` (${v})`;sp.title=`DT ${v} = 10 + limite de PE (${r.peLim||0}) + ${at} (${r.A[at]||0})${extra?' + '+extra:''}`;frag.appendChild(sp);ult=m.index+m[0].length}
+    if(!ult)return;frag.appendChild(document.createTextNode(txt.slice(ult)));no.parentNode.replaceChild(frag,no)});
+}

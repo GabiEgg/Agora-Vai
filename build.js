@@ -53,6 +53,10 @@ for(const F of FONTES){
  for(const [id,v] of Object.entries(P)){const p=out.poderes.find(x=>x.id===id);if(!p)throw new Error('prof: '+id);p.prof=v}
  const gr=out.trilhas.find(t=>t.id==='graduado');const gh=gr&&gr.habilidades.find(h=>h.nome==='Grimório Ritualístico');if(!gh)throw new Error('Grimório Ritualístico');gh.ritExtra='grimorio';
  const at=out.trilhas.find(t=>t.id==='atirador');const me=at&&at.habilidades.find(h=>h.nome==='Mira de Elite');if(!me)throw new Error('prof: Mira de Elite');me.prof=['arma:tatica:fogo']}
+// Capacidade do pente/tambor (regra opcional Contagem de munição, livro básico); demais armas ficam editáveis na ficha.
+{const P={it_pistola:12,it_revolver:6,it_fuzil_de_caca:4,it_submetralhadora:20,it_espingarda:6,it_fuzil_de_assalto:30,it_fuzil_de_precisao:1,it_metralhadora:50,
+  it_espingarda_de_cano_duplo:2,it_lancador_de_granadas_portatil:1};
+ for(const [id,v] of Object.entries(P)){const it=out.itens.find(x=>x.id===id);if(!it)throw new Error('pente: '+id);it.pente=v}}
 // Automação do homebrew da mesa (src/casa_auto.js), aplicada por id.
 {const AU=require('./src/casa_auto.js');let n=0;for(const [k,mp] of Object.entries(AU)){for(const [id,p] of Object.entries(mp)){const e=(out[k]||[]).find(x=>x.id===id);if(!e)throw new Error('casa_auto: id não encontrado '+k+':'+id);Object.assign(e,p);n++}}console.log('casa_auto',n)}
 // Regras: nenhuma fica travada como “sempre”; todas ligam e desligam na Mesa.

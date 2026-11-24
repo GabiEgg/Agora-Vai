@@ -72,6 +72,8 @@ function calc0(f){
   pods.forEach(x=>{const {p,d}=x;
     if(x.afinCopia){if(x.ativa){add(d.modsAfinidade,d.nome+' (afinidade)');if(d.afin)flag({...d.afin,escolha:x.base.p.escolha,_afin:true},d.nome+' (afinidade)')}return}
     add(d.mods,d.nome);flag({...d,escolha:p.escolha},d.nome);
+    /* Flashback (Especialista): recebe o poder da origem escolhida, com os bônus automáticos dela. */
+    if(d.id==='esp_flashback'&&p.escolha){const ob=byId('origens',p.escolha);if(ob&&ob.id!==f.origem){const nm=(ob.poderNome||ob.nome)+' (Flashback)';add(ob.mods,nm);flag({...ob,escolha:p.escolhaOrigem},nm)}}
     if(x.autoAfin){add(d.modsAfinidade,d.nome+' (afinidade)');if(d.afin)flag({...d.afin,escolha:p.escolha,_afin:true},d.nome+' (afinidade)')}});
   /* Dominar Habilidade Ritualística: a próxima habilidade (respeitando o NEX) de outra trilha de ocultista;
      conta a já recebida por Versatilidade e as cópias anteriores do poder para a mesma trilha. */
