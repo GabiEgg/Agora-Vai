@@ -79,6 +79,9 @@ const Q={
     WHERE p.id>? AND p.criado>? AND p.de_id<>? AND (p.para=? OR (p.para='mestre' AND mm.papel='mestre') OR (p.para='todos' AND mm.papel<>'mestre')) ORDER BY p.id LIMIT 50`,
   pingUltimo:'SELECT MAX(id) n FROM mesa_ping',
   pingPodar:'DELETE FROM mesa_ping WHERE criado<?',
+  pingHist:`SELECT p.id,p.criado,p.dados,p.para,p.de_id,u.usuario de,u2.usuario paraNome FROM mesa_ping p JOIN usuarios u ON u.id=p.de_id LEFT JOIN usuarios u2 ON u2.id=p.para WHERE p.mesa_id=? ORDER BY p.id DESC LIMIT 200`,
+  pingDel:'DELETE FROM mesa_ping WHERE mesa_id=? AND id=?',
+  fichasDaMesaDono:`SELECT d.usuario_id,d.doc_id,d.dados FROM mesa_membros mm JOIN docs d ON d.usuario_id=mm.usuario_id WHERE mm.mesa_id=? AND d.doc_id LIKE 'f-%' AND json_extract(d.dados,'$.ficha.mesa')=?`,
   apagarPings:'DELETE FROM mesa_ping WHERE mesa_id=?',
   logAdd:'INSERT INTO mesa_log(mesa_id,usuario_id,criado,dados) VALUES(?,?,?,?)',
   logLista:'SELECT id,criado,dados FROM mesa_log WHERE mesa_id=? AND id>? ORDER BY id LIMIT 2000',
@@ -183,7 +186,7 @@ async function rotear(req,res){
     /* Primeira consulta (depois=0): só os dos últimos 2 minutos, para não perder um ping que chegou enquanto a página abria. */
     const lista=await db.all(Q.pingMeus,u.id,depois,Date.now()-(depois?6*3600e3:120e3),u.id,u.id);
     if(!depois&&!lista.length){const r=await db.get(Q.pingUltimo);return enviar(res,200,{ultimo:(r&&r.n)||0,pings:[]})}
-    if(Math.random()<0.02)await db.run(Q.pingPodar,Date.now()-2*86400e3);
+    if(Math.random()<0.02)await db.run(Q.pingPodar,Date.now()-30*86400e3);
     return enviar(res,200,{ultimo:lista.length?lista[lista.length-1].id:depois,pings:lista.map(x=>{let d={};try{d=JSON.parse(x.dados)}catch(e){}return {id:x.id,mesa:x.mesa_id,mesaNome:x.mesa,de:x.de,deId:x.papel==='mestre'?x.de_id:undefined,souMestre:x.papel==='mestre',criado:x.criado,paraTodos:x.para==='todos',...d}})})}
   if(p.startsWith('/api/mesas'))return rotasMesa(req,res,u,p,m,url);
   return erro(res,404,'Não encontrado');
@@ -224,21 +227,40 @@ async function rotasMesa(req,res,u,p,m,url){
   if(sub==='/iniciativa')return rotaIniciativa(req,res,u,m,mesa,mestre);
   /* Grupo: o que cada jogador vê dos colegas (retrato, estado, contadores e, conforme o mestre, barras com ou sem números).
      Só sai daqui o resumo público da ficha; o resto continua só para o mestre. */
-  if(sub==='/grupo'&&m==='GET'){const modo=modoGrupo((await lerCfgMesa(mesa.id)).grupo);
-    if(modo==='oculto'&&!mestre)return enviar(res,200,{modo,membros:[]});
+  if(sub==='/grupo'&&m==='GET'){const cfgG=await lerCfgMesa(mesa.id);const modoCfg=modoGrupo(cfgG.grupo);const ocultas=new Set(Array.isArray(cfgG.fichasOcultas)?cfgG.fichasOcultas:[]);
+    /* Mestre: vê todas as fichas, com números; jogadores: conforme o modo, sem as fichas que o mestre escondeu (cada um sempre vê a própria). */
+    const modo=mestre?'numeros':modoCfg;
+    if(modoCfg==='oculto'&&!mestre)return enviar(res,200,{modo:modoCfg,membros:[]});
     const idOk=v=>typeof v==='string'&&/^[\w-]{1,64}$/.test(v)?v:undefined;const n=v=>Math.max(0,Math.min(999,Math.round(+v)||0));
     const membros=[];for(const r of await db.all(Q.fichasDaMesa,mesa.id,mesa.id)){let f;try{f=JSON.parse(r.dados).ficha}catch(e){continue}if(!f)continue;
+      const fid=String(f.id||'');const minha=r.usuario===u.usuario;if(!mestre&&!minha&&ocultas.has(fid))continue;
       const pub=f.publico||{};const rt=f.retrato||{};const arte={};for(const k of ['normal','machucado','perturbado','caido','louco','morto']){const v=idOk((rt.arte||{})[k]);if(v)arte[k]=v}
       const e={usuario:r.usuario,id:idOk(String(f.id||'')),nome:txtCurto(f.nome,80)||'Agente',estado:['normal','machucado','perturbado','caido','louco','morto'].includes(pub.estado)?pub.estado:'normal',
-        arte,morto:!!rt.morto,sessao:{quedas:n((rt.sessao||{}).quedas),loucuras:n((rt.sessao||{}).loucuras)}};
+        arte,morto:!!rt.morto,sessao:{quedas:n((rt.sessao||{}).quedas),loucuras:n((rt.sessao||{}).loucuras)},minha:minha||undefined,oculta:mestre&&ocultas.has(fid)||undefined};
       if(rt.morto)e.estado='morto';
       if(modo==='numeros'||modo==='barras'){const barra=k=>{const c=Math.round(+pub[k]),mx=Math.round(+pub[k+'Max']);if(!(mx>0)||!Number.isFinite(c))return undefined;
           return modo==='numeros'?{v:Math.max(-999,Math.min(9999,c)),max:Math.min(9999,mx)}:{pct:Math.round(Math.max(0,Math.min(100,c/mx*100)))}};
         e.det=!!pub.det;e.pv=barra('pv');if(pub.det)e.pe=barra('pe');else e.san=barra('san')}
       membros.push(e)}
-    return enviar(res,200,{modo,membros})}
+    return enviar(res,200,{modo:mestre?modoCfg:modo,membros})}
   if(sub==='/grupo'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre escolhe o que o grupo vê.');const b=await lerJSON(req)||{};
-    const cfg=await lerCfgMesa(mesa.id);cfg.grupo=modoGrupo(b.modo);await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true,modo:cfg.grupo})}
+    const cfg=await lerCfgMesa(mesa.id);if(b.modo!==undefined)cfg.grupo=modoGrupo(b.modo);
+    if(b.ficha!==undefined){const fid=txtCurto(b.ficha,64);if(!/^[\w-]{1,64}$/.test(fid))return erro(res,400,'Ficha inválida.');const l=new Set(Array.isArray(cfg.fichasOcultas)?cfg.fichasOcultas:[]);if(b.oculta)l.add(fid);else l.delete(fid);cfg.fichasOcultas=[...l].slice(0,200)}
+    await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true,modo:modoGrupo(cfg.grupo),fichasOcultas:cfg.fichasOcultas||[]})}
+  /* Histórico de pings da campanha: o mestre vê todos; o jogador, os que mandou e os que recebeu. O mestre pode apagar qualquer um. */
+  if(sub==='/pings'&&m==='GET'){const lista=await db.all(Q.pingHist,mesa.id);
+    const out=[];for(const x of lista){const meu=x.de_id===u.id;const paraMim=x.para===u.id||(x.para==='todos'&&!mestre)||(x.para==='mestre'&&mestre);
+      if(!mestre&&!meu&&!paraMim)continue;let d={};try{d=JSON.parse(x.dados)}catch(e){}
+      out.push({id:x.id,criado:x.criado,de:x.de,deMestre:x.de_id===mesa.mestre_id,meu,para:x.para==='todos'?'todos':x.para==='mestre'?'mestre':(x.paraNome||'jogador'),texto:d.texto||'',urgente:!!d.urgente,agente:d.agente,ordem:d.ordem?d.ordem.tipo:undefined})}
+    return enviar(res,200,{pings:out,podeApagar:mestre})}
+  if(sub==='/pingdel'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre apaga pings do histórico.');const b=await lerJSON(req)||{};
+    const ids=(Array.isArray(b.ids)?b.ids:[b.id]).map(x=>Math.round(+x)).filter(x=>x>0).slice(0,500);for(const id of ids)await db.run(Q.pingDel,mesa.id,id);return enviar(res,200,{ok:true,apagados:ids.length})}
+  /* Zerar quedas e enlouquecimentos da sessão (de todos ou de uma ficha): grava nas fichas e avisa o app de cada jogador. */
+  if(sub==='/zerarsessao'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre zera os contadores dos jogadores.');const b=await lerJSON(req)||{};const so=b.ficha?txtCurto(b.ficha,64):null;let n=0;
+    for(const r of await db.all(Q.fichasDaMesaDono,mesa.id,mesa.id)){let doc;try{doc=JSON.parse(r.dados)}catch(e){continue}const f=doc&&doc.ficha;if(!f||(so&&String(f.id)!==so))continue;
+      f.retrato=f.retrato||{};f.retrato.sessao={quedas:0,loucuras:0,desde:Date.now()};await db.run(Q.gravarDoc,r.usuario_id,r.doc_id,JSON.stringify(doc),Date.now());n++;
+      await db.run(Q.pingAdd,mesa.id,u.id,r.usuario_id,Date.now(),JSON.stringify({texto:`O mestre começou uma nova sessão: quedas e enlouquecimentos de ${txtCurto(f.nome,80)||'seu agente'} foram zerados.`,ordem:{tipo:'zerarSessao',ficha:String(f.id)}}))}
+    return enviar(res,200,{ok:true,fichas:n})}
   /* Mestre remove um item do inventário de um agente da campanha: grava na ficha do jogador e avisa o app dele (pelo canal do ping). */
   if(sub==='/fichaitem'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre pode mexer na ficha de outro jogador.');const b=await lerJSON(req)||{};
     const alvo=await db.get(Q.membroPorNome,mesa.id,txtCurto(b.usuario,40));if(!alvo)return erro(res,404,'Jogador não está nesta campanha.');
@@ -262,7 +284,7 @@ async function rotasMesa(req,res,u,p,m,url){
   if(sub==='/regras'&&m==='PUT'){if(!mestre)return erro(res,403,'Só o mestre define as regras da campanha.');const b=await lerJSON(req)||{};
     const bools=o=>{const out={};if(o&&typeof o==='object')for(const [k,v] of Object.entries(o).slice(0,500))if(/^[\w-]{1,64}$/.test(k))out[k]=!!v;return out};
     const ant=await lerCfgMesa(mesa.id);
-    const cfg={fontes:bools(b.fontes),regras:bools(b.regras),auto:bools(b.auto),acoesInterludio:Math.max(1,Math.min(10,Math.round(+b.acoesInterludio)||2)),grupo:ant.grupo};
+    const cfg={...ant,fontes:bools(b.fontes),regras:bools(b.regras),auto:bools(b.auto),acoesInterludio:Math.max(1,Math.min(10,Math.round(+b.acoesInterludio)||2))};
     await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true})}
   return erro(res,404,'Não encontrado');
 }

@@ -68,7 +68,8 @@ async function pingCompor(resp){
   const mestre=mesa.papel==='mestre';const membros=mestre?(await pingMembros(mesa.id)).filter(x=>x.papel!=='mestre'):[];
   const paraSel=resp&&mestre?(resp.deId||'todos'):'todos';
   const rapidos=PING_RAPIDOS[mestre?'mestre':'jogador'];
-  modal(resp?'Responder ping':'Mandar ping',`<div class="modal-b ping-form">
+  S.pingAba='novo';
+  modal(resp?'Responder ping':'Ping',`${pingAbas('novo',mesa.id)}<div class="modal-b ping-form">
    ${ms.length>1?fld('Campanha',`<select class="inp" id="ping-mesa">${ms.map(m=>opt(m.id,m.nome+(m.papel==='mestre'?' (mestre)':''),mesa.id)).join('')}</select>`):''}
    ${mestre?fld('Para',`<select class="inp" id="ping-para">${opt('todos','Todos os jogadores',paraSel)}${membros.map(x=>opt(x.id,x.usuario,paraSel)).join('')}</select>`):`<p class="hint" style="margin:0">Para: <b>${h(mesa.mestre||'o mestre')}</b> (mestre de ${h(mesa.nome)})</p>`}
    ${resp?`<blockquote class="ping-cit"><b>${h(resp.de)}:</b> ${h(resp.texto)}</blockquote>`:''}
@@ -103,5 +104,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKe
 
 /* Ordens do mestre que chegam junto com o ping (só o servidor cria, e só a pedido do mestre da campanha). */
 function pingOrdem(p){const o=p&&p.ordem;if(!o||p.souMestre)return;
+  if(o.tipo==='zerarSessao'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;f.retrato=f.retrato||{};f.retrato.sessao={quedas:0,loucuras:0,desde:Date.now()};saveF(f);if(F()===f)render();return}
   if(o.tipo==='rmItem'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;const antes=(f.inventario||[]).length;f.inventario=(f.inventario||[]).filter(x=>x.uid!==o.uid);
     if(f.inventario.length!==antes){saveF(f);if(F()===f)render()}}}
+
+/* ---------- Histórico de pings ---------- */
+function pingAbas(at,mid){return `<div class="tabs ping-abas" role="tablist"><button class="tab" role="tab" aria-selected="${at==='novo'}" data-act="pingAba" data-v="novo" data-m="${h(mid)}">Mandar ping</button><button class="tab" role="tab" aria-selected="${at==='hist'}" data-act="pingAba" data-v="hist" data-m="${h(mid)}">Histórico</button></div>`}
+async function pingHistorico(mid){
+  const ms=S.mesas||[];const mesa=ms.find(m=>m.id===mid)||pingMesaPadrao();if(!mesa)return;S.pingMesa=mesa.id;S.pingAba='hist';
+  let r;try{r=await Api.req('GET',`/api/mesas/${encodeURIComponent(mesa.id)}/pings`)}catch(e){toast(e.message||'Não foi possível carregar o histórico.');return}
+  const L=r.pings||[];const dia=t=>new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const para=x=>x.para==='todos'?'todos os jogadores':x.para==='mestre'?'o mestre':x.para;
+  modal('Ping',`${pingAbas('hist',mesa.id)}<div class="modal-b ping-hist">
+   ${ms.length>1?fld('Campanha',`<select class="inp" id="ping-hist-mesa">${ms.map(m=>opt(m.id,m.nome+(m.papel==='mestre'?' (mestre)':''),mesa.id)).join('')}</select>`):''}
+   <p class="hint" style="margin:0">${r.podeApagar?'Você é o mestre: vê todos os pings da campanha e pode apagar qualquer um (some para todos).':'Os pings que você mandou e recebeu nesta campanha (últimos 30 dias).'}</p>
+   ${r.podeApagar&&L.length?`<div class="row"><button class="btn sm ghost danger" data-act="pingDelTodos" data-m="${h(mesa.id)}" data-confirma="Apagar todos?">Apagar todo o histórico</button></div>`:''}
+   ${L.length?`<ol class="ping-lista">${L.map(x=>`<li class="${x.meu?'meu':''} ${x.urgente?'urg':''}"><div class="ping-de"><b>${h(x.meu?'Você':x.deMestre?'Mestre ('+x.de+')':x.de)}</b>${x.agente?` · ${h(x.agente)}`:''}<span>→ ${h(para(x))} · ${dia(x.criado)}${x.urgente?' · urgente':''}${x.ordem?' · aviso automático':''}</span></div>
+      <p class="ping-txt">${h(x.texto)}</p>${r.podeApagar?`<button class="btn sm ghost danger ping-del" data-act="pingDel" data-id="${x.id}" data-m="${h(mesa.id)}" data-confirma="Apagar?" aria-label="Apagar este ping">✕</button>`:''}</li>`).join('')}</ol>`:'<div class="empty">Nenhum ping nesta campanha ainda.</div>'}
+  </div>`);
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act="pingAba"]');if(!t)return;if(t.dataset.v==='hist')pingHistorico(t.dataset.m);else{const m=(S.mesas||[]).find(x=>x.id===t.dataset.m);pingCompor(m?{mesa:m.id,de:'',texto:''}:null).then(()=>{const q=document.querySelector('.ping-cit');if(q)q.remove()})}});
+document.addEventListener('change',e=>{if(e.target.id==='ping-hist-mesa')pingHistorico(e.target.value)});
+async function pingApagar(mid,ids){try{await Api.req('POST',`/api/mesas/${encodeURIComponent(mid)}/pingdel`,{ids});toast(ids.length>1?'Histórico apagado.':'Ping apagado.');pingHistorico(mid)}catch(err){toast(err.message||'Não foi possível apagar.')}}

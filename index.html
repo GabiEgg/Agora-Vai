@@ -542,6 +542,29 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 /* ---------- Grimório ---------- */
 .badge.grim{background:color-mix(in srgb,var(--conhecimento) 18%,transparent);border-color:var(--conhecimento);color:var(--ink)}
 .grim-info{gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ---------- Histórico de pings ---------- */
+.ping-abas{padding:0 14px}
+.ping-hist{display:grid;gap:10px}
+.ping-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ping-lista li{position:relative;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:8px 36px 8px 10px;background:var(--paper);display:grid;gap:4px}
+.ping-lista li.meu{border-left-color:var(--accent)}.ping-lista li.urg{border-left-color:var(--pv)}
+.ping-lista .ping-del{position:absolute;top:6px;right:6px}
+
+/* ---------- Janela do grupo ---------- */
+body.janela>*:not(#janela):not(#modal){display:none!important}body.janela{padding:10px;background:var(--bg)}
+#janela{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+.jan-msg{color:var(--muted);text-align:center;width:100%;margin:40px 0}
+.jan-card{display:flex;gap:10px;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:220px;flex:1 1 220px;max-width:320px}
+.jan-card.mudou{animation:janMuda .9s ease-out}
+@keyframes janMuda{0%{box-shadow:0 0 0 0 var(--accent)}40%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 50%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+.jan-fig{position:relative;flex:none}.jan-fig .ret-fig{width:96px}
+.jan-icone{position:absolute;right:-8px;top:-8px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--paper);color:var(--ic);border:2px solid var(--ic);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.jan-card.est-caido .jan-icone,.jan-card.est-louco .jan-icone{animation:janPulsa 1.4s ease-in-out infinite}
+@keyframes janPulsa{50%{transform:scale(1.15)}}
+.jan-info{display:grid;gap:4px;min-width:0;flex:1}.jan-info b{font-size:16px}.jan-info small{color:var(--muted);margin-top:-3px}
+.jan-info .ret-bar{font-size:12px}.jan-info .ret-trilho{height:10px}
+@media (prefers-reduced-motion:reduce){.jan-card.mudou,.jan-icone{animation:none!important}}
 </style>
 
 <div class="wrap">
@@ -571,3 +594,4 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 <script src="js/retrato.js" charset="utf-8"></script>
 <script src="js/ping.js" charset="utf-8"></script>
 <script src="js/eventos.js" charset="utf-8"></script>
+<script src="js/janela.js" charset="utf-8"></script>

@@ -159,12 +159,15 @@ document.addEventListener('click',e=>{
   if(t.tagName==='INPUT')return; /* checkboxes com data-act são tratados no change */
   const f=F();const ds=t.dataset;
   /* Exclusões pedem confirmação: o 1º clique arma o botão por 4 s; o 2º executa. */
-  if(ds.confirma!==undefined){const k=a+'|'+(ds.i||'')+'|'+(ds.id||'')+'|'+(ds.uid||'');
+  if(ds.confirma!==undefined){const k=a+'|'+(ds.i||'')+'|'+(ds.id||'')+'|'+(ds.uid||'')+'|'+(ds.ficha||'');
     if(S._armado!==k){document.querySelectorAll('.armado').forEach(b=>{b.classList.remove('armado');if(b.dataset.txt!=null)b.innerHTML=b.dataset.txt});
       S._armado=k;t.dataset.txt=t.innerHTML;t.textContent=ds.confirma||'Excluir mesmo?';t.classList.add('armado');clearTimeout(S._armT);
       S._armT=setTimeout(()=>{S._armado=null;if(t.isConnected&&t.classList.contains('armado')){t.classList.remove('armado');t.innerHTML=t.dataset.txt}},4000);return}
     S._armado=null;clearTimeout(S._armT)}
   switch(a){
+   case 'zerarSessao':zerarSessaoMestre(ds.ficha||null);return;
+   case 'pingDel':pingApagar(ds.m,[+ds.id]);return;
+   case 'pingDelTodos':Api.req('GET',`/api/mesas/${encodeURIComponent(ds.m)}/pings`).then(r=>pingApagar(ds.m,(r.pings||[]).map(x=>x.id))).catch(err=>toast(err.message));return;
    case 'view':S.view=ds.v;S.confirm=null;S.alheia=null;if(ds.v==='campanha')carregarMesas();if(ds.v==='escudo'){abrirEscudo();return}if(ds.v==='ficha')atualizarIniJogador();break;
    case 'contaMenu':contaModal();return;
    case 'mesaCriar':{const n=document.getElementById('mesa-nome').value.trim();if(!n){toast('Dê um nome para a campanha.');return}

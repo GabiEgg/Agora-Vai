@@ -146,7 +146,8 @@ async function addCriaturaCombate(id,nome){
 function escAgentes(m){
   if(!S.mesaDados)return '<p class="hint">Carregando…</p>';
   const jog=S.mesaDados.membros.filter(x=>x.papel!=='mestre');
-  return `<div class="sec"><div class="sec-h"><h2>Agentes</h2><span class="hint">${jog.length} jogador${jog.length===1?'':'es'}</span>${typeof grupoModoSel==='function'?grupoModoSel(S.mesaAberta):''}</div>${agentesCards()||`<div class="empty">Nenhuma ficha ligada ainda. ${jog.length?'Peça aos jogadores para escolher esta campanha no Dossiê de cada agente.':'Passe o código <b>'+h(m.codigo)+'</b> para os jogadores.'}</div>`}</div>`;
+  return `<div class="sec"><div class="sec-h"><h2>Agentes</h2><span class="hint">${jog.length} jogador${jog.length===1?'':'es'}</span>${typeof grupoModoSel==='function'?grupoModoSel(S.mesaAberta):''}
+     <div class="row"><button class="btn sm" data-act="zerarSessao" data-confirma="Zerar de todos?" title="Nova sessão: zera quedas e enlouquecimentos de todos os agentes da campanha">Zerar caídas e enlouquecimentos</button><button class="btn sm" data-act="janelaGrupo" data-m="${h(S.mesaAberta||'')}" title="Abre uma janela só com os retratos, barras e estados do grupo">Janela do grupo</button></div></div>${agentesCards()||`<div class="empty">Nenhuma ficha ligada ainda. ${jog.length?'Peça aos jogadores para escolher esta campanha no Dossiê de cada agente.':'Passe o código <b>'+h(m.codigo)+'</b> para os jogadores.'}</div>`}</div>`;
 }
 function agentesCards(){const d=S.mesaDados;if(!d||!d.fichas.length)return '';
   return `<div class="cards">${d.fichas.map((x,i)=>{const f=migrar(clone(x.ficha));let r;try{r=calc(f)}catch(e){r=null}const c=r&&r.c;
@@ -156,6 +157,8 @@ function agentesCards(){const d=S.mesaDados;if(!d||!d.fichas.length)return '';
       <div class="meta"><span>${c?h(c.nome):'Sem classe'}</span><span>${c&&c.estagios?'Estágio '+f.estagio:'NEX '+f.nex+'%'}</span>${r?`<span>Defesa ${r.defesa}</span><span>DT ${r.dt}</span><span>Percepção ${r.per.percepcao?sgn(r.per.percepcao.bonus):''}</span>`:''}</div>
       ${r?bar('pv','PV','pv')+bar('pe',r.det?'PD':'PE','pe')+(r.det?'':bar('san','SAN','san')):''}
       ${conds.length?`<div class="chips">${conds.map(n=>`<span class="cond">${h(n)}</span>`).join('')}</div>`:''}
+      ${(()=>{const g=(S.grupo||{})[S.mesaAberta];const gm=g&&g.r&&(g.r.membros||[]).find(z=>z.id===f.id);const oc=!!(gm&&gm.oculta);
+        return `<div class="row ag-acoes"><button class="btn sm ${oc?'acc':'ghost'}" data-act="fichaOcultar" data-ficha="${h(f.id)}" data-v="${oc?'0':'1'}" aria-pressed="${oc}" title="${oc?'Escondida: os outros jogadores não veem esta ficha no Grupo. Clique para mostrar.':'Os outros jogadores veem esta ficha no Grupo. Clique para esconder.'}">${oc?'Escondida do grupo':'Visível no grupo'}</button><button class="btn sm ghost" data-act="zerarSessao" data-ficha="${h(f.id)}" data-confirma="Zerar?" title="Zera quedas e enlouquecimentos desta sessão">Zerar contadores</button></div>`})()}
       <div class="row"><button class="btn sm" data-act="verFicha" data-i="${i}">Ver ficha</button><span class="hint">atualizada ${new Date(x.atualizado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div></div></div>`}).join('')}</div>`}
 function escAvisos(){
   const av=(S.mesaEventos||[]).map(e=>`<div class="aviso"><div class="meta"><span>${new Date(e.criado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span><span>${h(e.agente||e.usuario)}</span>${e.elemento?elBadge(e.elemento):''}</div>
@@ -367,3 +370,10 @@ try{S.iniOcultoPadrao=!!localStorage.getItem('cristopher-ini-oculto')}catch(e){}
 document.addEventListener('input',e=>{if(e.target.id!=='ref-q')return;const q=slug(e.target.value).replace(/_/g,' ').trim();
   document.querySelectorAll('.ref-sec').forEach(d=>{const ok=!q||slug(d.dataset.busca).replace(/_/g,' ').includes(q);d.hidden=!ok;if(q&&ok)d.open=true})});
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act="refAbrir"],[data-act="refFechar"]');if(!t)return;const ab=t.dataset.act==='refAbrir';document.querySelectorAll('.ref-sec').forEach(d=>{if(!d.hidden)d.open=ab})});
+
+/* Agentes: esconder ficha do grupo, zerar contadores, janela do grupo. */
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act;
+  if(a==='fichaOcultar'){try{await Api.req('PUT',`/api/mesas/${encodeURIComponent(S.mesaAberta)}/grupo`,{ficha:t.dataset.ficha,oculta:t.dataset.v==='1'});await grupoBuscar(S.mesaAberta,true);render();toast(t.dataset.v==='1'?'Ficha escondida dos outros jogadores.':'Ficha visível no grupo de novo.')}catch(err){toast(err.message||String(err))}return}
+  if(a==='janelaGrupo'){abrirJanelaGrupo(t.dataset.m);return}});
+async function zerarSessaoMestre(ficha){try{const r=await Api.req('POST',`/api/mesas/${encodeURIComponent(S.mesaAberta)}/zerarsessao`,ficha?{ficha}:{});
+  toast(r.fichas?`Contadores zerados em ${r.fichas} ficha${r.fichas>1?'s':''}. Os jogadores recebem um aviso.`:'Nenhuma ficha ligada a esta campanha.');await atualizarMesa(true);await grupoBuscar(S.mesaAberta,true);render()}catch(err){toast(err.message||String(err))}}
