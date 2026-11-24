@@ -256,7 +256,7 @@ async function rotasMesa(req,res,u,p,m,url){
     const limpa={...nova,mesa:mesa.id,atualizado:Date.now()};delete limpa._alheia;delete limpa._dono;delete limpa._mestre;
     const txt=JSON.stringify({...doc,ficha:limpa});if(txt.length>MAX_JSON)return erro(res,413,'Ficha grande demais.');
     await db.run(Q.gravarDoc,alvo.id,docId,txt,Date.now());
-    await db.run(Q.pingAdd,mesa.id,u.id,alvo.id,Date.now(),JSON.stringify({texto:b.avisar?`O mestre está editando a ficha de ${txtCurto(limpa.nome,80)||'seu agente'}.`:'',silencioso:!b.avisar||undefined,ordem:{tipo:'fichaAtualizada',ficha:String(nova.id)}}));
+    await db.run(Q.pingAdd,mesa.id,u.id,alvo.id,Date.now(),JSON.stringify({silencioso:true,texto:'',ordem:{tipo:'fichaAtualizada',ficha:String(nova.id)}}));
     return enviar(res,200,{ok:true})}
   /* Mestre muda PV, PE (ou PD) ou SAN de um agente: grava na ficha do jogador e avisa o app dele. */
   if(sub==='/fichavital'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre altera os pontos de um agente.');const b=await lerJSON(req)||{};
@@ -268,7 +268,7 @@ async function rotasMesa(req,res,u,p,m,url){
       if(!(f.retrato&&f.retrato.morto)){const pv=+pub.pv,pvM=+pub.pvMax,sa=+pub.san,saM=+pub.sanMax;
         pub.estado=pvM&&pv<=0?'caido':!pub.det&&saM&&sa<=0?'louco':pvM&&pv<=pvM/2?'machucado':!pub.det&&saM&&sa<saM/2?'perturbado':'normal'}await db.run(Q.gravarDoc,r.usuario_id,r.doc_id,JSON.stringify(doc),Date.now());
       const rot={pv:'PV',pe:pub.det?'PD':'PE',san:'Sanidade'}[k];
-      await db.run(Q.pingAdd,mesa.id,u.id,r.usuario_id,Date.now(),JSON.stringify({texto:`O mestre mudou ${rot} de ${txtCurto(f.nome,80)||'seu agente'} para ${val}${max?'/'+max:''}.`,ordem:{tipo:'vital',ficha:fid,k,valor:val}}));
+      await db.run(Q.pingAdd,mesa.id,u.id,r.usuario_id,Date.now(),JSON.stringify({silencioso:true,texto:`O mestre mudou ${rot} de ${txtCurto(f.nome,80)||'seu agente'} para ${val}${max?'/'+max:''}.`,ordem:{tipo:'vital',ficha:fid,k,valor:val}}));
       return enviar(res,200,{ok:true,k,valor:val,max})}
     return erro(res,404,'Ficha não encontrada nesta campanha.')}
   /* Histórico de pings da campanha: o mestre vê todos; o jogador, os que mandou e os que recebeu. O mestre pode apagar qualquer um. */
@@ -283,7 +283,7 @@ async function rotasMesa(req,res,u,p,m,url){
   if(sub==='/zerarsessao'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre zera os contadores dos jogadores.');const b=await lerJSON(req)||{};const so=b.ficha?txtCurto(b.ficha,64):null;let n=0;
     for(const r of await db.all(Q.fichasDaMesaDono,mesa.id,mesa.id)){let doc;try{doc=JSON.parse(r.dados)}catch(e){continue}const f=doc&&doc.ficha;if(!f||(so&&String(f.id)!==so))continue;
       f.retrato=f.retrato||{};f.retrato.sessao={quedas:0,loucuras:0,desde:Date.now()};await db.run(Q.gravarDoc,r.usuario_id,r.doc_id,JSON.stringify(doc),Date.now());n++;
-      await db.run(Q.pingAdd,mesa.id,u.id,r.usuario_id,Date.now(),JSON.stringify({texto:`O mestre começou uma nova sessão: quedas e enlouquecimentos de ${txtCurto(f.nome,80)||'seu agente'} foram zerados.`,ordem:{tipo:'zerarSessao',ficha:String(f.id)}}))}
+      await db.run(Q.pingAdd,mesa.id,u.id,r.usuario_id,Date.now(),JSON.stringify({silencioso:true,texto:`O mestre começou uma nova sessão: quedas e enlouquecimentos de ${txtCurto(f.nome,80)||'seu agente'} foram zerados.`,ordem:{tipo:'zerarSessao',ficha:String(f.id)}}))}
     return enviar(res,200,{ok:true,fichas:n})}
   /* Mestre remove um item do inventário de um agente da campanha: grava na ficha do jogador e avisa o app dele (pelo canal do ping). */
   if(sub==='/fichaitem'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre pode mexer na ficha de outro jogador.');const b=await lerJSON(req)||{};
@@ -294,7 +294,7 @@ async function rotasMesa(req,res,u,p,m,url){
     const inv=Array.isArray(f.inventario)?f.inventario:[];const it=inv.find(x=>x&&x.uid===uid);if(!it)return erro(res,404,'O item já não está na ficha.');
     f.inventario=inv.filter(x=>x!==it);f.atualizado=Date.now();await db.run(Q.gravarDoc,alvo.id,'f-'+fid,JSON.stringify(doc),Date.now());
     const nomeIt=txtCurto(it.nome,80)||'item';
-    await db.run(Q.pingAdd,mesa.id,u.id,alvo.id,Date.now(),JSON.stringify({texto:`O mestre removeu “${nomeIt}” da ficha de ${txtCurto(f.nome,80)||'seu agente'}.`,ordem:{tipo:'rmItem',ficha:fid,uid}}));
+    await db.run(Q.pingAdd,mesa.id,u.id,alvo.id,Date.now(),JSON.stringify({silencioso:true,texto:`O mestre removeu “${nomeIt}” da ficha de ${txtCurto(f.nome,80)||'seu agente'}.`,ordem:{tipo:'rmItem',ficha:fid,uid}}));
     return enviar(res,200,{ok:true,nome:nomeIt})}
   if(sub==='/membros'&&m==='GET')return enviar(res,200,(await db.all(Q.membrosIds,mesa.id)).map(x=>({id:mestre||x.papel==='mestre'?x.id:undefined,usuario:x.usuario,papel:x.papel})));
   if(sub==='/ping'&&m==='POST'){if(pingDemais(u.id))return erro(res,429,'Calma: muitos pings seguidos. Espere alguns segundos.');

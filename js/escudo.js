@@ -376,4 +376,4 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   if(a==='fichaOcultar'){try{await Api.req('PUT',`/api/mesas/${encodeURIComponent(S.mesaAberta)}/grupo`,{ficha:t.dataset.ficha,oculta:t.dataset.v==='1'});await grupoBuscar(S.mesaAberta,true);render();toast(t.dataset.v==='1'?'Ficha escondida dos outros jogadores.':'Ficha visível no grupo de novo.')}catch(err){toast(err.message||String(err))}return}
   if(a==='janelaGrupo'){abrirJanelaGrupo(t.dataset.m);return}});
 async function zerarSessaoMestre(ficha){try{const r=await Api.req('POST',`/api/mesas/${encodeURIComponent(S.mesaAberta)}/zerarsessao`,ficha?{ficha}:{});
-  toast(r.fichas?`Contadores zerados em ${r.fichas} ficha${r.fichas>1?'s':''}. Os jogadores recebem um aviso.`:'Nenhuma ficha ligada a esta campanha.');await atualizarMesa(true);await grupoBuscar(S.mesaAberta,true);render()}catch(err){toast(err.message||String(err))}}
+  toast(r.fichas?`Contadores zerados em ${r.fichas} ficha${r.fichas>1?'s':''}.`:'Nenhuma ficha ligada a esta campanha.');await atualizarMesa(true);await grupoBuscar(S.mesaAberta,true);render()}catch(err){toast(err.message||String(err))}}

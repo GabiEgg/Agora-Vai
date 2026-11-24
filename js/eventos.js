@@ -306,7 +306,7 @@ document.addEventListener('click',e=>{
    case 'mestreRmItem':{const fa=S.alheia;if(!fa||!fa.mesa)return;const it=(fa.inventario||[]).find(x=>x.uid===ds.uid);
      Api.req('POST',`/api/mesas/${encodeURIComponent(fa.mesa)}/fichaitem`,{usuario:fa._dono,ficha:fa.id,uid:ds.uid}).then(r=>{
        fa.inventario=(fa.inventario||[]).filter(x=>x.uid!==ds.uid);const md=(S.mesaDados&&S.mesaDados.fichas||[]).find(x=>x.usuario===fa._dono&&x.ficha&&x.ficha.id===fa.id);if(md)md.ficha.inventario=(md.ficha.inventario||[]).filter(x=>x.uid!==ds.uid);
-       toast(`“${r.nome}” removido da ficha de ${fa.nome}. O jogador recebe um aviso.`);render()}).catch(e=>toast(e.message||'Não foi possível remover.'));return}
+       toast(`“${r.nome}” removido da ficha de ${fa.nome}.`);render()}).catch(e=>toast(e.message||'Não foi possível remover.'));return}
    case 'rmMod':f.inventario[+ds.i].modsAplicadas.splice(+ds.k,1);saveF();break;
    case 'usarItem':usarItem(f,+ds.i);break;
    case 'toggle':S.open[ds.id]=!S.open[ds.id];break;
