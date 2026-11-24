@@ -104,6 +104,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKe
 
 /* Ordens do mestre que chegam junto com o ping (só o servidor cria, e só a pedido do mestre da campanha). */
 function pingOrdem(p){const o=p&&p.ordem;if(!o||p.souMestre)return;
+  if(o.tipo==='vital'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa||!['pv','pe','san'].includes(o.k))return;f[o.k]=+o.valor;saveF(f);if(F()===f)render();return}
   if(o.tipo==='zerarSessao'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;f.retrato=f.retrato||{};f.retrato.sessao={quedas:0,loucuras:0,desde:Date.now()};saveF(f);if(F()===f)render();return}
   if(o.tipo==='rmItem'){const f=S.fichas[o.ficha];if(!f||f.mesa!==p.mesa)return;const antes=(f.inventario||[]).length;f.inventario=(f.inventario||[]).filter(x=>x.uid!==o.uid);
     if(f.inventario.length!==antes){saveF(f);if(F()===f)render()}}}

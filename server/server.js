@@ -247,6 +247,19 @@ async function rotasMesa(req,res,u,p,m,url){
     const cfg=await lerCfgMesa(mesa.id);if(b.modo!==undefined)cfg.grupo=modoGrupo(b.modo);
     if(b.ficha!==undefined){const fid=txtCurto(b.ficha,64);if(!/^[\w-]{1,64}$/.test(fid))return erro(res,400,'Ficha inválida.');const l=new Set(Array.isArray(cfg.fichasOcultas)?cfg.fichasOcultas:[]);if(b.oculta)l.add(fid);else l.delete(fid);cfg.fichasOcultas=[...l].slice(0,200)}
     await db.run(Q.cfgMesaSet,mesa.id,JSON.stringify(cfg),Date.now());return enviar(res,200,{ok:true,modo:modoGrupo(cfg.grupo),fichasOcultas:cfg.fichasOcultas||[]})}
+  /* Mestre muda PV, PE (ou PD) ou SAN de um agente: grava na ficha do jogador e avisa o app dele. */
+  if(sub==='/fichavital'&&m==='POST'){if(!mestre)return erro(res,403,'Só o mestre altera os pontos de um agente.');const b=await lerJSON(req)||{};
+    const fid=txtCurto(b.ficha,64);const k=['pv','pe','san'].includes(b.k)?b.k:null;const v=Math.round(+b.valor);if(!fid||!k||!Number.isFinite(v))return erro(res,400,'Pedido inválido.');
+    for(const r of await db.all(Q.fichasDaMesaDono,mesa.id,mesa.id)){let doc;try{doc=JSON.parse(r.dados)}catch(e){continue}const f=doc&&doc.ficha;if(!f||String(f.id)!==fid)continue;
+      const pub=f.publico=f.publico||{};const max=Math.round(+pub[k+'Max'])||null;const val=Math.max(k==='pv'?(max?-max:-999):0,Math.min(max||9999,v));
+      f[k]=val;pub[k]=val;f.atualizado=Date.now();
+      /* Estado do retrato já atualizado (o app do jogador refina ao abrir: condições manuais etc.). */
+      if(!(f.retrato&&f.retrato.morto)){const pv=+pub.pv,pvM=+pub.pvMax,sa=+pub.san,saM=+pub.sanMax;
+        pub.estado=pvM&&pv<=0?'caido':!pub.det&&saM&&sa<=0?'louco':pvM&&pv<=pvM/2?'machucado':!pub.det&&saM&&sa<saM/2?'perturbado':'normal'}await db.run(Q.gravarDoc,r.usuario_id,r.doc_id,JSON.stringify(doc),Date.now());
+      const rot={pv:'PV',pe:pub.det?'PD':'PE',san:'Sanidade'}[k];
+      await db.run(Q.pingAdd,mesa.id,u.id,r.usuario_id,Date.now(),JSON.stringify({texto:`O mestre mudou ${rot} de ${txtCurto(f.nome,80)||'seu agente'} para ${val}${max?'/'+max:''}.`,ordem:{tipo:'vital',ficha:fid,k,valor:val}}));
+      return enviar(res,200,{ok:true,k,valor:val,max})}
+    return erro(res,404,'Ficha não encontrada nesta campanha.')}
   /* Histórico de pings da campanha: o mestre vê todos; o jogador, os que mandou e os que recebeu. O mestre pode apagar qualquer um. */
   if(sub==='/pings'&&m==='GET'){const lista=await db.all(Q.pingHist,mesa.id);
     const out=[];for(const x of lista){const meu=x.de_id===u.id;const paraMim=x.para===u.id||(x.para==='todos'&&!mestre)||(x.para==='mestre'&&mestre);

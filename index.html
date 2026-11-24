@@ -552,7 +552,7 @@ body[data-elem]:not([data-elem=""]){background:var(--bg)}
 .ping-lista .ping-del{position:absolute;top:6px;right:6px}
 
 /* ---------- Janela do grupo ---------- */
-body.janela>*:not(#janela):not(#modal):not(.jan-opcoes){display:none!important}body.janela{padding:10px;background:var(--bg)}
+body.janela>*:not(#janela):not(#modal):not(.jan-opcoes):not(.jan-pop):not(.toast){display:none!important}body.janela{padding:10px;background:var(--bg)}
 #janela{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
 .jan-msg{color:var(--muted);text-align:center;width:100%;margin:40px 0}
 .jan-card{display:flex;gap:10px;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:220px;flex:1 1 220px;max-width:320px}
@@ -584,11 +584,11 @@ body[data-jan-tam="p"] .js-ag{--t:.7}body[data-jan-tam="g"] .js-ag{--t:1.4}
 .js-num{font-size:calc(46px*var(--t));font-weight:600;letter-spacing:.5px;white-space:nowrap;font-variant-numeric:lining-nums;-webkit-text-stroke:.5px rgba(0,0,0,.35)}
 .js-num.pv{color:#ffd0d4;text-shadow:0 0 10px rgba(255,60,80,.85),0 0 2px #7a0010,0 2px 4px #000}
 .js-num.san{color:#eef3ff;text-shadow:0 0 10px rgba(120,170,255,.9),0 0 2px #10306a,0 2px 4px #000}
-.js-num.pd{color:#ecd9ff;text-shadow:0 0 10px rgba(170,90,255,.9),0 0 2px #3a0a6a,0 2px 4px #000}
+.js-num.pd{color:#eef3ff;text-shadow:0 0 10px rgba(120,170,255,.9),0 0 2px #10306a,0 2px 4px #000}
 .js-pe{position:absolute;left:calc(0px*var(--t));bottom:calc(6px*var(--t));font-size:calc(40px*var(--t))}
 .js-num.pe{color:#d8ffe0;text-shadow:0 0 10px rgba(60,220,120,.9),0 0 2px #0a4a20,0 2px 4px #000}
 .js-bar{display:block;width:calc(120px*var(--t));height:calc(8px*var(--t));border-radius:4px;background:rgba(0,0,0,.45);margin:calc(10px*var(--t)) 0;overflow:hidden;box-shadow:0 0 6px rgba(0,0,0,.6)}
-.js-bar i{display:block;height:100%;transition:width .8s}.js-bar.pv i{background:#ff5a6a}.js-bar.san i{background:#8fb8ff}.js-bar.pd i{background:#b47cf2}
+.js-bar i{display:block;height:100%;transition:width .8s}.js-bar.pv i{background:#ff5a6a}.js-bar.san i{background:#8fb8ff}.js-bar.pd i{background:#8fb8ff}
 .js-est{position:absolute;left:calc(150px*var(--t));top:calc(40px*var(--t));width:calc(28px*var(--t));height:calc(28px*var(--t));border-radius:50%;display:grid;place-items:center;color:var(--ic);background:rgba(0,0,0,.6);border:1.5px solid var(--ic);box-shadow:0 0 8px var(--ic)}
 .js-ag.est-normal .js-est{opacity:0}
 .js-nome{position:absolute;left:calc(180px*var(--t));top:calc(30px*var(--t));font-size:calc(18px*var(--t));color:#f3f0ea;text-shadow:0 1px 4px #000;font-weight:600}
@@ -599,6 +599,16 @@ body[data-jan-tam="p"] .js-ag{--t:.7}body[data-jan-tam="g"] .js-ag{--t:1.4}
 .js-ag.est-morto .js-arte img{filter:grayscale(1) brightness(.45) contrast(1.2)}
 .js-ag.est-caido .js-est,.js-ag.est-louco .js-est{animation:janPulsa 1.4s ease-in-out infinite}
 .js-ag.mudou .js-arte{animation:janMudaS .9s ease-out}@keyframes janMudaS{40%{filter:brightness(1.6)}}
+
+/* ---------- Janela: edição do mestre ---------- */
+.js-nums,.js-pe,.js-est,.js-nome{z-index:1}
+button.js-num{background:none;border:0;padding:0;margin:0;cursor:pointer;font-family:inherit;line-height:inherit;text-align:left}button.js-num:hover,button.js-num:focus-visible{outline:2px dashed rgba(255,255,255,.55);outline-offset:2px;border-radius:4px}
+.js-num{display:block}.js-pe{display:inline}
+.jan-ed-wrap{display:flex;gap:4px;align-items:flex-end}.jan-ed-wrap .ret-bar{flex:1}
+.jan-ed-mini{all:unset;cursor:pointer;font-size:12px;color:var(--muted);padding:0 2px;opacity:.6}.jan-ed-mini:hover,.jan-ed-mini:focus-visible{opacity:1;color:var(--accent)}
+.jan-pop{position:fixed;z-index:20;display:flex;gap:6px;align-items:flex-end;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.jan-pop label{display:grid;gap:2px;font-size:12px}.jan-pop input{font:inherit;font-size:15px;width:150px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink)}
+body.janela .jan-pop{display:flex!important}body.janela .jan-pop[hidden]{display:none!important}
 </style>
 
 <div class="wrap">

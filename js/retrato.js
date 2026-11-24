@@ -92,7 +92,7 @@ function grupoCard(x){const s=x.sessao||{};
 function grupoFaixa(f){if(!f||f._alheia||!f.mesa||!(S.conta&&S.conta.usuario))return '';
   const g=S.grupo[f.mesa];if(!g){grupoBuscar(f.mesa);return ''}const r=g.r;if(!r||r.modo==='oculto')return '';
   const outros=(r.membros||[]).filter(x=>x.id!==f.id);if(!outros.length)return '';
-  return `<div class="grupo-faixa" aria-label="Grupo da campanha"><span class="eyebrow">Grupo <button class="btn sm ghost" data-act="janelaGrupo" data-m="${h(f.mesa)}" title="Abre uma janela só com os retratos do grupo">Abrir em janela</button></span><div class="grupo-lista">${outros.map(grupoCard).join('')}</div></div>`}
+  return `<div class="grupo-faixa" aria-label="Grupo da campanha"><span class="eyebrow">Grupo</span><div class="grupo-lista">${outros.map(grupoCard).join('')}</div></div>`}
 /* Mestre: escolhe o que os jogadores veem (Escudo → Agentes). */
 function grupoModoSel(mid){const g=S.grupo[mid];if(!g){grupoBuscar(mid);return ''}const modo=(g.r&&g.r.modo)||'barras';
   return `<label class="row grupo-modo" style="gap:6px;font-size:13px">Os jogadores veem do grupo: <select class="inp" data-grupo-modo="${h(mid)}">${GRUPO_MODOS.map(([k,l])=>opt(k,l,modo)).join('')}</select></label>`}
