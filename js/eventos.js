@@ -288,9 +288,24 @@ document.addEventListener('click',e=>{
      saveF();toast(msgs.join(' · ')||d.nome+' usado.');break}
    case 'usarHab':{const r=calc(f);const donos=[r.t,r.c,r.versHab&&r.versHab.t,...Object.values(r.dominar||{}).map(z=>z.t)].filter(Boolean);const x=r.habs.find(h=>donos.some(dn=>r.hk(dn,h)===ds.k));if(!x||!x.acao)return;const ac=x.acao;const idx=Math.max(0,r.nTrilha-1);
      const pe=Array.isArray(ac.pe)?ac.pe[Math.min(idx,ac.pe.length-1)]:ac.pe;const cura=Array.isArray(ac.cura)?ac.cura[Math.min(idx,ac.cura.length-1)]:ac.cura;
-     if(pe&&gastarPE(f,pe,ac.nome||x.nome)===false)return;saveF();
+     const nm=ac.nome||x.nome;const det=r.det?'PD':'PE';
+     if(ac.metade){modal(nm+': reduzir dano à metade',`<div class="modal-b"><p class="hint" style="margin:0">Digite o dano que você sofreu (antes de reduzir). O app gasta ${pe} ${det} e devolve a metade dos PV.</p>
+       <label class="fld"><span>Dano sofrido</span><input class="inp num" type="number" min="1" id="hab-dano" inputmode="numeric"></label>
+       <div class="row"><button class="btn acc" data-act="habMetade" data-k="${h(ds.k)}" data-pe="${pe}">Reduzir (−${pe} ${det})</button></div></div>`);setTimeout(()=>{const el=document.getElementById('hab-dano');if(el)el.focus()},50);return}
+     if(ac.pvCusto){if(r.pv<=ac.pvCusto){toast(`PV insuficientes: precisa de mais de ${ac.pvCusto} PV.`);return}f.pv=r.pv-ac.pvCusto;if(ac.san1)f.san=Math.max(1,r.san);saveF();toast(`${nm}: −${ac.pvCusto} PV${ac.san1?', Sanidade fica em '+f.san:''}`,5000);break}
+     if(pe&&gastarPE(f,pe,nm)===false)return;
+     const msgs=[`${nm}${pe?': −'+pe+' '+det:''}`];
+     if(ac.pv1){f.pv=Math.max(1,calc(f).pv);if(f.contadores)delete f.contadores.morrendo;msgs.push('fica com '+f.pv+' PV')}
+     if(ac.bonus){const bb=ac.bonus;const ef=JSON.parse(JSON.stringify(bb.ef||{}));
+       if(bb.dadosTodos){const n=Array.isArray(bb.dadosTodos)?bb.dadosTodos[Math.min(idx,bb.dadosTodos.length-1)]:bb.dadosTodos;ef.dadosPer=Object.fromEntries(pericias().map(p=>[p.id,n]));ef.nota=`+${n}d20 em testes de perícia`}
+       f.bonus=(f.bonus||[]).filter(b=>b.nome!==(bb.nome||nm));(f.bonus=f.bonus||[]).push({uid:uid(),tipo:'efeito',ritual:false,nome:bb.nome||nm,ef,dur:bb.dur||'cena'});msgs.push('efeito na aba Bônus')}
+     if(ac.lembrete)msgs.push(ac.lembrete);
+     saveF();if(!cura)toast(msgs.join(' · '),5000);
      if(cura){const v=rollExpr(cura,r.A);pushRoll({t:`${ac.nome||x.nome}: cura`,v:v.total,d:v.txt,acts:[{l:'Aplicar em mim',a:'curaEmMim',v:v.total}]})}
      break}
+   case 'habMetade':{const d=Math.max(0,Math.floor(+((document.getElementById('hab-dano')||{}).value||0)));if(!d){toast('Digite o dano sofrido.');return}
+     const pe=+ds.pe||0;if(pe&&gastarPE(f,pe,'Reduzir dano')===false)return;const volta=d-Math.floor(d/2);const r=calc(f);f.pv=Math.min(r.pvMax,r.pv+volta);if(f.pv>0&&f.contadores)delete f.contadores.morrendo;
+     saveF();closeModal();toast(`Dano ${d} reduzido à metade (${Math.floor(d/2)}): +${volta} PV de volta`,5000);break}
    case 'perito':{const l=f.perito=f.perito||[];const i=l.indexOf(ds.id);if(i>=0)l.splice(i,1);else{const pm=calc(f).peritoMax||2;if(l.length>=pm){toast(`Perito: escolha só ${pm} perícias.`);return}l.push(ds.id)}saveF();break}
    case 'rmRit':f.rituais=f.rituais.filter(x=>x!==ds.id);if(f.grimorio)f.grimorio=f.grimorio.filter(x=>x!==ds.id);saveF();break;
    case 'castModal':castModal(ds.id);return;
@@ -311,13 +326,13 @@ document.addEventListener('click',e=>{
    case 'rmMod':f.inventario[+ds.i].modsAplicadas.splice(+ds.k,1);saveF();break;
    case 'usarItem':usarItem(f,+ds.i);break;
    case 'monstroDia':{const r=calc(f);const t=r.t;const e=f.trilhaElemento;if(!t||!MONSTRO_ACAO[t.id]||!e)return;const n=Math.max(1,r.nTrilha);
-     const o=monstroDiario(t.id,e,n,r.A);const nome=`${MONSTRO_ACAO[t.id]} (${ELEM[e]})`;const msgs=[nome];
+     const o=monstroDiario(t.id,e,n,r.A);const perm=t.id==='monstruoso'&&n>=4;const nome=perm?`Ser Aterrorizante (${ELEM[e]}): efeitos permanentes`:`${MONSTRO_ACAO[t.id]} (${ELEM[e]})`;const msgs=[nome];
      f.bonus=(f.bonus||[]).filter(b=>!b.monstro);
      if(o.cura)msgs.push(curaPV(f,o.cura,'Experimento'));if(o.pvTemp)msgs.push(darTemp(f,'pv',o.pvTemp,'Experimento'));
      if(o.pe){const x=rollExpr(o.pe,r.A);const c=calc(f);const antes=c.pe;f.pe=Math.min(c.peMax,c.pe+x.total);msgs.push(`+${f.pe-antes} ${r.det?'PD':'PE'} (${o.pe}: ${x.total})`)}
      const ef={...o.ef};if(o.notas.length)ef.nota=o.notas.join(' · ');
-     (f.bonus=f.bonus||[]).push({uid:uid(),tipo:'efeito',ritual:false,monstro:true,nome,ef,itemEf:o.itemEf,dur:'dia'});
-     saveF();toast(msgs.join(' · ')+' — efeitos na aba Bônus até o fim do dia',6000);break}
+     (f.bonus=f.bonus||[]).push({uid:uid(),tipo:'efeito',ritual:false,monstro:true,nome,ef,itemEf:o.itemEf,dur:perm?'perm':'dia'});
+     saveF();toast(msgs.join(' · ')+(perm?' — efeitos permanentes na aba Bônus':' — efeitos na aba Bônus até o fim do dia'),6000);break}
    case 'efAdd':{const it=f.inventario[+ds.i];(it.efeitos=it.efeitos||[]).push({t:ds.t||'attr',k:'',v:''});saveF();break}
    case 'efRm':{const it=f.inventario[+ds.i];(it.efeitos||[]).splice(+ds.k,1);if(+it.efEscolha>=(it.efeitos||[]).length)it.efEscolha=0;saveF();break}
    case 'toggle':S.open[ds.id]=!S.open[ds.id];break;

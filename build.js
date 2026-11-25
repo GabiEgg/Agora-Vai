@@ -65,10 +65,17 @@ out.regras.forEach(r=>{delete r.sempre});
 const EL4=(a,b,c,d)=>({sangue:a,morte:b,conhecimento:c,energia:d});
 const PE_EL=EL4('FOR','VIG','INT','AGI');
 const UM=EL4({FOR:1},{VIG:1},{INT:1},{AGI:1});
+/* Penalidade social (Diplomacia, Enganação, Intuição): –2 → –5 (NEX 40) → –1d20 (65) → –2d20 (99). */
+const SOC=['diplomacia','enganacao','intuicao'];
+const PEN5=SOC.map(k=>({alvo:'per:'+k,valor:-3})),PEN_D=Object.fromEntries(SOC.map(k=>[k,-1])),VOLTA5=SOC.map(k=>({alvo:'per:'+k,valor:5}));
 const AJUSTES={
- monstruoso:[{},{peAttrElem:PE_EL,attrElem:EL4({},{},{INT:1},{})},{attrBonus:{PRE:-1}},{attrElem:EL4({INT:-1,FOR:1},{PRE:-1,VIG:1},{FOR:-1,INT:1},{FOR:-1,AGI:1})}],
- monstruoso_especialista:[{peAttrElem:PE_EL},{},{attrBonus:{PRE:-1},attrElem:UM},{attrBonus:{PRE:-1},attrElem:UM}],
- monstruoso_ocultista:[{peAttrElem:PE_EL,dtAttrElem:PE_EL,attrElem:UM},{},{attrBonus:{PRE:-1}},{attrBonus:{PRE:-1},attrElem:UM}],
+ /* Combatente: os efeitos do elemento (inclusive o +1 Int de Conhecimento) vêm do ritual diário; em NEX 99 ficam permanentes. */
+ monstruoso:[{},{peAttrElem:PE_EL},{attrBonus:{PRE:-1}},{attrElem:EL4({INT:-1,FOR:1},{PRE:-1,VIG:1},{FOR:-1,INT:1},{FOR:-1,AGI:1}),
+   ritConcedidoElem:EL4(['rit_forma_monstruosa'],['rit_fim_inevitavel'],[],['rit_deflagracao_de_energia'])}],
+ /* Especialista: o +1 no atributo de NEX 65/99 faz parte do experimento do dia (botão). */
+ monstruoso_especialista:[{peAttrElem:PE_EL},{mods:PEN5},{attrBonus:{PRE:-1},mods:VOLTA5,dadosPer:PEN_D},
+   {attrBonus:{PRE:-1},dadosPer:PEN_D,ritConcedidoElem:EL4(['rit_vinculo_de_sangue'],['rit_distorcao_temporal'],['rit_controle_mental'],['rit_teletransporte'])}],
+ monstruoso_ocultista:[{peAttrElem:PE_EL,dtAttrElem:PE_EL,attrElem:UM},{mods:PEN5},{attrBonus:{PRE:-1},mods:VOLTA5,dadosPer:PEN_D,dtElemTrilha:2},{attrBonus:{PRE:-1},attrElem:UM,dadosPer:PEN_D}],
 };
 /* Bloqueio e esquiva: atributo somado à RD do bloqueio e bônus de itens. */
 {const tr=t=>out.trilhas.find(x=>x.id===t);const cg=tr('tropa');if(cg)cg.habilidades[0].bloqueioAttr='VIG';const mo=tr('monstruoso');if(mo)mo.habilidades[0].bloqueioAttrElem={energia:'AGI'};}
@@ -96,9 +103,38 @@ const HAB={
  esoterico:[{},{ritExtra:1}],
  muambeiro:[{},{},{treinaOu2:'profissao',treinaValor:5}],
  granadeiro_blaster:[{treinaOu2:'profissao',treinaValor:5}],
- incursor:[{treinaOu2:'pontaria'}],
+ incursor:[{treinaOu2:'pontaria'},{acao:{pe:1,lembrete:'implanta mina ou carga de arrombamento com ação de movimento'}},{acao:{pe:2,lembrete:'vira o alvo no lugar do refém (+2 PE para reduzir o dano à metade)'}},{acao:{pe:5,lembrete:'marca o alvo-prioritário'}}],
+ /* Botões "Usar": gastam o PE na hora e lembram o efeito (lembrete), aplicam bônus na aba Bônus (bonus),
+    reduzem um dano à metade (metade), deixam com 1 PV (pv1) ou trocam PV por Sanidade (pvCusto/san1). */
+ comandante:[{acao:{pe:2,lembrete:'um aliado em alcance curto rola de novo o teste'}},{},{acao:{pe:2,lembrete:'você ou um aliado ataca o inimigo'}},{acao:{pe:5,lembrete:'aliados que você vê em alcance médio ganham uma ação padrão'}}],
+ opesp:[{},{acao:{pe:2,lembrete:'ataque adicional'}},{acao:{pe:5,lembrete:'ação padrão ou de movimento adicional'}}],
+ negociador:[{acao:{pe:1,lembrete:'por alvo: Diplomacia, Enganação ou Intimidação contra Vontade'}},{acao:{pe:[4,4,8,8],bonus:{nome:'Discurso Motivador',dadosTodos:[1,1,2,2],dur:'cena'},lembrete:'aliados em alcance curto também recebem'}},{},{acao:{pe:5,lembrete:'simula uma habilidade de aliado (pague os custos dela)'}}],
+ perseverante:[{acao:{pe:2,lembrete:'rola de novo um dado do teste e fica com o melhor'}},{},{acao:{pe:5,lembrete:'remove uma condição de medo, mental ou de paralisia'}},{acao:{pe:5,pv1:true,rotulo:'Ficar com 1 PV'}}],
+ possuido:[{},{acao:{pe:2,bonus:{nome:'As Sombras Dentro de Mim',ef:{dadosPer:{acrobacia:1,atletismo:1,furtividade:1}},dur:'rodadas'}}}],
+ parapsicologo:[{acao:{pe:2,lembrete:'troca a resistência contra dano mental por Profissão (psicólogo)'}},{},{acao:{pe:5,lembrete:'a pessoa recebe o poder até o próximo interlúdio'}},{acao:{pe:5,lembrete:'remove condições de medo ou mentais de pessoa adjacente'}}],
+ durao:[{},{acao:{pe:1,lembrete:'+1d20 no ataque'}}],
+ maledictologo:[{acao:{pe:1,lembrete:'+1d10 para identificar'}},{acao:{pe:3,lembrete:'estudo do item amaldiçoado'}},{acao:{pe:3,lembrete:'memoriza ou aplica a maldição'}}],
+ performatico:[{},{acao:{pe:2,lembrete:'o multiplicador do crítico vira sua Presença'}},{},{acao:{rotulo:'Início do combate: +5 Defesa',bonus:{nome:'Ritmo Contagiante',ef:{defesa:5,nota:'+1 por crítico seu: ajuste no campo de Defesa se precisar'},dur:'cena'}}}],
+ piloto_drone:[{},{acao:{pe:3,lembrete:'o drone evita o efeito negativo'}},{acao:{pe:3,lembrete:'tenta de novo o teste com o drone'}}],
+ bibliotecario:[{acao:{pe:2,lembrete:'usa Intelecto no teste'}}],
+};
+/* Mais botões em trilhas que já têm efeitos automáticos (mesclados por posição). */
+const HAB2={
+ guerreiro:[{},{acao:{pe:2,lembrete:'ataque corpo a corpo no atacante'}},{acao:{pe:1,lembrete:'derrubar ou empurrar como ação livre'}}],
+ tropa:[{},{acao:{pe:1,lembrete:'o oponente faz Vontade; se falhar, ataca você'}},{acao:{pe:2,metade:true,rotulo:'Reduzir dano à metade'}}],
+ atirador:[{},{acao:{pe:1,bonus:{nome:'Disparo Letal',ef:{margem:2},dur:'rodadas'},lembrete:'até o fim do seu próximo turno'}},{acao:{pe:2,lembrete:'derrubar, desarmar, empurrar ou quebrar em vez de dano'}}],
+ infiltrador:[{},{},{acao:{pe:3,lembrete:'o próximo Ataque Furtivo no alvo dobra os dados extras'}},{acao:{pe:3,lembrete:'sem a penalidade de –3d20 em Furtividade'}}],
+ medico:[{},{acao:{pe:2,lembrete:'remove uma condição negativa de aliado adjacente'}},{},{acao:{pe:10,lembrete:'traz de volta quem morreu nesta cena'}}],
+ tecnico:[{},{acao:{pe:1,lembrete:'remove a condição quebrado até o fim da cena'}}],
+ flagelador:[{},{acao:{pe:2,metade:true,rotulo:'Reduzir dano à metade'}}],
+ lamina:[{},{},{acao:{pe:2,lembrete:'ataque corpo a corpo como ação livre'}}],
+ exorcista:[{},{acao:{pe:2,lembrete:'repete a resistência com Religião'}},{acao:{pe:2,lembrete:'soma o efeito de um catalisador ritualístico'}},{acao:{pvCusto:10,san1:true,rotulo:'Pagar 10 PV: SAN 1'}}],
+ esperto:[{},{acao:{pe:1,lembrete:'+1d4 numa das perícias escolhidas'}}],
+ esoterico:[{acao:{pe:1,lembrete:'sente energias paranormais em alcance curto'}}],
+ muambeiro:[{treinaOu2:'profissao',treinaValor:0}],
 };
 out.trilhas.forEach(t=>{const aj=HAB[t.id];if(aj)t.habilidades.forEach((h,i)=>Object.assign(h,aj[i]||{}))});
+out.trilhas.forEach(t=>{const aj=HAB2[t.id];if(aj)t.habilidades.forEach((h,i)=>Object.assign(h,aj[i]||{}))});
 const HAB_CLASSE={combatente:{'Ataque Especial':{ataqueEspecial:true}},especialista:{'Perito':{perito:true}}};
 out.classes.forEach(c=>{const aj=HAB_CLASSE[c.id];if(aj)c.habilidades.forEach(h=>Object.assign(h,aj[h.nome]||{}))});
 const POD={

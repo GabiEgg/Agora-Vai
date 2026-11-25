@@ -156,11 +156,11 @@ function calc0(f){
   r.danoForma={};flags.forEach(x=>Object.entries(x.danoForma||{}).forEach(([k,v])=>r.danoForma[k]=(r.danoForma[k]||0)+v));
   r.danoAttrForma={};flags.forEach(x=>Object.assign(r.danoAttrForma,x.danoAttrForma||{}));
   r.danoAttrMunicao=flags.filter(x=>x.danoAttrMunicao).map(x=>x.danoAttrMunicao);
-  r.dtElem={};flags.forEach(x=>{if(x.dtElem&&x.escolha)r.dtElem[x.escolha]=(r.dtElem[x.escolha]||0)+x.dtElem});Object.entries(ie.ritDt).forEach(([k,v])=>r.dtElem[k]=(r.dtElem[k]||0)+v);
+  r.dtElem={};flags.forEach(x=>{if(x.dtElem&&x.escolha)r.dtElem[x.escolha]=(r.dtElem[x.escolha]||0)+x.dtElem});Object.entries(ie.ritDt).forEach(([k,v])=>r.dtElem[k]=(r.dtElem[k]||0)+v);flags.forEach(x=>{if(x.dtElemTrilha&&f.trilhaElemento)r.dtElem[f.trilhaElemento]=(r.dtElem[f.trilhaElemento]||0)+x.dtElemTrilha});
   r.ritDanoAttrs=flags.filter(x=>x.ritDanoAttr).map(x=>x.ritDanoAttr);
   r.imuneCond=new Set([...flags.flatMap(x=>x.imuneCond||[]),...imuneEf]);
   r.bonusTeste=flags.filter(x=>x.bonusTeste).flatMap(x=>[].concat(x.bonusTeste));
-  r.ritConcedidos=[...new Set(flags.flatMap(x=>x.ritConcedido||[]).concat(f.inventario.filter(i=>i.equipado&&i.ritConcedido).flatMap(i=>i.ritConcedido)))];
+  r.ritConcedidos=[...new Set(flags.flatMap(x=>(x.ritConcedido||[]).concat(x.ritConcedidoElem&&f.trilhaElemento?x.ritConcedidoElem[f.trilhaElemento]||[]:[])).concat(f.inventario.filter(i=>i.equipado&&i.ritConcedido).flatMap(i=>i.ritConcedido)))];
   r.ataqueOcultismo=flags.some(x=>x.ataqueOcultismo);r.gladiador=maxF('gladiador');r.critMaxFogo=flags.some(x=>x.critMaxFogo);
   r.furtivo=flags.some(x=>x.furtivo);r.ataqueEspecial=flags.some(x=>x.ataqueEspecial);r.perito=flags.some(x=>x.perito);r.peritoMax=2+flags.filter(x=>x.peritoExtra).length;
   r.catRedGeral=maxF('catRedGeral');r.castExtra=flags.flatMap(x=>x.castExtra||[]);
@@ -252,7 +252,7 @@ function calc0(f){
   aliados.forEach(({a,d})=>{const b=d.bonusEf||{};(b.treina||[]).forEach(id=>auto[id]=auto[id]||'aliado');(a.escolhas||[]).forEach(id=>auto[id]=auto[id]||'aliado')});
   const extra2={};
   flags.forEach(x=>{let id=x.treinaOu2;if(!id)return;if(id==='pericia')id=x.escolha;if(!id)return;
-    if(auto[id]||(+f.pericias[id]||0)>=5)extra2[id]=(extra2[id]||0)+(x.treinaValor||2);else auto[id]=x.treinaOu2==='pericia'?'escolha':'habilidade'});
+    if(auto[id]||(+f.pericias[id]||0)>=5)extra2[id]=(extra2[id]||0)+(x.treinaValor??2);else auto[id]=x.treinaOu2==='pericia'?'escolha':'habilidade'});
   r.auto=auto;r.per={};
   const perAttr={};flags.forEach(x=>{if(x.perAttr)Object.assign(perAttr,x.perAttr)});
   const somaAttr={};flags.forEach(x=>{if(x.somaAttrPer)Object.assign(somaAttr,x.somaAttrPer)});
@@ -417,9 +417,10 @@ function monstroDiario(tid,e,n,A){const o={ef:{},itemEf:[],notas:[],cura:'',pvTe
     o.ef.dadosPer=Object.fromEntries(({sangue:['ciencias','intuicao'],morte:['diplomacia','enganacao'],conhecimento:['atletismo','acrobacia'],energia:['investigacao','percepcao']}[e]||[]).map(k=>[k,pen]));
     if(e==='sangue'){nota('faro; soma Vigor no dano de contra-ataque');if(n>=2)nota('ação de movimento: cura 1d8 PV por PE gasto');if(n>=3)nota('50% de chance de ignorar críticos e ataques furtivos; mordida 1d8 (1 PE para ataque extra)')}
     if(e==='morte'){o.ef.imune=['fatigado'];if(A.FOR)o.itemEf.push({t:'pv',v:A.FOR});if(n>=2){o.ef.dadosPer.intimidacao=1;nota('só morre após 4 turnos morrendo')}if(n>=3)nota('ao morrer, Vigor DT 15 para levantar com 1 PV; recupera 2 PE em críticos e abates')}
-    if(e==='conhecimento'){nota('visão no escuro');if(A.INT)o.ef.defesa=A.INT}
+    if(e==='conhecimento'){nota('visão no escuro');if(A.INT)o.ef.defesa=A.INT;if(n>=2)o.itemEf.push({t:'attr',k:'INT',v:1});if(n>=3)nota('troca uma perícia treinada por dados de bônus iguais ao Intelecto')}
     if(e==='energia'){nota('soma Agilidade na RD do bloqueio');if(n>=2)nota('ao acertar corpo a corpo: PE (até Agilidade) para +1d6 de Energia cada');if(n>=3)nota('drena PE de fontes elétricas')}}
   else if(tid==='monstruoso_especialista'){o.cura=`${n}d8+${n}`;
+    if(n>=3)o.itemEf.push({t:'attr',k:{sangue:'FOR',morte:'VIG',conhecimento:'INT',energia:'AGI'}[e],v:n>=4?2:1});
     if(e==='sangue'){nota(n>=4?'tamanho Enorme':'tamanho Grande');if(n>=2){o.itemEf.push({t:'danoArma',k:'',v:'1d6'},{t:'rd',k:'',v:2});nota('dano de Sangue e RD aumentam por ponto de Intelecto devorado')}if(n>=3)nota('+1d8 em ataques corpo a corpo; ataque desarmado extra por 1 PE')}
     if(e==='morte'){o.pvTemp=n>=4?'4d6':'2d6';nota(n>=4?'duas ações padrão extras por cena':'uma ação padrão extra por cena');if(n>=2)nota('+1 turno morrendo; 2d8 PV temporários por cena (mais por Força necrosada)');if(n>=3)nota('3 PE: envelhece itens (50 de dano) ou vê o passado deles')}
     if(e==='conhecimento'){nota(n>=4?'expert em três perícias à escolha':'treinado em duas perícias à escolha');if(n>=2)nota('+1d6 em testes de Intelecto (mais por Agilidade inexistida)');if(n>=3)nota('3 PE: Detecção de Ameaças discente em si ou efeito mental em outro')}
