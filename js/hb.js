@@ -206,9 +206,10 @@ function castModal(id){
   const temEf=x.ef||x.efD||x.efV;const pode=n=>{const m=String(n==='d'?x.discente:x.verdadeiro).match(/Requer (\d)º/);return !m||+m[1]<=r.circ};
   modal('Conjurar '+x.nome,`<div class="modal-b">
    ${(f.grimorio||[]).includes(x.id)?`<p class="alert" style="margin:0"><b>Ritual do grimório:</b> empunhe o grimório e gaste uma <b>ação completa</b> folheando antes de conjurar.</p>`:''}
-   <div class="meta"><span>${x.circulo}º círculo</span><span>DT ${r.dt+(r.dtElem[x.elemento]||0)}${r.dtElem[x.elemento]?' (Especialista em Elemento)':''}</span><span>Limite por turno ${r.peLimRit} ${r.det?'PD':'PE'}</span>${x.duracao?`<span>${h(x.duracao)}</span>`:''}</div>
-   <div class="row" role="radiogroup" aria-label="Forma">${[['n','Normal',custo],dis&&['d','Discente',custo+ +dis],ver&&['v','Verdadeiro',custo+ +ver]].filter(Boolean).map(([k,l,c],i)=>`<label class="btn sm"><input type="radio" name="forma" value="${k}" data-c="${c}" ${i?'':'checked'} ${k!=='n'&&!pode(k)?'disabled':''}> ${l} · ${c+r.custoExtra} ${r.det?'PD':'PE'}</label>`).join('')}</div>
+   <div class="meta"><span>${x.circulo}º círculo</span><span>DT ${r.dt+(r.dtElem[x.elemento]||0)}${r.dtElem[x.elemento]?' (bônus de elemento)':''}</span><span>Limite por turno ${r.peLimRit} ${r.det?'PD':'PE'}</span>${x.duracao?`<span>${h(x.duracao)}</span>`:''}</div>
+   <div class="row" role="radiogroup" aria-label="Forma">${[['n','Normal',custo],dis&&['d','Discente',custo+ +dis],ver&&['v','Verdadeiro',custo+ +ver]].filter(Boolean).map(([k,l,c])=>[k,l,ritCustoAj(r,x,c)]).map(([k,l,c],i)=>`<label class="btn sm"><input type="radio" name="forma" value="${k}" data-c="${c}" ${i?'':'checked'} ${k!=='n'&&!pode(k)?'disabled':''}> ${l} · ${c+r.custoExtra} ${r.det?'PD':'PE'}</label>`).join('')}</div>
    ${r.custoExtra?`<p class="hint">Inclui +${r.custoExtra} por condição (alquebrado).</p>`:''}
+   ${ritEfDe(r.ie.ritCusto,x).length?`<p class="hint">Custo ajustado por item: ${ritEfDe(r.ie.ritCusto,x).map(e=>`${e.v>0?'+':'−'}${Math.abs(e.v)} (${h(e.fonte)})`).join(', ')}; mínimo 1.</p>`:''}${ritEfDe(r.ie.ritDano,x).length&&x.dano?`<p class="hint">Dano com bônus de item: ${h(ritDanoAj(r,x,x.dano))} (${ritEfDe(r.ie.ritDano,x).map(e=>h(e.fonte)).join(', ')}).</p>`:''}
    ${x.reacao?reacaoBloco(x,r):''}
    ${(r.castExtra||[]).map(c=>`<label class="row" style="gap:6px"><input type="checkbox" id="cast-x-${c.id}"> ${h(c.nome)} (+${c.pe} ${r.det?'PD':'PE'})</label>`).join('')}
    ${r.flagelo?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-flagelo"> Pagar com PV (Poder do Flagelo: ${r.flagelo} PV por ${r.det?'PD':'PE'}; só voltam com descanso)</label>`:''}
@@ -219,7 +220,7 @@ function castModal(id){
     <label><input type="radio" name="alvo" value="outro" ${temEf?'':'checked'}> Inimigo ou outro personagem <input class="inp sm" id="cast-alvo-nome" placeholder="nome (opcional)" style="width:min(200px,100%)"></label>
    </fieldset>
    ${alvosIniBloco(f,x)}
-   ${x.dano||(x.ef&&x.ef.cura)?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-rolar"> Rolar o ${x.dano?'dano':'efeito'} para mim (${h(x.dano||x.ef.cura)}${x.danoD?' / discente '+h(x.danoD):''}${x.danoV?' / verdadeiro '+h(x.danoV):''}) — deixe desmarcado para rolar na mesa</label>`:''}
+   ${x.dano||(x.ef&&x.ef.cura)?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-rolar"> Rolar o ${x.dano?'dano':'efeito'} para mim (${h(x.dano?ritDanoAj(r,x,x.dano):x.ef.cura)}${x.danoD?' / discente '+h(x.danoD):''}${x.danoV?' / verdadeiro '+h(x.danoV):''}) — deixe desmarcado para rolar na mesa</label>`:''}
    <p class="hint" style="margin:0">Fora de você, o app mostra um cartão “Para o mestre” com a DT ${r.dt}${x.resistencia?', o teste de '+h(x.resistencia):''} e o efeito.</p>
    ${f.mesa&&S.conta&&S.conta.usuario?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-avisar" checked> Avisar o mestre da campanha</label>`:''}
    ${x.elemento!=='medo'?`<label class="row" style="gap:6px"><input type="checkbox" id="cast-cp" ${cfgR().auto.custoParanormal?'checked':''}> Fazer o teste do Custo do Paranormal (Ocultismo DT 20 + custo)</label>`:`<p class="hint">Ritual de Medo: perde Sanidade igual ao custo e 1 (discente 2, verdadeiro 3) permanente.</p>`}

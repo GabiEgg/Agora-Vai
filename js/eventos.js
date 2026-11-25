@@ -97,7 +97,7 @@ function conjurar(f,id){
       if(ret)f._ultimoBonus=f.bonus[f.bonus.length-1].uid;
       msgs.push(sust?'Sustentado: gaste 1 '+(r0.det?'PD':'PE')+' no início de cada turno (aba Bônus)':'Lembrete na aba Bônus')}}
   if(ret){(f.retidos=f.retidos||[]).push({rit:id,nome:x.nome+nf,pe:total,bonus:f._ultimoBonus||null});delete f._ultimoBonus;perderSan(f,1);msgs.push(`Ritual retido: ${total} ${r0.det?'PD':'PE'} presos (saem do atual e do máximo), −1 SAN`)}
-  const dano=comBonus(forma==='v'?(x.danoV||x.danoD||x.dano):forma==='d'?(x.danoD||x.dano):x.dano);
+  const dano=comBonus(ritDanoAj(r0,x,forma==='v'?(x.danoV||x.danoD||x.dano):forma==='d'?(x.danoD||x.dano):x.dano));
   // Alvos na iniciativa: rola o dano uma vez e o servidor aplica em cada alvo com o teste de resistência dele.
   if(iniAlvos.length){let vD=null;
     if(dano){const xr=rollExpr(dano,r0.A);vD=xr.total;pushRoll({t:`${x.nome}${nf}: dano${x.tipoDano?' de '+x.tipoDano:''}`,v:vD,d:xr.txt})}
@@ -147,6 +147,7 @@ function usarItem(f,i){
   if(a.peTemp)msgs.push(darTemp(f,'pe',a.peTemp,it.nome));
   if(a.pe){const x=rollExpr(a.pe,r.A);const c=calc(f);f.pe=Math.min(c.peMax,c.pe+x.total);msgs.push(`${it.nome}: +${x.total} ${r.det?'PD':'PE'}`)}
   if(it.interludioPE){const x=rollExpr(it.interludioPE,r.A);const c=calc(f);f.pe=Math.min(c.peMax,c.pe+x.total);msgs.push(`${it.nome}: +${x.total} ${r.det?'PD':'PE'}`)}
+  if((it.efQuando==='usar')&&itemEfLista(it).length){(f.bonus=f.bonus||[]).push({uid:uid(),tipo:'efeito',ritual:false,nome:it.nome,itemEf:clone(itemEfLista(it)),dur:it.efDur||'cena'});msgs.push(`${it.nome}: ${itemEfLista(it).map(efItemTxt).join(', ')} (veja a aba Bônus)`)}
   if(it.efUso){(f.bonus=f.bonus||[]).push({uid:uid(),tipo:'efeito',ritual:false,nome:it.nome,ef:clone(it.efUso),dur:'cena'});msgs.push(`${it.nome}: efeito até o fim da cena (veja a aba Bônus)`)}
   if(!msgs.length)msgs.push(`${it.nome} usado.`);
   if(it.consumivel||it.cura){it.qtd=(+it.qtd||1)-1;if(it.qtd<=0){f.inventario.splice(i,1);msgs.push('(acabou)')}}
@@ -294,7 +295,7 @@ document.addEventListener('click',e=>{
    case 'rmRit':f.rituais=f.rituais.filter(x=>x!==ds.id);if(f.grimorio)f.grimorio=f.grimorio.filter(x=>x!==ds.id);saveF();break;
    case 'castModal':castModal(ds.id);return;
    case 'castGo':if(conjurar(f,ds.id))closeModal();break;
-   case 'ritDano':{const x=byId('rituais',ds.id);rollDano(`${x.nome}: dano`,x.dano,calc(f).A);return}
+   case 'ritDano':{const x=byId('rituais',ds.id);const r=calc(f);rollDano(`${x.nome}: dano`,ritDanoAj(r,x,x.dano),r.A);return}
    case 'soltarRet':case 'soltarRetRec':{const rt=f.retidos[+ds.i];if(!rt)return;const r=calc(f);const nm=r.det?'PD':'PE';let msg='';
      if(a==='soltarRetRec'){const p=r.per.ocultismo;const dtR=20+rt.pe;const roll=rollTest(`Recuperar ${nm} retidos (Ocultismo DT ${dtR})`,p.dados,p.bonus);
        f.retidos.splice(+ds.i,1);if(rt.bonus)f.bonus=(f.bonus||[]).filter(b=>b.uid!==rt.bonus);
@@ -309,6 +310,8 @@ document.addEventListener('click',e=>{
        toast(`“${r.nome}” removido da ficha de ${fa.nome}.`);render()}).catch(e=>toast(e.message||'Não foi possível remover.'));return}
    case 'rmMod':f.inventario[+ds.i].modsAplicadas.splice(+ds.k,1);saveF();break;
    case 'usarItem':usarItem(f,+ds.i);break;
+   case 'efAdd':{const it=f.inventario[+ds.i];(it.efeitos=it.efeitos||[]).push({t:ds.t||'attr',k:'',v:''});saveF();break}
+   case 'efRm':{const it=f.inventario[+ds.i];(it.efeitos||[]).splice(+ds.k,1);if(+it.efEscolha>=(it.efeitos||[]).length)it.efEscolha=0;saveF();break}
    case 'toggle':S.open[ds.id]=!S.open[ds.id];break;
    case 'imgUp':{const it=f.inventario[+ds.i];upload(id=>{it.img=id;if(it.ref&&S.cfg.imgs[it.ref]){S.cfg.imgs[it.ref]=id;saveCfg()}saveF();render()});return}
    case 'imgRm':{const it=f.inventario[+ds.i];it.img='';if(it.ref&&S.cfg.imgs[it.ref]){delete S.cfg.imgs[it.ref];saveCfg()}saveF();break}

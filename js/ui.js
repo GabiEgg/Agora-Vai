@@ -298,12 +298,12 @@ function ritGrupos(rits,r){
     return `<div class="grp-h"><h3>${c?c+'º círculo':'Indisponíveis'}</h3><span class="hint">${c?CUSTO_CIRC[c]+' '+(r.det?'PD':'PE')+' · ':''}${l.length} ritua${l.length>1?'is':'l'}</span></div>
      <div class="cards">${l.map(x=>x._gone?`<div class="card"><h4>${h(x.nome)}<span class="row"><button class="btn sm ghost danger" data-act="rmRit" data-id="${h(x.id)}" data-confirma="Excluir?">Remover</button></span></h4><p class="hint">A fonte deste ritual está desligada na Mesa.</p></div>`:ritCard(x,r)).join('')}</div>`}).join('')||'<p class="hint">Nenhum ritual desse elemento.</p>';
 }
-function ritCard(x,r){const custo=CUSTO_CIRC[+x.circulo]||0;const el=(x.elementos||[x.elemento]).filter(Boolean);const f=F();const retido=(f.retidos||[]).some(y=>y.rit===x.id);
+function ritCard(x,r){const custo=ritCustoAj(r,x,CUSTO_CIRC[+x.circulo]||0);const el=(x.elementos||[x.elemento]).filter(Boolean);const f=F();const retido=(f.retidos||[]).some(y=>y.rit===x.id);
   return `<div class="card el el-${x.elemento||'x'}"><h4>${h(x.nome)} ${el.map(elBadge).join('')||'<span class="badge">Varia</span>'} ${fonteBadge(x)}${x._conc?'<span class="badge acc" title="Concedido pela trilha; não conta no limite">trilha</span>':''}${retido?'<span class="badge warnb">retido</span>':''}${(f.grimorio||[]).includes(x.id)?'<span class="badge grim" title="Guardado no grimório: empunhe-o e gaste uma ação completa folheando para conjurar">grimório</span>':''}${x._conc?'':`<span class="row"><button class="btn sm ghost danger" data-act="rmRit" data-id="${x.id}" data-confirma="Esquecer mesmo?" aria-label="Esquecer ${h(x.nome)}">✕</button></span>`}</h4>
    <div class="meta"><span>${x.circulo}º círculo</span><span>${custo} ${r.det?'PD':'PE'}</span>${r.dtElem[x.elemento]?`<span>DT ${r.dt+r.dtElem[x.elemento]}</span>`:''}${['execucao','alcance','alvo','duracao','resistencia'].filter(k=>x[k]).map(k=>`<span>${h(x[k])}</span>`).join('')}</div>
    ${r.ritGrimorio&&!x._conc&&(!f._alheia||f._mestre)?`<label class="row grim-chk" style="gap:6px;font-size:13px"><input type="checkbox" data-act="ritGrim" data-id="${h(x.id)}" ${(f.grimorio||[]).includes(x.id)?'checked':''}> No grimório <span class="hint">(ação completa folheando para conjurar)</span></label>`:''}
    ${x.desc?`<p>${h(x.desc)}</p>`:''}${x.discente?`<p><b>Discente:</b> ${h(x.discente)}</p>`:''}${x.verdadeiro?`<p><b>Verdadeiro:</b> ${h(x.verdadeiro)}</p>`:''}
-   <div class="row"><button class="btn sm acc" data-act="castModal" data-id="${x.id}">Conjurar…</button>${x.dano?`<button class="btn sm" data-act="ritDano" data-id="${x.id}">Dano ${h(x.dano)}</button>`:''}</div></div>`}
+   <div class="row"><button class="btn sm acc" data-act="castModal" data-id="${x.id}">Conjurar…</button>${x.dano?`<button class="btn sm" data-act="ritDano" data-id="${x.id}">Dano ${h(ritDanoAj(r,x,x.dano))}</button>`:''}</div></div>`}
 
 /* ---------- Inventário ---------- */
 function paneInv(f,r){
@@ -332,8 +332,9 @@ function invGrupos(f,r){
 const imgDe=it=>it.img||(it.ref&&S.cfg.imgs[it.ref])||'';
 function itemRow(it,i,f,r){const open=S.open[it.uid];const arma=it.tipo==='arma';const b=`inventario.${i}.`;
   const ai=arma?armaInfo(it,r,f):null;const ms=modsDoItem(it);const ci=catItem(it);const img=imgDe(it);
-  const usavel=it.consumivel||it.acao||it.cura;
-  const equip=['protecao','acessorio','paranormal','amaldicoado','operacional','arma'].includes(it.tipo)||it.equipavel;
+  const temEf=(it.efeitos||[]).some(e=>e&&e.t);const efQ=it.efQuando||'equipado';
+  const usavel=it.consumivel||it.acao||it.cura||(temEf&&efQ==='usar');
+  const equip=['protecao','acessorio','paranormal','amaldicoado','operacional','arma'].includes(it.tipo)||it.equipavel||(temEf&&efQ==='equipado');
   return `<div class="item ${it.equipado?'eq':''} ${it.elemento?'el el-'+it.elemento:''}"><div class="item-row">
    ${img?`<img class="thumb" src="/_blob/${h(img)}" alt="" loading="lazy">`:''}
    <span class="nm">${h(it.nome)}${(+it.qtd||1)>1?` ×${it.qtd}`:''}</span><span class="badge">${TIPO_ITEM[it.tipo]||h(it.tipo)}</span>${elBadge(it.elemento)}<span class="badge ${ci>+it.cat?'acc':''}">Cat. ${CAT_NOME[ci]||ci}</span><span class="badge">${espItem(it)*(+it.qtd||1)} esp.</span>${fonteBadge(it)}
@@ -350,6 +351,7 @@ function itemRow(it,i,f,r){const open=S.open[it.uid];const arma=it.tipo==='arma'
      const qual=it.tipo==='protecao'?'proteções '+({leve:'leves',pesada:'pesadas'}[it.proficiencia]||it.proficiencia):'armas '+({simples:'simples',tatica:'táticas',pesada:'pesadas'}[it.proficiencia]||it.proficiencia);
      return (pen?`<p class="hint" style="margin:0">${it.equipado?'Vestida':'Se vestida'}: ${pen} em ${pericias().filter(p=>p.carga).map(p=>p.nome).join(', ')} (perícias com penalidade de carga).</p>`:'')
       +(semP||it.profOk?`<p class="${semP&&(it.equipado||arma)?'warnline':'hint'}" style="margin:0">${semP?`Sem proficiência com ${h(qual)}: ${arma?'−2d20 nos testes de ataque':'−2d20 em todos os testes de Força e Agilidade'+(it.equipado?'':' quando vestida')}.`:'Marcado como proficiente por outra fonte.'} <label class="row" style="display:inline-flex;gap:4px;font-size:12px"><input type="checkbox" data-f="${b}profOk" data-r ${it.profOk?'checked':''}> sou proficiente por outra fonte</label></p>`:'')})()}
+   ${temEf?efItemResumo(it,i,b):''}
    ${ms.length?`<div class="chips">${ms.map((m,k)=>`<span class="chip ${m.maldicao?'curse':''}" title="${h(m.desc)}">${m.maldicao?'Maldição: ':''}${h(m.nome)} <button class="mini" data-act="rmMod" data-i="${i}" data-k="${k}" aria-label="Remover">✕</button></span>`).join('')}</div>`:''}
    ${open?`${it.desc?`<p class="hint" style="margin:0">${h(it.desc)}</p>`:''}<div class="grid g4">
     ${fld('Nome',inp(b+'nome',it.nome))}${fld('Tipo',`<select class="inp" data-f="${b}tipo" data-r>${Object.entries(TIPO_ITEM).map(([k,v])=>opt(k,v,it.tipo)).join('')}</select>`)}
@@ -362,9 +364,33 @@ function itemRow(it,i,f,r){const open=S.open[it.uid];const arma=it.tipo==='arma'
     ${ms.some(mm=>mm.id==='mod_funcao_adicional_acessorio')?fld('Perícia da Função Adicional (+2)',`<select class="inp" data-f="${b}periciaExtra" data-r>${opt('','Escolha…',it.periciaExtra)}${pericias().filter(p=>p.id!=='luta'&&p.id!=='pontaria').map(p=>opt(p.id,p.nome,it.periciaExtra)).join('')}</select>`):''}
     ${fld('Elemento',`<select class="inp" data-f="${b}elemento" data-r>${Object.entries(ELEM).map(([k,v])=>opt(k,v,it.elemento||'')).join('')}</select>`)}
     ${fld('Notas',`<textarea class="inp" data-f="${b}notas" style="min-height:44px">${h(it.notas||'')}</textarea>`,'span2')}</div>
+    ${efItemEditor(it,i,b)}
     <div class="row"><button class="btn sm" data-act="pickMod" data-i="${i}">+ Modificação / maldição</button>
      ${S.assets?`<button class="btn sm" data-act="imgUp" data-i="${i}">${img?'Trocar imagem':'Imagem'}</button>${img?`<button class="btn sm ghost" data-act="imgRm" data-i="${i}">Tirar imagem</button>`:''}${it.ref?`<label class="row" style="gap:4px;font-size:12px"><input type="checkbox" data-act="imgTodos" data-i="${i}" ${it.ref&&S.cfg.imgs[it.ref]?'checked':''} ${img?'':'disabled'}> Usar esta imagem em todo “${h(it.nome)}”</label>`:''}`:'<span class="hint">Imagens: disponível para quem pode editar este artifact.</span>'}</div>
     ${img?`<img class="bigimg" src="/_blob/${h(img)}" alt="Imagem de ${h(it.nome)}">`:''}`:''}</div>`}
+
+/* Efeitos automáticos do item: o que ele faz na ficha quando equipado, carregado ou usado. */
+function efItemResumo(it,i,b){const l=(it.efeitos||[]).filter(e=>e&&e.t);const q=it.efQuando||'equipado';
+  const ativo=q==='sempre'||(q==='equipado'&&it.equipado);const onde=q==='usar'?'ao usar':q==='sempre'?'no inventário':'equipado';
+  if(it.efModo==='escolha'&&l.length>1)return `<div class="row ef-item"><span class="eyebrow">Efeito ${onde}</span><select class="inp sm" data-f="${b}efEscolha" data-num data-r aria-label="Qual efeito de ${h(it.nome)} vale agora">${l.map((e,k)=>opt(k,efItemTxt(e),+it.efEscolha||0)).join('')}</select>${q==='equipado'&&!it.equipado?'<span class="hint">(equipe para valer)</span>':''}</div>`;
+  return `<div class="chips ef-item">${l.map(e=>`<span class="chip ${ativo?'ok':''}" title="Efeito ${onde}">${h(efItemTxt(e))}</span>`).join('')}${q==='equipado'&&!it.equipado?'<span class="hint">(equipe para valer)</span>':''}</div>`}
+function efItemEditor(it,i,b){const l=it.efeitos||[];const q=it.efQuando||'equipado';
+  const chave=(e,k)=>{const d=EF_ITEM[e.t]||{};const p=`${b}efeitos.${k}.k`;
+    if(d.k==='attr')return `<select class="inp sm" data-f="${p}" data-r aria-label="Atributo">${opt('','Atributo…',e.k)}${Object.entries(ATTR_NOME).map(([a,n])=>opt(a,n,e.k)).join('')}</select>`;
+    if(d.k==='per')return `<select class="inp sm" data-f="${p}" data-r aria-label="Perícia">${opt('','Perícia…',e.k)}${pericias().map(x=>opt(x.id,x.nome,e.k)).join('')}</select>`;
+    if(d.k==='el')return `<select class="inp sm" data-f="${p}" data-r aria-label="Elemento">${Object.entries(ELEM).map(([a,n])=>opt(a,a?n:'Todos os elementos',e.k||'')).join('')}</select>`;
+    if(d.k==='forma')return `<select class="inp sm" data-f="${p}" data-r aria-label="Armas">${Object.entries(EF_FORMA).map(([a,n])=>opt(a,'Armas: '+n,e.k||'')).join('')}</select>`;
+    if(d.k==='tipo')return `<input class="inp sm" data-f="${p}" value="${h(e.k||'')}" placeholder="tipo (ex.: Morte, balístico)" style="width:150px" aria-label="Tipo de dano">`;
+    return ''};
+  const val=(e,k)=>{const d=EF_ITEM[e.t]||{};const p=`${b}efeitos.${k}.v`;
+    return d.txt?`<input class="inp sm" data-f="${p}" data-r value="${h(e.v??'')}" placeholder="${h(d.ph||'')}" style="width:${e.t==='nota'?'220px':'110px'}" aria-label="Valor">`
+      :`<input class="inp num sm" type="number" data-f="${p}" data-num data-r value="${h(e.v??'')}" placeholder="±n" style="width:64px" aria-label="Valor">`};
+  return `<div class="ef-editor span4"><div class="row" style="gap:8px;flex-wrap:wrap"><span class="eyebrow">Efeitos automáticos</span>
+    <select class="inp sm" data-f="${b}efQuando" data-r aria-label="Quando os efeitos valem">${[['equipado','Quando equipado / empunhado'],['sempre','Sempre (basta estar no inventário)'],['usar','Ao usar (vira efeito na aba Bônus)']].map(([k,v])=>opt(k,v,q)).join('')}</select>
+    ${l.length>1?`<select class="inp sm" data-f="${b}efModo" data-r aria-label="Como os efeitos se combinam">${opt('todos','Todos valem juntos',it.efModo||'todos')}${opt('escolha','Um OU outro (escolho qual)',it.efModo||'todos')}</select>`:''}
+    ${q==='usar'?`<select class="inp sm" data-f="${b}efDur" data-r aria-label="Duração do efeito ao usar">${Object.entries(DUR).filter(([k])=>k!=='retido'&&k!=='sust').map(([k,v])=>opt(k,v,it.efDur||'cena')).join('')}</select><label class="row" style="gap:4px;font-size:12px"><input type="checkbox" data-f="${b}consumivel" data-r ${it.consumivel?'checked':''}> Gasta 1 ao usar</label>`:''}</div>
+    ${l.map((e,k)=>`<div class="row ef-linha" style="gap:6px;flex-wrap:wrap"><select class="inp sm" data-f="${b}efeitos.${k}.t" data-r aria-label="Tipo de efeito">${Object.entries(EF_ITEM).map(([t,d])=>opt(t,d.l,e.t)).join('')}</select>${chave(e,k)}${val(e,k)}<span class="hint">${h(efItemTxt(e))}</span><button class="btn sm ghost danger" data-act="efRm" data-i="${i}" data-k="${k}" aria-label="Remover efeito">✕</button></div>`).join('')}
+    <div class="row"><button class="btn sm" data-act="efAdd" data-i="${i}">+ Efeito</button><span class="hint">Ex.: Colar de Ossos → “Custo de rituais · Morte · −1” e “Dano de rituais · Morte · +1d”, com “Um OU outro”. Valores negativos reduzem. Em dano, “+1d” soma um dado igual ao da arma ou ritual; “1d6” ou “2” somam como extra.</span></div></div>`}
 
 /* ---------- Aliados & NPCs ---------- */
 function paneAliados(f,r){
@@ -436,6 +462,7 @@ function paneBonus(f,r){
   const efTxt=e=>Object.entries(e||{}).filter(([k])=>!OCULTO.includes(k)).map(([k,v])=>k==='testesAttr'?Object.entries(v).map(([a,n])=>`+${n} em testes de ${ATTR_NOME[a]}`).join(', '):k==='deslocamento'?`+${v}m de deslocamento`:k==='danoArma'?`+${v} de dano corpo a corpo`:k==='defesa'?`+${v} Defesa`:k==='ataque'?`+${v} no ataque`:k==='margem'?`+${v} margem de ameaça`:k==='mult'?`+${v} multiplicador`:k==='pericias'?`+${v} em perícias`:k==='resistPar'?`+${v} resistência a paranormal`:k==='dt'?`+${v} DT de rituais`:k==='rd'?`RD ${v}`:k==='pvTemp'?`${v} PV temporários`:k==='valor'?`+${v} ${e.attr}`:k==='pericia'?`+${v.valor} ${perNome(v.id)}`:k==='pericias'?'':k==='dadosPer'?Object.entries(v).map(([p,n])=>`${n>0?'+':'−'}${Math.abs(n)}d20 ${perNome(p)}`).join(', '):`${k} ${typeof v==='object'?JSON.stringify(v):v}`).filter(Boolean)
     .concat(e&&e.acumula?['acumula com outros rituais']:[],e&&e.semEquip?['não acumula com Defesa de equipamento']:[],e&&e.imune?['imune a '+e.imune.map(id=>(byId('condicoes',id)||{nome:id}).nome.toLowerCase()).join(', ')]:[]).join(' · ');
   const extrasEf=b=>{const e=b.ef||{};let o='';
+    if((b.itemEf||[]).length)o+=`<div class="chips">${b.itemEf.map(x=>`<span class="chip ok">${h(efItemTxt(x))}</span>`).join('')}</div>`;
     if(e.nota)o+=`<p class="hint" style="margin:0">${h(e.nota)}</p>`;
     if(b.cont&&e.cont)o+=`<div class="row"><span class="badge acc">${b.cont.atual}/${e.cont.max} ${h(e.cont.nome)}</span><button class="btn sm" data-act="bCont" data-id="${b.uid}" data-d="-1" aria-label="Menos ${h(e.cont.nome)}">−</button><button class="btn sm" data-act="bCont" data-id="${b.uid}" data-d="1" aria-label="Mais ${h(e.cont.nome)}">+</button></div>`;
     if(e.dadosRit&&b.dadosRit)o+=`<div class="row"><span class="badge acc">${b.dadosRit.resta}× ${h(e.dadosRit.dado)}</span><button class="btn sm acc" data-act="dadoRit" data-id="${b.uid}" ${b.dadosRit.resta>0?'':'disabled'}>Rolar 1 dado e somar</button><span class="hint">tirar o máximo custa ${e.dadosRit.san} ${r.det?'PD':'SAN'}</span></div>`;

@@ -90,6 +90,19 @@ function calc0(f){
     if(e.bonusPericia&&it.ref==='it_mochila_militar'&&regraOn('mochila_aprimorada'))mods.push({alvo:'carga',valor:e.bonusPericia,fonte:m.nome+' (mochila)'});
     if(e.pv)mods.push({alvo:'pv',valor:e.pv,fonte:m.nome});if(e.pe)mods.push({alvo:'pe',valor:e.pe,fonte:m.nome});if(e.dt)mods.push({alvo:'dtRitual',valor:e.dt,fonte:m.nome})});
     mods.slice(n0).forEach(x=>x.equip=true)});
+  /* Efeitos personalizados dos itens (editor "Efeitos automáticos" no item). */
+  const ie={ataque:0,margem:0,arma:[],ritCusto:[],ritDano:[],ritDt:{},attr:{},rd:[],notas:[]};r.ie=ie;
+  itemEfAtivos(f).forEach(e=>{const v=+e.v||0;const d=EF_ITEM[e.t]||{};
+    if(d.alvo)mods.push({alvo:d.alvo,valor:v,fonte:e.fonte,equip:true});
+    else if(e.t==='per'){if(e.k)mods.push({alvo:'per:'+e.k,valor:v,fonte:e.fonte})}
+    else if(e.t==='attr'){if(e.k)ie.attr[e.k]=(ie.attr[e.k]||0)+v}
+    else if(e.t==='ataque')ie.ataque+=v;else if(e.t==='margem')ie.margem+=v;
+    else if(e.t==='danoArma'){if(String(e.v||'').trim())ie.arma.push({k:e.k||'',v:String(e.v).trim(),fonte:e.fonte})}
+    else if(e.t==='ritCusto'){if(v)ie.ritCusto.push({k:e.k||'',v,fonte:e.fonte})}
+    else if(e.t==='ritDano'){if(String(e.v||'').trim())ie.ritDano.push({k:e.k||'',v:String(e.v).trim(),fonte:e.fonte})}
+    else if(e.t==='ritDt'){if(e.k)ie.ritDt[e.k]=(ie.ritDt[e.k]||0)+v;else mods.push({alvo:'dtRitual',valor:v,fonte:e.fonte})}
+    else if(e.t==='rd'){if(v)ie.rd.push(`${e.k||'RD'} ${v} (${e.fonte})`)}
+    else if(e.t==='nota'){if(e.v)ie.notas.push({v:String(e.v),fonte:e.fonte})}});
   const aliados=(f.aliados||[]).filter(a=>a.ativo&&a.ref).map(a=>({a,d:byId('aliados',a.ref)})).filter(x=>x.d);r.aliados=aliados;
   aliados.forEach(({a,d})=>{const b=d.bonusEf||{};add(b.mods,d.nome);if(b.per)Object.entries(b.per).forEach(([k,v])=>mods.push({alvo:'per:'+k,valor:v,fonte:d.nome}));if(b.deslocamento)mods.push({alvo:'deslocamento',valor:b.deslocamento,fonte:d.nome})});
   if(regraOn('idade'))(f.desvantagens||[]).forEach(id=>{const dv=D.desvantagensIdade.find(x=>x.id===id);if(dv)add(dv.mods,dv.nome)});
@@ -143,7 +156,7 @@ function calc0(f){
   r.danoForma={};flags.forEach(x=>Object.entries(x.danoForma||{}).forEach(([k,v])=>r.danoForma[k]=(r.danoForma[k]||0)+v));
   r.danoAttrForma={};flags.forEach(x=>Object.assign(r.danoAttrForma,x.danoAttrForma||{}));
   r.danoAttrMunicao=flags.filter(x=>x.danoAttrMunicao).map(x=>x.danoAttrMunicao);
-  r.dtElem={};flags.forEach(x=>{if(x.dtElem&&x.escolha)r.dtElem[x.escolha]=(r.dtElem[x.escolha]||0)+x.dtElem});
+  r.dtElem={};flags.forEach(x=>{if(x.dtElem&&x.escolha)r.dtElem[x.escolha]=(r.dtElem[x.escolha]||0)+x.dtElem});Object.entries(ie.ritDt).forEach(([k,v])=>r.dtElem[k]=(r.dtElem[k]||0)+v);
   r.ritDanoAttrs=flags.filter(x=>x.ritDanoAttr).map(x=>x.ritDanoAttr);
   r.imuneCond=new Set([...flags.flatMap(x=>x.imuneCond||[]),...imuneEf]);
   r.bonusTeste=flags.filter(x=>x.bonusTeste).flatMap(x=>[].concat(x.bonusTeste));
@@ -159,7 +172,7 @@ function calc0(f){
   const m=k=>mods.filter(x=>x.alvo===k).reduce((s,x)=>s+x.valor+(x.attr&&r.A?Math.floor((r.A[x.attr]||0)*(x.mult||1)):0),0);r.m=m;
   // atributos
   const el=t&&t.elementoEscolha?f.trilhaElemento:'';r.trilhaElemento=el;
-  const Abase={...f.atributos};inv.forEach(it=>{if(it.equipado)modsDoItem(it).forEach(mm=>Object.entries((mm.efeitos||{}).attr||{}).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v))});flags.forEach(x=>{if(x.attrBonus)Object.entries(x.attrBonus).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v);
+  const Abase={...f.atributos};inv.forEach(it=>{if(it.equipado)modsDoItem(it).forEach(mm=>Object.entries((mm.efeitos||{}).attr||{}).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v))});Object.entries(ie.attr).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v);flags.forEach(x=>{if(x.attrBonus)Object.entries(x.attrBonus).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v);
     if(el&&x.attrElem&&x.attrElem[el])Object.entries(x.attrElem[el]).forEach(([k,v])=>Abase[k]=(Abase[k]||0)+v)});
   const A={...Abase};Object.entries(ef.attr).forEach(([k,v])=>A[k]=(A[k]||0)+v);r.Abase=Abase;r.A=A;
   let peAttr=(flags.find(x=>x.peAttr)||{}).peAttr||'PRE',dtAttr='PRE';
@@ -231,7 +244,7 @@ function calc0(f){
   const plr=(flags.find(x=>x.peLimRitual)||{}).peLimRitual;r.peLimRit=r.peLim+(plr?A[plr]||0:0);
   r.dtSoma=flags.filter(x=>x.dtSomaAttr).map(x=>({attr:x.dtSomaAttr,v:A[x.dtSomaAttr]||0,nome:x._fonte}));r.dt=10+r.peLim+A[dtAttr]+m('dtRitual')+ef.dt+r.dtSoma.reduce((s,x)=>s+x.v,0);r.circ=M.est?1:circuloMax(f.nex);
   r.custoExtra=condEf.custoPE;
-  r.rd=[...inv.filter(i=>i.equipado&&i.rd).map(i=>typeof i.rd==='number'?'RD '+i.rd+' ('+i.nome+')':i.rd+' ('+i.nome+')'),...ef.rd,...r.rdHab,...r.machucadoEf.filter(x=>/^RD/.test(x))];
+  r.rd=[...inv.filter(i=>i.equipado&&i.rd).map(i=>typeof i.rd==='number'?'RD '+i.rd+' ('+i.nome+')':i.rd+' ('+i.nome+')'),...ef.rd,...ie.rd,...r.rdHab,...r.machucadoEf.filter(x=>/^RD/.test(x))];
   r.resistPar=r.resistParHab+(ef.resistPar||0);
   // perícias
   const auto={};og.per.forEach(id=>auto[id]='origem');(c&&c.periciasFixas||[]).forEach(id=>auto[id]=auto[id]||'classe');
@@ -358,6 +371,41 @@ function dadosMod(r,{per,attr,atk,corpo}){
   return n;
 }
 
+/* ======================= EFEITOS DE ITENS ======================= */
+/* Cada efeito: {t:tipo, k:chave (atributo, perícia, elemento, forma, tipo de dano), v:valor}.
+   it.efQuando: 'equipado' (padrão) | 'sempre' (no inventário) | 'usar' (vira efeito na aba Bônus).
+   it.efModo: 'todos' | 'escolha' (vale só o efeito it.efEscolha: "isto OU aquilo"). */
+const EF_ITEM={
+  attr:{l:'Atributo',k:'attr'},per:{l:'Perícia',k:'per'},
+  defesa:{l:'Defesa',alvo:'defesa'},desloc:{l:'Deslocamento (m)',alvo:'deslocamento'},
+  pv:{l:'PV máximo',alvo:'pv'},pe:{l:'PE/PD máximo',alvo:'pe'},san:{l:'SAN máxima',alvo:'san'},
+  resist:{l:'Testes de resistência',alvo:'resist'},carga:{l:'Espaços de carga',alvo:'carga'},
+  ataque:{l:'Testes de ataque'},margem:{l:'Margem de ameaça'},
+  danoArma:{l:'Dano de armas',k:'forma',txt:true,ph:'+1d, 2 ou 1d6'},
+  ritCusto:{l:'Custo de rituais',k:'el'},ritDano:{l:'Dano de rituais',k:'el',txt:true,ph:'+1d ou 1d6'},ritDt:{l:'DT de rituais',k:'el'},
+  rd:{l:'Resistência a dano',k:'tipo'},nota:{l:'Outro (lembrete)',txt:true,ph:'texto'}};
+const EF_FORMA={'':'todas','corpo':'corpo a corpo','dist':'à distância'};
+const elsRitual=x=>(x.elementos||[x.elemento]).filter(Boolean);
+function itemEfLista(it){const l=(it.efeitos||[]).filter(e=>e&&e.t);if(it.efModo==='escolha'){const x=l[+it.efEscolha||0];return x?[x]:[]}return l}
+function itemEfAtivos(f){const out=[];
+  (f.inventario||[]).forEach(it=>{const q=it.efQuando||'equipado';if(q==='usar'||(q==='equipado'&&!it.equipado))return;itemEfLista(it).forEach(e=>out.push({...e,fonte:it.nome}))});
+  (f.bonus||[]).forEach(b=>(b.itemEf||[]).forEach(e=>out.push({...e,fonte:b.nome})));return out}
+function efItemTxt(e){const d=EF_ITEM[e.t]||{l:e.t};const n=+e.v||0;const sg=n>=0?'+'+n:'−'+Math.abs(n);
+  const el=e.k&&typeof ELEM!=='undefined'?ELEM[e.k]:'';
+  switch(e.t){case 'attr':return `${sg} ${e.k||'atributo'}`;case 'per':return `${sg} em ${e.k?perNome(e.k):'perícia'}`;
+   case 'danoArma':return `${/^\+?\d*\s*d/i.test(e.v||'')&&!/d\d/i.test(e.v||'')?'+'+(parseInt(String(e.v).replace('+',''))||1)+' dado':'+'+String(e.v||'').replace(/^\+/,'')} de dano (armas ${EF_FORMA[e.k||'']})`;
+   case 'ritCusto':return `${sg} no custo de rituais${el?' de '+el:''}`;
+   case 'ritDano':return `${/^\+?\d*\s*d$/i.test(e.v||'')?'+'+(parseInt(String(e.v).replace('+',''))||1)+' dado':'+'+String(e.v||'').replace(/^\+/,'')} de dano em rituais${el?' de '+el:''}`;
+   case 'ritDt':return `${sg} na DT de rituais${el?' de '+el:''}`;case 'rd':return `RD ${e.k||''} ${n}`.replace('  ',' ');
+   case 'nota':return String(e.v||'');case 'margem':return `${sg} na margem de ameaça`;case 'desloc':return `${sg}m de deslocamento`;
+   default:return `${sg} ${d.l}`}}
+/* Ajustes dos itens em rituais: custo (mínimo 1) e dados de dano. */
+const ritEfDe=(lista,x)=>{const els=elsRitual(x);return lista.filter(e=>!e.k||els.includes(e.k))};
+function ritCustoAj(r,x,c){const l=ritEfDe((r.ie||{}).ritCusto||[],x);if(!l.length||!c)return c;return Math.max(1,c+l.reduce((a,e)=>a+e.v,0))}
+function ritDanoAj(r,x,expr){if(!expr)return expr;let ex=String(expr);
+  ritEfDe((r.ie||{}).ritDano||[],x).forEach(e=>{const md=e.v.match(/^\+?(\d*)\s*d(?:ado)?s?$/i);
+    if(md&&/\d+d\d+/.test(ex))ex=ex.replace(/(\d+)d(\d+)/,(s,q,fc)=>(+q+(+(md[1]||1)))+'d'+fc);else if(!md)ex+='+'+e.v.replace(/^\+/,'')});return ex}
+
 /* ============================== ARMAS ============================== */
 /* Amaldiçoar Arma ativo (aba Bônus): a arma corpo a corpo empunhada conta como amaldiçoada. */
 const amaldicoadaAtiva=f=>(f.bonus||[]).some(b=>b.tipo==='efeito'&&/^Amaldiçoar Arma/.test(b.nome||''));
@@ -371,21 +419,23 @@ function armaInfo(it,r,f){
   const crit=String(it.critico||'20');const mg=crit.match(/(\d{2})/);const mu=crit.match(/x(\d)/i);
   let margem=mg?+mg[1]:20,mult=mu?+mu[1]:2;
   const fav=it.favorita&&r.favorita;
-  margem-=e('margem')+r.ef.margem+r.margemTodos+(corpo?r.margemCorpo:0)+(fav?r.favoritaMargem:0);mult+=e('mult')+r.ef.mult+r.multTodos;
+  margem-=e('margem')+(r.ie?r.ie.margem:0)+r.ef.margem+r.margemTodos+(corpo?r.margemCorpo:0)+(fav?r.favoritaMargem:0);mult+=e('mult')+r.ef.mult+r.multTodos;
   if(ms.some(m=>(m.efeitos||{}).margemDobra)){const base=21-(mg?+mg[1]:20);margem=21-2*base}
   const ritAtk=r.ef.fonte.ataque&&r.ef.fonte.ataque===r.ef.fonte.pericias?r.ef.ataque:Math.max(0,r.ef.ataque-(p.rit||0));
-  const atk=p.bonus+(+it.atkBonus||0)+e('atk')+ritAtk+r.ef.ataqueArma+(it.atk&&!isNaN(+it.atk)?+it.atk:0);
+  const atk=p.bonus+(r.ie?r.ie.ataque:0)+(+it.atkBonus||0)+e('atk')+ritAtk+r.ef.ataqueArma+(it.atk&&!isNaN(+it.atk)?+it.atk:0);
   const usaAgi=!ocult&&it.agil&&corpo&&r.A.AGI>r.A.FOR;
   let dadosAtk=(usaAgi?p.dados-r.A.FOR+r.A.AGI:p.dados)+(String(it.atk||'').includes('d20')?(parseInt(it.atk)||0):0);
   const semProf=!!(f&&f.classe)&&!profItem(it,r);if(semProf)dadosAtk-=2;
-  let dano=String(it.dano||'');const extraDados=e('dados')+(fav?r.favoritaDado:0);
+  let dano=String(it.dano||'');let extraDados=e('dados')+(fav?r.favoritaDado:0);
+  const ieArma=(r.ie?r.ie.arma:[]).filter(x=>!x.k||x.k===(corpo?'corpo':'dist'));const ieFixo=[],ieExtras=[];
+  ieArma.forEach(x=>{const md=x.v.match(/^\+?(\d*)\s*d(?:ado)?s?$/i);if(md)extraDados+=+(md[1]||1);else if(/^[+-]?\d+$/.test(x.v))ieFixo.push(+x.v);else ieExtras.push(x.v.replace(/^\+/,''))});
   if(extraDados&&/^\d+d\d+/.test(dano))dano=dano.replace(/^(\d+)d(\d+)/,(x,q,fc)=>(+q+extraDados)+'d'+fc);
   const somaFor=corpo||it.arremesso||it.somaFor;let fixo=e('dano')+(somaFor?(usaAgi?r.A.AGI:r.A.FOR):0);
-  const fontesDano=[];
+  fixo+=ieFixo.reduce((a,b)=>a+b,0);const fontesDano=[];
   if(r.danoForma[forma]){fixo+=r.danoForma[forma];fontesDano.push(sgn(r.danoForma[forma]))}
   const af=r.danoAttrForma[forma];if(af){fixo+=r.A[af]||0;fontesDano.push(`+${af}`)}
   r.danoAttrMunicao.forEach(x=>{if(new RegExp(x.municao,'i').test(String(it.municao||'')+' '+String(it.desc||''))){fixo+=r.A[x.attr]||0;fontesDano.push(`+${x.attr}`)}});
-  const extras=[];ms.forEach(m=>{if((m.efeitos||{}).danoExtra)extras.push(m.efeitos.danoExtra)});if(corpo)r.ef.danoArma.forEach(x=>extras.push(x));
+  const extras=[];ms.forEach(m=>{if((m.efeitos||{}).danoExtra)extras.push(m.efeitos.danoExtra)});if(corpo)r.ef.danoArma.forEach(x=>extras.push(x));ieExtras.forEach(x=>extras.push(x));
   return {semProf,per,ocult,atk,dados:dadosAtk,dano,fixo,extras,margem:Math.max(2,margem),mult,corpo,forma,fav};
 }
 function danoExpr(ai,crit){
