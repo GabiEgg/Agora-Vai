@@ -107,7 +107,7 @@ function calc0(f){
   aliados.forEach(({a,d})=>{const b=d.bonusEf||{};add(b.mods,d.nome);if(b.per)Object.entries(b.per).forEach(([k,v])=>mods.push({alvo:'per:'+k,valor:v,fonte:d.nome}));if(b.deslocamento)mods.push({alvo:'deslocamento',valor:b.deslocamento,fonte:d.nome})});
   if(regraOn('idade'))(f.desvantagens||[]).forEach(id=>{const dv=D.desvantagensIdade.find(x=>x.id===id);if(dv)add(dv.mods,dv.nome)});
   // bônus e efeitos ativos (aba Bônus)
-  const ef={defesa:0,ataque:0,dano:0,margem:0,mult:0,pericias:0,attr:{},per:{},dadosPer:{},danoArma:[],rd:[],resistPar:0,testes:0,dt:0,testesAttr:{},desloc:0};
+  const ef={defesa:0,ataque:0,dano:0,margem:0,mult:0,pericias:0,attr:{},per:{},dadosPer:{},danoArma:[],danoArmaDist:[],rd:[],resistPar:0,testes:0,dt:0,testesAttr:{},desloc:0};
   // Efeitos de rituais só acumulam se forem em alvos diferentes (arma × agente) ou em estatísticas
   // diferentes; na mesma estatística e no mesmo alvo vale o maior. Equipamento e poderes sempre somam.
   // ef.acumula: o efeito soma com outros rituais (ex.: Armadura de Sangue); ef.semEquip: não soma com a Defesa de equipamento (vale o maior).
@@ -144,7 +144,7 @@ function calc0(f){
     if(k==='ataque'&&cat==='arma')ef.ataqueArma+=v;
     else if(['defesa','ataque','margem','mult','pericias','resistPar'].includes(k)){ef[k]+=v;if(k==='ataque'&&cat)ef.fonte.ataque=nome}
     else if(k==='attr')ef.attr[sub]=(ef.attr[sub]||0)+v;else if(k==='per'){ef.per[sub]=(ef.per[sub]||0)+v;if(cat)ef.fonte['per:'+sub]=nome}
-    else if(k==='dadosPer')ef.dadosPer[sub]=(ef.dadosPer[sub]||0)+v;else if(k==='testesAttr')ef.testesAttr[sub]=(ef.testesAttr[sub]||0)+v;else if(k==='desloc')ef.desloc+=v;else if(k==='danoArma')ef.danoArma.push(v);
+    else if(k==='dadosPer')ef.dadosPer[sub]=(ef.dadosPer[sub]||0)+v;else if(k==='testesAttr')ef.testesAttr[sub]=(ef.testesAttr[sub]||0)+v;else if(k==='desloc')ef.desloc+=v;else if(k==='danoArma'){ef.danoArma.push(v);if(/^Amaldiçoar Arma/.test(nome||''))ef.danoArmaDist.push(v)}
     else if(k==='rd')ef.rd.push(sub+' '+v);else if(k==='rdTxt')ef.rd.push(v)});
   ef.naoAcumula=naoAcumula;
   if(f.formaSuprema&&regraOn('mascaras')){ef.defesa+=10;ef.testes+=5;ef.dt+=5}
@@ -435,7 +435,7 @@ function armaInfo(it,r,f){
   if(r.danoForma[forma]){fixo+=r.danoForma[forma];fontesDano.push(sgn(r.danoForma[forma]))}
   const af=r.danoAttrForma[forma];if(af){fixo+=r.A[af]||0;fontesDano.push(`+${af}`)}
   r.danoAttrMunicao.forEach(x=>{if(new RegExp(x.municao,'i').test(String(it.municao||'')+' '+String(it.desc||''))){fixo+=r.A[x.attr]||0;fontesDano.push(`+${x.attr}`)}});
-  const extras=[];ms.forEach(m=>{if((m.efeitos||{}).danoExtra)extras.push(m.efeitos.danoExtra)});if(corpo)r.ef.danoArma.forEach(x=>extras.push(x));ieExtras.forEach(x=>extras.push(x));
+  const extras=[];ms.forEach(m=>{if((m.efeitos||{}).danoExtra)extras.push(m.efeitos.danoExtra)});(corpo?r.ef.danoArma:r.ef.danoArmaDist).forEach(x=>extras.push(x)); /* Amaldiçoar Arma também vale para munição (armas à distância) */ieExtras.forEach(x=>extras.push(x));
   return {semProf,per,ocult,atk,dados:dadosAtk,dano,fixo,extras,margem:Math.max(2,margem),mult,corpo,forma,fav};
 }
 function danoExpr(ai,crit){
