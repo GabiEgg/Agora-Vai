@@ -429,14 +429,14 @@ function monstroDiario(tid,e,n,A){const o={ef:{},itemEf:[],notas:[],cura:'',pvTe
   return o}
 
 /* ============================== ARMAS ============================== */
-/* Amaldiçoar Arma ativo (aba Bônus): a arma corpo a corpo empunhada conta como amaldiçoada. */
+/* Amaldiçoar Arma ativo (aba Bônus): a arma empunhada (ou a munição dela) conta como amaldiçoada. */
 const amaldicoadaAtiva=f=>(f.bonus||[]).some(b=>b.tipo==='efeito'&&/^Amaldiçoar Arma/.test(b.nome||''));
 function armaInfo(it,r,f){
   const ms=modsDoItem(it);const e=k=>ms.reduce((s,m)=>s+(+(m.efeitos||{})[k]||0),0);
   const corpo=it.forma==='corpo'||it.alcance==='corpo';const forma=corpo?'corpo':(it.forma||'fogo');
   let per=corpo&&!it._arremesso?'luta':'pontaria';
   // Lâmina Maldita: com a arma amaldiçoada pelo ritual, ataca com Ocultismo.
-  const ocult=r.ataqueOcultismo&&corpo&&f&&amaldicoadaAtiva(f);if(ocult)per='ocultismo';
+  const ocult=r.ataqueOcultismo&&f&&amaldicoadaAtiva(f); /* vale para corpo a corpo e à distância (no lugar de Luta ou Pontaria) */if(ocult)per='ocultismo';
   const p=r.per[per]||{bonus:0,dados:1};
   const crit=String(it.critico||'20');const mg=crit.match(/(\d{2})/);const mu=crit.match(/x(\d)/i);
   let margem=mg?+mg[1]:20,mult=mu?+mu[1]:2;
