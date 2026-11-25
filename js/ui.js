@@ -190,6 +190,9 @@ function paneHab(f,r){
       const outras=cat('trilhas').filter(tr=>tr.classe===c.id&&tr.id!==f.trilha&&(tr.habilidades||[]).length);
       o2+=`<label class="fld"><span>Escolha</span><select class="inp" data-habesc="${h(k)}">${opt('',`Um poder de ${c.nome} (padrão)`,esc)}${outras.map(tr=>opt('trilha:'+tr.id,`${tr.nome}: ${tr.habilidades[0].nome}`,esc)).join('')}</select></label>
        <p class="hint">${r.versHab?`Você recebeu ${h(r.versHab.x.nome)}, da trilha ${h(r.versHab.t.nome)} (aparece na seção Trilha).`:`Conta como +1 poder no limite de poderes.`}</p>`}
+    if(MONSTRO_ACAO[dono.id]&&dono===r.t&&x===(dono.habilidades||[])[0]){const feito=(f.bonus||[]).find(b=>b.monstro);const e=f.trilhaElemento;
+      o2+=!e?`<p class="hint">Escolha o elemento da trilha no Dossiê para fazer o ritual diário.</p>`
+        :`<div class="row monstro-dia" style="flex-wrap:wrap;gap:6px;align-items:center"><button class="btn sm acc" data-act="monstroDia" title="Ação completa consumindo um componente de ${h(ELEM[e])}">${feito?'Refazer':'Fazer'}: ${h(MONSTRO_ACAO[dono.id])} (${h(ELEM[e])})</button>${feito?`<span class="badge ok">Feito hoje</span><button class="btn sm ghost" data-act="rmBonus" data-id="${h(feito.uid)}">Encerrar</button>`:'<span class="hint">Sem o ritual de hoje: efeitos de fome e sede.</span>'}</div>`}
     if(x.acao){const idx=Math.max(0,r.nTrilha-1);const pe=Array.isArray(x.acao.pe)?x.acao.pe[Math.min(idx,x.acao.pe.length-1)]:x.acao.pe;const cura=Array.isArray(x.acao.cura)?x.acao.cura[Math.min(idx,x.acao.cura.length-1)]:x.acao.cura;
       o2+=`<div class="row"><button class="btn sm acc" data-act="usarHab" data-k="${h(k)}">Usar${pe?` (−${pe} ${r.det?'PD':'PE'})`:''}${cura?' → cura '+h(cura):''}</button></div>`}
     return o2};

@@ -310,6 +310,14 @@ document.addEventListener('click',e=>{
        toast(`“${r.nome}” removido da ficha de ${fa.nome}.`);render()}).catch(e=>toast(e.message||'Não foi possível remover.'));return}
    case 'rmMod':f.inventario[+ds.i].modsAplicadas.splice(+ds.k,1);saveF();break;
    case 'usarItem':usarItem(f,+ds.i);break;
+   case 'monstroDia':{const r=calc(f);const t=r.t;const e=f.trilhaElemento;if(!t||!MONSTRO_ACAO[t.id]||!e)return;const n=Math.max(1,r.nTrilha);
+     const o=monstroDiario(t.id,e,n,r.A);const nome=`${MONSTRO_ACAO[t.id]} (${ELEM[e]})`;const msgs=[nome];
+     f.bonus=(f.bonus||[]).filter(b=>!b.monstro);
+     if(o.cura)msgs.push(curaPV(f,o.cura,'Experimento'));if(o.pvTemp)msgs.push(darTemp(f,'pv',o.pvTemp,'Experimento'));
+     if(o.pe){const x=rollExpr(o.pe,r.A);const c=calc(f);const antes=c.pe;f.pe=Math.min(c.peMax,c.pe+x.total);msgs.push(`+${f.pe-antes} ${r.det?'PD':'PE'} (${o.pe}: ${x.total})`)}
+     const ef={...o.ef};if(o.notas.length)ef.nota=o.notas.join(' · ');
+     (f.bonus=f.bonus||[]).push({uid:uid(),tipo:'efeito',ritual:false,monstro:true,nome,ef,itemEf:o.itemEf,dur:'dia'});
+     saveF();toast(msgs.join(' · ')+' — efeitos na aba Bônus até o fim do dia',6000);break}
    case 'efAdd':{const it=f.inventario[+ds.i];(it.efeitos=it.efeitos||[]).push({t:ds.t||'attr',k:'',v:''});saveF();break}
    case 'efRm':{const it=f.inventario[+ds.i];(it.efeitos||[]).splice(+ds.k,1);if(+it.efEscolha>=(it.efeitos||[]).length)it.efEscolha=0;saveF();break}
    case 'toggle':S.open[ds.id]=!S.open[ds.id];break;
