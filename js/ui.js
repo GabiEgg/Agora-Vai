@@ -96,7 +96,7 @@ function paneDossie(f,r){
     ${fld('Trilha',`<select class="inp" id="f-trilha" data-f="trilha" data-r ${!r.est&&f.nex<10?'disabled':''}>${opt('',!r.est&&f.nex<10?'Disponível em NEX 10%':'Escolha…',f.trilha)}${grupoFonte(trilhas,f.trilha)}</select>`)}
     ${r.t&&r.t.elementoEscolha?fld('Elemento da trilha',`<select class="inp" data-f="trilhaElemento" data-r>${opt('','Escolha…',f.trilhaElemento)}${['sangue','morte','conhecimento','energia'].map(k=>opt(k,ELEM[k],f.trilhaElemento)).join('')}</select>`):''}
     ${fld('Afinidade',`<select class="inp" data-f="afinidade" data-r ${!r.est&&f.nex<50?'title="Afinidade é escolhida em NEX 50%"':''}>${Object.entries(ELEM).filter(([k])=>k!=='medo').map(([k,v])=>opt(k,v,f.afinidade)).join('')}</select>`)}
-    ${!f._alheia?fld('Regras',`<div class="row"><select class="inp" data-regras-modo style="flex:1 1 160px">${opt('padrao','Gerais (aba Mesa)',f.regrasModo||'padrao')}${f.mesa?opt('campanha','Da campanha ligada',f.regrasModo||''):''}${opt('propria','Próprias deste agente',f.regrasModo||'')}</select>${f.regrasModo==='propria'?`<button class="btn sm" data-act="regrasEditar" data-id="${h(f.id)}">Editar</button>`:''}</div>${f.regrasModo==='campanha'&&f.mesa&&!cfgCampanha(f.mesa)?'<span class="hint">O mestre ainda não publicou as regras; por enquanto valem as gerais.</span>':''}`):''}
+    ${!f._alheia?fld('Regras',`<div class="row"><select class="inp" data-regras-modo style="flex:1 1 160px">${opt('padrao','Gerais (aba Mesa)',modoRegras(f))}${f.mesa?opt('campanha','Do mestre da campanha (sincronizadas)',modoRegras(f)):''}${opt('propria','Próprias deste agente',modoRegras(f))}</select>${modoRegras(f)==='propria'?`<button class="btn sm" data-act="regrasEditar" data-id="${h(f.id)}">Editar</button>`:''}</div>${modoRegras(f)==='campanha'&&f.mesa&&!cfgCampanha(f.mesa)?'<span class="hint">O mestre ainda não publicou as regras; por enquanto valem as gerais.</span>':''}`):''}
     ${S.conta&&S.conta.usuario&&!f._alheia?fld('Campanha',`<select class="inp" data-f="mesa" data-r>${opt('','Nenhuma (só eu vejo)',f.mesa||'')}${(S.mesas||[]).map(m=>opt(m.id,m.nome+(m.papel==='mestre'?' (você é o mestre)':' · mestre '+m.mestre),f.mesa||'')).join('')}</select>`):''}
     ${fld('Pontos de prestígio',numInp('pp',f.pp,'min="0"'))}
     ${fld('Patente',`<div class="inp ro" data-d="patente">${h(r.patente.nome)} · crédito ${h(r.patente.credito)}</div>`)}
@@ -515,7 +515,7 @@ function paneNotas(f){
 /* ============================== MESA (fontes e regras) ============================== */
 function renderMesa(){
   const t=S.mesaTab;const tabs=[['fontes','Livros e suplementos'],['regras','Regras opcionais'],['auto','Automação']];
-  let body='';const trava=(!S.mesaAlvo||S.mesaAlvo==='g')&&mesaSincronizada()?'disabled ':'';
+  let body='';const trava='';
   if(t==='fontes'){
     const pk=pacotesHB();
     body=`<p class="hint">Ligue os livros e suplementos usados na sua mesa. Origens, classes, trilhas, poderes, rituais, itens, aliados e regras de cada um só aparecem quando ele está ligado. Vale para todas as fichas.</p>

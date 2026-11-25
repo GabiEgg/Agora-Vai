@@ -10,7 +10,7 @@ function mudAplicar(mid,tipos){const t=new Set(tipos);const tudo=t.has('tudo');
   if(tudo||t.has('ini')){if(escudoNaMesa&&typeof atualizarIni==='function')atualizarIni();if(fichaNaMesa&&typeof atualizarIniJogador==='function')atualizarIniJogador()}
   if(tudo||t.has('ficha')||t.has('aviso')){if(escudoNaMesa&&typeof atualizarMesa==='function')atualizarMesa(true)}
   if(tudo||t.has('ficha')||t.has('cfg')){if((fichaNaMesa||escudoNaMesa||window.janAtualizar)&&typeof grupoBuscar==='function')grupoBuscar(mid,true);if(window.janAtualizar)window.janAtualizar()}
-  if((tudo||t.has('cfg'))&&typeof mesaSincronizada==='function'&&mesaSincronizada()&&typeof sincronizarRegras==='function')sincronizarRegras(S.cfg.syncMesa,true);
+  if((tudo||t.has('cfg'))&&typeof buscarRegrasDasFichas==='function')buscarRegrasDasFichas();
 }
 (async function mudLoop(){
   await mudEsperar(1200);let primeira=true;

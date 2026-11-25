@@ -4,7 +4,7 @@
 async function carregarMesas(){
   if(!(S.conta&&S.conta.usuario))return;
   try{S.mesas=await Api.req('GET','/api/mesas')}catch(e){S.mesas=[]}
-  render();publicarRegras();buscarRegrasDasFichas();if(mesaSincronizada())sincronizarRegras(S.cfg.syncMesa,true);
+  render();publicarRegras();if(S.cfg.syncMesa){delete S.cfg.syncMesa;saveCfg()} /* sincronia agora é por agente */buscarRegrasDasFichas();
 }
 const mesaAtual=()=>(S.mesas||[]).find(m=>m.id===S.mesaAberta);
 async function abrirMesa(id){
@@ -57,7 +57,7 @@ function publicarRegras(){
 /* Salva o alvo editado na aba Mesa: regras gerais/de campanha ficam na configuração; as de um agente, na ficha. */
 function salvarAlvoRegras(){const a=S.mesaAlvo||'g';if(a.startsWith('f:')){const f=S.fichas[a.slice(2)];if(f){saveF(f);return}}saveCfg()}
 /* Busca as regras publicadas das campanhas em que algum agente usa "Da campanha ligada". */
-function buscarRegrasDasFichas(){const ids=new Set(Object.values(S.fichas||{}).filter(f=>f.regrasModo==='campanha'&&f.mesa).map(f=>f.mesa));
+function buscarRegrasDasFichas(){const ids=new Set(Object.values(S.fichas||{}).filter(f=>f.mesa&&modoRegras(f)==='campanha').map(f=>f.mesa));
   ids.forEach(id=>{const m=(S.mesas||[]).find(x=>x.id===id);if(m&&m.papel!=='mestre')buscarRegras(id).then(()=>render()).catch(()=>{})})}
 async function buscarRegras(id){const r=await Api.req('GET',`/api/mesas/${encodeURIComponent(id)}/regras`);S.regrasMesa=S.regrasMesa||{};S.regrasMesa[id]=r;return r}
 async function buscarRegrasJogador(){
@@ -68,7 +68,8 @@ function aplicarRegras(cfg){
   S.cfg.fontes={core:true,...cfg.fontes};S.cfg.regras={...cfg.regras};S.cfg.auto={...cfgPadrao().auto,...cfg.auto};S.cfg.acoesInterludio=+cfg.acoesInterludio||2;
   S._semPublicar=true;try{saveCfg()}finally{S._semPublicar=false}
 }
-const mesaSincronizada=()=>!!S.cfg.syncMesa&&(S.mesas||[]).some(m=>m.id===S.cfg.syncMesa&&m.papel!=='mestre');
+/* Antes havia uma sincronia global (copiava as regras do mestre para as gerais). Agora cada agente segue a campanha dele. */
+const mesaSincronizada=()=>false;
 async function sincronizarRegras(id,silencioso){
   const m=(S.mesas||[]).find(x=>x.id===id);if(!m)return false;
   let r;try{r=await buscarRegras(id)}catch(e){if(!silencioso)toast('Não foi possível buscar as regras da campanha.');return false}
@@ -92,12 +93,12 @@ function regrasCampanhaHtml(){
   if(!(S.conta&&S.conta.usuario))return alvoRegrasHtml();
   const jog=(S.mesas||[]).filter(m=>m.papel!=='mestre');const mest=(S.mesas||[]).filter(m=>m.papel==='mestre');
   if(jog.length&&(!S._regrasBusca||Date.now()-S._regrasBusca>15000))buscarRegrasJogador().then(()=>{if(S.view==='mesa')render()});
-  const linhas=jog.map(m=>{const r=(S.regrasMesa||{})[m.id];const sync=S.cfg.syncMesa===m.id;
-    const st=!r?'<span class="chip">verificando…</span>':!r.cfg?'<span class="chip">mestre ainda não publicou</span>':regrasIguais(regrasDe(S.cfg),r.cfg)?'<span class="chip ok">iguais às do mestre</span>':'<span class="chip warn">diferentes das do mestre</span>';
+  const linhas=jog.map(m=>{const r=(S.regrasMesa||{})[m.id];const ags=Object.values(realFichas()).filter(f=>f.mesa===m.id&&modoRegras(f)==='campanha');
+    const st=!r?'<span class="chip">verificando…</span>':!r.cfg?'<span class="chip">mestre ainda não publicou</span>':'<span class="chip ok">publicadas pelo mestre</span>';
     return `<div class="row regras-camp"><span style="flex:1 1 200px"><b>${h(m.nome)}</b> <span class="hint">mestre ${h(m.mestre)}</span> ${st}</span>
-      <button class="btn sm acc" data-act="regrasSync" data-id="${h(m.id)}" ${r&&!r.cfg?'disabled':''}>Usar as regras do mestre</button>
-      <label class="chk"><input type="checkbox" data-act="regrasAuto" data-id="${h(m.id)}" ${sync?'checked':''}> Manter sincronizado</label></div>`}).join('');
-  return `${jog.length?`<div class="card" style="margin-bottom:12px"><h4>Regras das suas campanhas</h4><p class="hint">Copie os livros, as regras opcionais e as automações que o mestre usa. Com “Manter sincronizado”, mudanças do mestre chegam sozinhas e os interruptores abaixo ficam travados. Pacotes de homebrew não são copiados.</p>${linhas}</div>`:''}
+      <span class="hint" style="flex:1 1 220px">${ags.length?'Seguem estas regras: '+ags.map(f=>'<b>'+h(f.nome||'sem nome')+'</b>').join(', '):'Nenhum agente seu nesta campanha.'}</span>
+      <button class="btn sm ghost" data-act="regrasSync" data-id="${h(m.id)}" ${r&&!r.cfg?'disabled':''} title="Copia as regras do mestre para as suas regras gerais (afeta agentes sem campanha)">Copiar para as gerais</button></div>`}).join('');
+  return `${jog.length?`<div class="card" style="margin-bottom:12px"><h4>Regras das suas campanhas</h4><p class="hint">Cada agente ligado a uma campanha usa sozinho os livros, as regras opcionais e as automações do mestre dela, sempre atualizados. Agentes sem campanha usam as regras gerais abaixo. Para um agente da campanha usar outras regras, mude o campo <b>Regras</b> no Dossiê dele. Pacotes de homebrew não são copiados.</p>${linhas}</div>`:''}
    ${alvoRegrasHtml()}`;
 }
 /* Mantém sincronizado: ao carregar as campanhas e a cada minuto. O mestre publica ao carregar. */

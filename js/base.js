@@ -74,9 +74,11 @@ const regrasCopia=c=>({fontes:{core:true,...(c.fontes||{})},regras:{...(c.regras
 function cfgCampanha(id){const m=(S.mesas||[]).find(x=>x.id===id);if(!m)return null;
   if(m.papel==='mestre')return (S.cfg.mesasCfg||{})[id]||S.cfg;
   const r=(S.regrasMesa||{})[id];if(!r||!r.cfg)return null;return r._c||(r._c=regrasCopia(r.cfg))}
-function cfgFicha(f){if(!f)return S.cfg;
-  if(f.regrasModo==='propria'&&f.regrasCfg)return f.regrasCfg;
-  if(f.regrasModo==='campanha'&&f.mesa)return cfgCampanha(f.mesa)||S.cfg;
+/* Agente numa campanha segue as regras dela por padrão; sem campanha, as gerais. */
+const modoRegras=f=>f.regrasModo||(f.mesa?'campanha':'padrao');
+function cfgFicha(f){if(!f)return S.cfg;const modo=modoRegras(f);
+  if(modo==='propria'&&f.regrasCfg)return f.regrasCfg;
+  if(modo==='campanha'&&f.mesa)return cfgCampanha(f.mesa)||S.cfg;
   /* ficha de jogador vista pelo mestre: sem regras próprias, vale a da campanha */
   if(f.mesa&&!S.fichas[f.id]){const m=(S.mesas||[]).find(x=>x.id===f.mesa);if(m&&m.papel==='mestre')return (S.cfg.mesasCfg||{})[f.mesa]||S.cfg}
   return S.cfg}
