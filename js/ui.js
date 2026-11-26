@@ -142,10 +142,15 @@ function modAlvos(){return [['pv','PV'],['pvNex','PV por nível'],['pe','PE / PD
   ['defesa','Defesa'],['deslocamento','Deslocamento (m)'],['carga','Espaços de carga'],['peLimite','Limite de PE por turno'],['dtRitual','DT de rituais'],['resist','Testes de resistência'],['esquiva','Defesa ao esquivar'],['bloqueio','RD ao bloquear']]
   .concat(pericias().map(p=>['per:'+p.id,'Perícia: '+p.nome]))}
 const alvoNome=a=>(modAlvos().find(x=>x[0]===a)||[a,a==='pvBase'?'PV iniciais':a==='pvPor10'?'PV a cada 10% NEX':a==='pePor10'?'PE a cada 10% NEX':a==='carga_pen'?'Perícias de carga':a])[1];
+/* Junta modificadores iguais da mesma fonte em perícias diferentes: "−5 em Diplomacia, Enganação e Intuição". */
+function modsAgrupados(l){const g=new Map();l.forEach(m=>{const v=m.txt?m.txt.replace('-','−'):sgn(m.valor);const per=String(m.alvo).startsWith('per:');
+    const k=m.fonte+'|'+v+'|'+(per?'per':m.alvo);if(!g.has(k))g.set(k,{fonte:m.fonte,v,per,l:[]});g.get(k).l.push(per?perNome(m.alvo.slice(4)):alvoNome(m.alvo))});
+  const e=a=>a.length>1?a.slice(0,-1).join(', ')+' e '+a[a.length-1]:a[0];
+  return [...g.values()].map(x=>({fonte:x.fonte,v:x.v,alvos:x.per?'em '+e(x.l):e(x.l)}))}
 function modsPanel(f,r){
   const auto=r.mods.filter(m=>m.fonte!=='Manual');
   return `<div class="sec"><div class="sec-h"><h2>Modificadores automáticos</h2><div class="row"><button class="btn sm" data-act="modAdd">+ Bônus permanente manual</button></div></div>
-   ${auto.length?`<div class="chips">${auto.map(m=>`<span class="chip">${h(m.fonte)}: ${sgn(m.valor)} ${h(alvoNome(m.alvo))}</span>`).join('')}</div>`:'<p class="hint">Origens, trilhas, poderes, aliados e itens equipados com efeitos numéricos aparecem aqui e já entram nos cálculos.</p>'}
+   ${auto.length?`<div class="chips">${modsAgrupados(auto).map(g=>`<span class="chip">${h(g.fonte)}: ${g.v} ${h(g.alvos)}</span>`).join('')}</div>`:'<p class="hint">Origens, trilhas, poderes, aliados e itens equipados com efeitos numéricos aparecem aqui e já entram nos cálculos.</p>'}
    ${f.mods.map((m,i)=>modRow('f',i,m)).join('')}</div>`;
 }
 function modRow(scope,i,m){const at=scope==='f'?'f':'h';return `<div class="modrow"><select class="inp" data-${at}="mods.${i}.alvo" data-r>${modAlvos().map(([k,l])=>opt(k,l,m.alvo)).join('')}</select>

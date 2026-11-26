@@ -67,15 +67,15 @@ const PE_EL=EL4('FOR','VIG','INT','AGI');
 const UM=EL4({FOR:1},{VIG:1},{INT:1},{AGI:1});
 /* Penalidade social (Diplomacia, Enganação, Intuição): –2 → –5 (NEX 40) → –1d20 (65) → –2d20 (99). */
 const SOC=['diplomacia','enganacao','intuicao'];
-const PEN5=SOC.map(k=>({alvo:'per:'+k,valor:-3})),PEN_D=Object.fromEntries(SOC.map(k=>[k,-1])),VOLTA5=SOC.map(k=>({alvo:'per:'+k,valor:5}));
+/* penSoc: só a maior penalidade vale (calc.js); antes somava –2, –3, +5 e aparecia como bônus. */
 const AJUSTES={
  /* Combatente: os efeitos do elemento (inclusive o +1 Int de Conhecimento) vêm do ritual diário; em NEX 99 ficam permanentes. */
  monstruoso:[{},{peAttrElem:PE_EL},{attrBonus:{PRE:-1}},{attrElem:EL4({INT:-1,FOR:1},{PRE:-1,VIG:1},{FOR:-1,INT:1},{FOR:-1,AGI:1}),
    ritConcedidoElem:EL4(['rit_forma_monstruosa'],['rit_fim_inevitavel'],[],['rit_deflagracao_de_energia'])}],
  /* Especialista: o +1 no atributo de NEX 65/99 faz parte do experimento do dia (botão). */
- monstruoso_especialista:[{peAttrElem:PE_EL},{mods:PEN5},{attrBonus:{PRE:-1},mods:VOLTA5,dadosPer:PEN_D},
-   {attrBonus:{PRE:-1},dadosPer:PEN_D,ritConcedidoElem:EL4(['rit_vinculo_de_sangue'],['rit_distorcao_temporal'],['rit_controle_mental'],['rit_teletransporte'])}],
- monstruoso_ocultista:[{peAttrElem:PE_EL,dtAttrElem:PE_EL,attrElem:UM},{mods:PEN5},{attrBonus:{PRE:-1},mods:VOLTA5,dadosPer:PEN_D,dtElemTrilha:2},{attrBonus:{PRE:-1},attrElem:UM,dadosPer:PEN_D}],
+ monstruoso_especialista:[{peAttrElem:PE_EL,mods:[],penSoc:-2},{penSoc:-5},{attrBonus:{PRE:-1},penSocD:-1},
+   {attrBonus:{PRE:-1},penSocD:-2,ritConcedidoElem:EL4(['rit_vinculo_de_sangue'],['rit_distorcao_temporal'],['rit_controle_mental'],['rit_teletransporte'])}],
+ monstruoso_ocultista:[{peAttrElem:PE_EL,dtAttrElem:PE_EL,attrElem:UM,mods:[{alvo:'per:ocultismo',valor:2}],penSoc:-2},{penSoc:-5},{attrBonus:{PRE:-1},penSocD:-1,dtElemTrilha:2},{attrBonus:{PRE:-1},attrElem:UM,penSocD:-2}],
 };
 /* Bloqueio e esquiva: atributo somado à RD do bloqueio e bônus de itens. */
 {const tr=t=>out.trilhas.find(x=>x.id===t);const cg=tr('tropa');if(cg)cg.habilidades[0].bloqueioAttr='VIG';const mo=tr('monstruoso');if(mo)mo.habilidades[0].bloqueioAttrElem={energia:'AGI'};}

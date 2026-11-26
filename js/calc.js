@@ -90,6 +90,12 @@ function calc0(f){
     if(e.bonusPericia&&it.ref==='it_mochila_militar'&&regraOn('mochila_aprimorada'))mods.push({alvo:'carga',valor:e.bonusPericia,fonte:m.nome+' (mochila)'});
     if(e.pv)mods.push({alvo:'pv',valor:e.pv,fonte:m.nome});if(e.pe)mods.push({alvo:'pe',valor:e.pe,fonte:m.nome});if(e.dt)mods.push({alvo:'dtRitual',valor:e.dt,fonte:m.nome})});
     mods.slice(n0).forEach(x=>x.equip=true)});
+  /* Monstruoso (Especialista/Ocultista): penalidade em Diplomacia, Enganação e Intuição. Vale só a maior
+     (–2 → –5 → –1d20 → –2d20), numa linha só. */
+  {const pd=flags.filter(x=>x.penSocD),pn=flags.filter(x=>x.penSoc);
+   if(pd.length){const x=pd.reduce((a,b)=>b.penSocD<a.penSocD?b:a);flags.push({dadosPer:Object.fromEntries(['diplomacia','enganacao','intuicao'].map(k=>[k,x.penSocD])),_fonte:x._fonte});
+     ['diplomacia','enganacao','intuicao'].forEach(k=>mods.push({alvo:'per:'+k,valor:0,txt:x.penSocD+'d20',fonte:x._fonte}))}
+   else if(pn.length){const x=pn.reduce((a,b)=>b.penSoc<a.penSoc?b:a);['diplomacia','enganacao','intuicao'].forEach(k=>mods.push({alvo:'per:'+k,valor:x.penSoc,fonte:x._fonte}))}}
   /* Efeitos personalizados dos itens (editor "Efeitos automáticos" no item). */
   const ie={ataque:0,margem:0,arma:[],ritCusto:[],ritDano:[],ritDt:{},attr:{},rd:[],notas:[]};r.ie=ie;
   itemEfAtivos(f).forEach(e=>{const v=+e.v||0;const d=EF_ITEM[e.t]||{};
