@@ -609,6 +609,13 @@ button.js-num{background:none;border:0;padding:0;margin:0;cursor:pointer;font-fa
 .jan-pop{position:fixed;z-index:20;display:flex;gap:6px;align-items:flex-end;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .jan-pop label{display:grid;gap:2px;font-size:12px}.jan-pop input{font:inherit;font-size:15px;width:150px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink)}
 body.janela .jan-pop{display:flex!important}body.janela .jan-pop[hidden]{display:none!important}
+.dica{position:fixed;z-index:3000;pointer-events:none;width:min(380px,calc(100vw - 16px));overflow:auto;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 10px 30px rgba(0,0,0,.28);padding:10px 12px;font-size:13px;line-height:1.45}
+.dica[hidden]{display:none}
+.dica-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px}.dica-h .eyebrow{flex-basis:100%;margin:0}.dica-h b{font-size:15px}
+.dica .meta{margin:2px 0 6px}.dica p{margin:6px 0}.dica-l{margin:2px 0}.dica-l b{font-weight:600}
+.dica-alvo{cursor:help;text-decoration:underline dotted;text-decoration-thickness:1px;text-underline-offset:3px}
+.sel-ver{flex-wrap:nowrap;gap:6px}.sel-ver select{flex:1 1 auto;min-width:0}
+.explorar{display:grid;gap:10px}.explorar-c.on{outline:2px solid var(--acc,currentColor)}.explorar-c .dica-h b{font-size:16px}
 </style>
 
 <div class="wrap">
@@ -639,4 +646,5 @@ body.janela .jan-pop{display:flex!important}body.janela .jan-pop[hidden]{display
 <script src="js/ping.js" charset="utf-8"></script>
 <script src="js/eventos.js" charset="utf-8"></script>
 <script src="js/aovivo.js" charset="utf-8"></script>
+<script src="js/dica.js" charset="utf-8"></script>
 <script src="js/janela.js" charset="utf-8"></script>

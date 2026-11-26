@@ -51,7 +51,7 @@ const fld=(label,inner,cls='')=>`<label class="fld ${cls}"><span>${label}</span>
 const inp=(path,val,extra='')=>`<input class="inp" data-f="${path}" value="${h(val)}" ${extra}>`;
 const numInp=(path,val,extra='')=>`<input class="inp num" type="number" inputmode="numeric" data-f="${path}" data-num value="${h(val??'')}" ${extra}>`;
 const elBadge=e=>{if(!e)return '';const i=ELEM_INFO[e];const tt=i?[i.tipo==='fusao'&&(i.componentes||[]).length?'Fusão de '+i.componentes.map(c=>ELEM[c]||c).join(' + '):'',i.desc||''].filter(Boolean).join(' — '):'';
-  return `<span class="badge el el-${h(e)}"${tt?` title="${h(tt)}"`:''}>${h(ELEM[e]||e)}</span>`};
+  return `<span class="badge el el-${h(e)}"${i?` data-dica="elementos:${h(e)}"`:''}>${h(ELEM[e]||e)}</span>`};
 const rnd=n=>1+Math.floor(Math.random()*n);
 /* Avalia expressões de dados como "2d6+3", "PRE*10", "1d8+VIG". */
 function rollExpr(expr,A={}){

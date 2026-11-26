@@ -258,6 +258,7 @@ document.addEventListener('click',e=>{
    case 'modAdd':f.mods.push({alvo:'defesa',valor:1});saveF();break;
    case 'modDel':if(ds.scope==='f'){f.mods.splice(+ds.i,1);saveF()}else{hbCur().mods.splice(+ds.i,1);saveHB()}break;
    case 'pick':openPick(ds.type);return;
+   case 'explorar':explorarAbrir(ds.t);return;
    case 'pickMod':openPick('mods',+ds.i);return;
    case 'pickF':pickState[ds.k]=ds.v;renderPick();return;
    case 'togF':case 'togTodos':case 'togNenhum':{const k=ds.k;let off=S.off[k]||[];
