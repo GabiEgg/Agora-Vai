@@ -43,8 +43,8 @@ function renderCampanha(){
 }
 
 /* ============================== REGRAS DA CAMPANHA ==============================
-   O mestre publica os livros, regras opcionais e automações que tem ligados; cada jogador pode
-   copiar com um clique ou manter sincronizado (aí os interruptores da aba Mesa ficam travados).
+   O mestre publica os livros, regras opcionais e automações que tem ligados; cada agente ligado
+   à campanha segue essas regras (cfgFicha/modoRegras). Copiar para as gerais é opcional.
    Pacotes de homebrew não entram: o conteúdo deles fica na conta de quem criou. */
 const regrasDe=c=>({fontes:{...c.fontes},regras:{...c.regras},auto:{...c.auto},acoesInterludio:+c.acoesInterludio||2});
 const chavesOn=o=>Object.keys(o||{}).filter(k=>o[k]&&k!=='core').sort().join(',');
@@ -101,12 +101,10 @@ function regrasCampanhaHtml(){
   return `${jog.length?`<div class="card" style="margin-bottom:12px"><h4>Regras das suas campanhas</h4><p class="hint">Cada agente ligado a uma campanha usa sozinho os livros, as regras opcionais e as automações do mestre dela, sempre atualizados. Agentes sem campanha usam as regras gerais abaixo. Para um agente da campanha usar outras regras, mude o campo <b>Regras</b> no Dossiê dele. Pacotes de homebrew não são copiados.</p>${linhas}</div>`:''}
    ${alvoRegrasHtml()}`;
 }
-/* Mantém sincronizado: ao carregar as campanhas e a cada minuto. O mestre publica ao carregar. */
-setInterval(()=>{if(document.visibilityState!=='visible')return;if(mesaSincronizada())sincronizarRegras(S.cfg.syncMesa,true);buscarRegrasDasFichas()},60000);
+/* Regras das campanhas dos agentes: ao carregar, a cada minuto e pelo canal ao vivo. O mestre publica ao carregar. */
+setInterval(()=>{if(document.visibilityState!=='visible')return;buscarRegrasDasFichas()},60000);
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act="regrasSync"]');if(t)sincronizarRegras(t.dataset.id)});
-document.addEventListener('change',e=>{const t=e.target;if(t.dataset.act!=='regrasAuto')return;
-  if(t.checked){S.cfg.syncMesa=t.dataset.id;sincronizarRegras(t.dataset.id).then(()=>{saveCfg();render()})}
-  else{delete S.cfg.syncMesa;saveCfg();render()}});
+
 
 /* Regras por campanha (mestre) e por agente. */
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const ds=t.dataset;

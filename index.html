@@ -9,7 +9,7 @@
 :root{
   --bg:#dfe2dc; --paper:#f2f3ef; --sunk:#e7e9e4; --ink:#16191b; --muted:#596066; --line:#c3c8c1;
   --accent:#8a6400; --accent-ink:#fff8e6; --focus:#8a6400;
-  --sangue:#b01530; --morte:#2f3133; --conhecimento:#9a7400; --energia:#7a2fc0; --medo:#5f7488;
+  --sangue:#b01530; --morte:#2f3133; --conhecimento:#9a7400; --energia:#7a2fc0; --medo:#5f7488; --transmissao:#0f7f8c;
   --pv:#b01530; --pe:#7a2fc0; --san:#2f6f8f; --ok:#2e7d4f; --warn:#a35a00;
   --f-display:"Saira Stencil One", "Arial Narrow", Impact, sans-serif;
   --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -19,12 +19,12 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1113; --paper:#171a1d; --sunk:#121517; --ink:#e7e4da; --muted:#949ba1; --line:#2a2f33;
   --accent:#e2b441; --accent-ink:#1a1405; --focus:#e2b441;
-  --sangue:#e5485f; --morte:#a3a6a8; --conhecimento:#e2b441; --energia:#b47cf2; --medo:#c9d4de;
+  --sangue:#e5485f; --morte:#a3a6a8; --conhecimento:#e2b441; --energia:#b47cf2; --medo:#c9d4de; --transmissao:#4fc9d6;
   --pv:#e5485f; --pe:#b47cf2; --san:#6fb3d6; --ok:#5cc28a; --warn:#f0a040; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f1113; --paper:#171a1d; --sunk:#121517; --ink:#e7e4da; --muted:#949ba1; --line:#2a2f33;
   --accent:#e2b441; --accent-ink:#1a1405; --focus:#e2b441;
-  --sangue:#e5485f; --morte:#a3a6a8; --conhecimento:#e2b441; --energia:#b47cf2; --medo:#c9d4de;
+  --sangue:#e5485f; --morte:#a3a6a8; --conhecimento:#e2b441; --energia:#b47cf2; --medo:#c9d4de; --transmissao:#4fc9d6;
   --pv:#e5485f; --pe:#b47cf2; --san:#6fb3d6; --ok:#5cc28a; --warn:#f0a040; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
@@ -136,7 +136,7 @@ td .inp{padding:3px 6px}
 .badge.acc{border-color:var(--accent);color:var(--accent)}
 .badge.hb{border-color:var(--energia);color:var(--energia)}
 .el{--c:var(--muted)}
-.el-sangue{--c:var(--sangue)} .el-morte{--c:var(--morte)} .el-conhecimento{--c:var(--conhecimento)} .el-energia{--c:var(--energia)} .el-medo{--c:var(--medo)}
+.el-sangue{--c:var(--sangue)} .el-morte{--c:var(--morte)} .el-conhecimento{--c:var(--conhecimento)} .el-energia{--c:var(--energia)} .el-medo{--c:var(--medo)} .el-transmissao{--c:var(--transmissao)}
 .badge.el{border-color:var(--c);color:var(--c)}
 .roll{border:1px solid var(--line);background:var(--sunk);border-radius:4px;width:28px;height:26px;display:grid;place-items:center;cursor:pointer;padding:0}
 .roll:hover{border-color:var(--accent);color:var(--accent)}

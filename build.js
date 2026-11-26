@@ -132,6 +132,7 @@ const HAB2={
  esperto:[{},{acao:{pe:1,lembrete:'+1d4 numa das perícias escolhidas'}}],
  esoterico:[{acao:{pe:1,lembrete:'sente energias paranormais em alcance curto'}}],
  muambeiro:[{treinaOu2:'profissao',treinaValor:0}],
+ durao:[{pvEstagio:{3:2}}],
 };
 out.trilhas.forEach(t=>{const aj=HAB[t.id];if(aj)t.habilidades.forEach((h,i)=>Object.assign(h,aj[i]||{}))});
 out.trilhas.forEach(t=>{const aj=HAB2[t.id];if(aj)t.habilidades.forEach((h,i)=>Object.assign(h,aj[i]||{}))});

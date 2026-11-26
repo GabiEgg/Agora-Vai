@@ -185,6 +185,7 @@ function calc0(f){
     if(M.pat&&ce.pat){r.pvMax=ce.pat.pv[0]+Abase.VIG+pIdx*(ce.pat.pv[1]+Abase.VIG)}
     else r.pvMax=+c.pvBase+Abase.VIG+(lv-1)*(+c.pvNex+Abase.VIG);
     r.pvMax+=m('pv')+m('pvBase')+m('pvNex')*lv+m('pvPor10')*por10;
+    flags.forEach(x=>{if(x.pvEstagio&&M.est)Object.entries(x.pvEstagio).forEach(([e,v])=>{if(lv>=+e)r.pvMax+=v})}); /* Durão: +2 PV no 3º estágio */
     let pe=+c.peBase+Abase[peAttr]+(lv-1)*(+c.peNex+Abase[peAttr]);
     pe+=m('pe')+m('peNex')*lv+m('pePor10')*por10;
     if(flags.some(x=>x.peNexImpar))pe+=NEX_LIST.filter(n=>n<=f.nex&&n>5&&(n/5)%2===1).length;
@@ -490,7 +491,7 @@ function rollDano(label,expr,A,meta={}){const s=String(expr||'').trim();if(!s){t
   const x=rollExpr(s,A);const tipos=meta.tipos||tiposDe(label+' '+s);
   pushRoll({t:label,v:x.total,d:x.txt,acts:acoesAlvo(x.total,{...meta,tipos})});return x.total}
 function maxExpr(expr,A={}){let s2=String(expr||'').replace(/\s/g,'').toUpperCase().replace(/(AGI|FOR|INT|PRE|VIG)/g,m=>String(A[m]??0));
-  return s2.replace(/(\d*)D(\d+)/g,(x,q,fc)=>String((+q||1)*(+fc))).split(/(?=[+-])/).reduce((t,v)=>t+(+v||0),0)}
+  return s2.replace(/[X×]/g,'*').replace(/(\d*)D(\d+)/g,(x,q,fc)=>String((+q||1)*(+fc))).split(/(?=[+-])/).reduce((t,v)=>{const [a,b]=v.split('*');return t+(+a||0)*(b?+b:1)},0)}
 function pushRoll(r){S.rolls.unshift(r);S.rolls=S.rolls.slice(0,3);renderRolls()}
 function renderRolls(){const el=document.getElementById('dicelog');if(!el)return;const vis=S.rollsAbertos?S.rolls:S.rolls.slice(0,1);
   el.innerHTML=vis.map((r,i)=>`<div class="roll-card ${r.crit?'crit':''}" ${i?'style="opacity:.8"':''}><span class="t">${h(r.t)}</span><span class="d">${h(r.d)}</span><span class="v" ${typeof r.v==='string'?'style="font-size:24px"':''}>${h(r.v)}</span>

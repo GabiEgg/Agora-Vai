@@ -3,7 +3,7 @@ const ATTR=['AGI','FOR','INT','PRE','VIG'];
 const ATTR_NOME={AGI:'Agilidade',FOR:'Força',INT:'Intelecto',PRE:'Presença',VIG:'Vigor'};
 const NEX_LIST=[5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,99];
 const nivelNex=n=>n>=99?20:Math.max(1,Math.round(n/5));
-const ELEM={'':'Nenhum',sangue:'Sangue',morte:'Morte',conhecimento:'Conhecimento',energia:'Energia',medo:'Medo'};
+const ELEM={'':'Nenhum',sangue:'Sangue',morte:'Morte',conhecimento:'Conhecimento',energia:'Energia',medo:'Medo',transmissao:'Transmissão'}; /* Transmissão: poderes do AS#05 (Sino de Transmissão) */
 /* Elementos e fusões criados no Homebrew (aba Elementos) entram em ELEM; ELEM_INFO guarda cor, descrição e componentes. */
 const ELEM_BASE={...ELEM};const ELEM_INFO={};let _elemSig='';
 function syncElementos(){const l=((typeof S!=='undefined'&&S.hb&&S.hb.elementos)||[]).filter(x=>x&&x.id&&!(x.id in ELEM_BASE));
@@ -57,10 +57,11 @@ const rnd=n=>1+Math.floor(Math.random()*n);
 function rollExpr(expr,A={}){
   let s=String(expr||'').replace(/\s/g,'').toUpperCase();
   s=s.replace(/(AGI|FOR|INT|PRE|VIG)/g,m=>String(A[m]??0));
-  let total=0;const parts=[];const re=/([+-]?)(\d*)D(\d+)|([+-]?)(\d+)(?:\*(\d+))?/g;let m;
+  s=s.replace(/[X×]/g,'*');
+  let total=0;const parts=[];const re=/([+-]?)(\d*)D(\d+)(?:\*(\d+))?|([+-]?)(\d+)(?:\*(\d+))?/g;let m;
   while((m=re.exec(s))){
-    if(m[3]){const q=+(m[2]||1),fc=+m[3],sg=m[1]==='-'?-1:1;const rr=Array.from({length:q},()=>rnd(fc));total+=sg*rr.reduce((a,b)=>a+b,0);parts.push(`${m[1]||''}${q}d${fc}[${rr.join(',')}]`)}
-    else if(m[5]){const sg=m[4]==='-'?-1:1;const v=+m[5]*(m[6]?+m[6]:1);total+=sg*v;parts.push(`${m[4]||(parts.length?'+':'')}${m[5]}${m[6]?'×'+m[6]:''}`)}
+    if(m[3]){const q=+(m[2]||1),fc=+m[3],sg=m[1]==='-'?-1:1,mu=m[4]?+m[4]:1;const rr=Array.from({length:q},()=>rnd(fc));total+=sg*mu*rr.reduce((a,b)=>a+b,0);parts.push(`${m[1]||''}${q}d${fc}[${rr.join(',')}]${mu>1?'×'+mu:''}`)}
+    else if(m[6]){const sg=m[5]==='-'?-1:1;const v=+m[6]*(m[7]?+m[7]:1);total+=sg*v;parts.push(`${m[5]||(parts.length?'+':'')}${m[6]}${m[7]?'×'+m[7]:''}`)}
   }
   return {total,txt:parts.join(' ')};
 }
