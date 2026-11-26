@@ -57,7 +57,7 @@ function conjurar(f,id){
   const iniNomes=iniAlvos.map(ch=>((((S.iniJog||{})[f.mesa]||{}).entradas||[]).find(e=>e.chave===ch)||{}).nome).filter(Boolean);
   const alvo=iniAlvos.length?'outro':(val('alvo')||'outro');const alvoNome=iniAlvos.length?iniNomes.join(', '):(document.getElementById('cast-alvo-nome')||{}).value||'';
   const marcado=idc=>{const el=document.getElementById(idc);return !!(el&&el.checked)};
-  const r0=calc(f);const dt=r0.dt+(r0.dtElem[x.elemento]||0);
+  const r0=calc(f);const dt=r0.dt+dtElemDe(r0,x);
   const extras=(r0.castExtra||[]).filter(c=>marcado('cast-x-'+c.id));const custo=base+extras.reduce((a,c)=>a+c.pe,0);
   let total,pagoPV=0;
   if(r0.flagelo&&marcado('cast-flagelo')){ // Poder do Flagelo: paga os PE com PV
@@ -385,6 +385,10 @@ document.addEventListener('click',e=>{
    case 'condUp':{const c=byId('condicoes',ds.id);f.condicoes=f.condicoes.filter(x=>x.id!==ds.id);addCond(f,c.agrava);saveF();toast(`${c.nome} piorou para ${(byId('condicoes',c.agrava)||{}).nome||c.agrava}.`);break}
    case 'hbType':S.hbType=ds.v;S.hbSel=null;S.confirm=null;break;
    case 'hbSel':S.hbSel=ds.id;S.confirm=null;break;
+   case 'hbElemCriar':{const t=ds.t;if(!HB_DEFAULT[t])return;S.hbType=t;const x={id:'hb_'+uid(),nome:'',pacote:(hbCur()||{}).pacote||pacotesHB()[0]||'Minha mesa',...clone(HB_DEFAULT[t]),elemento:ds.el};
+     if(t==='itens')x.tipo='amaldicoado';if(t==='poderes')x.tipo='paranormal';if(t==='modificacoes')x.maldicao=true;
+     S.hb[t].push(x);S.hbSel=x.id;saveHB();break}
+   case 'hbIr':S.hbType=ds.t;S.hbSel=ds.id;S.confirm=null;break;
    case 'hbNew':{const pk=(S.hb[S.hbType]||[]).slice(-1)[0];const x={id:'hb_'+uid(),nome:'',pacote:(pk&&pk.pacote)||pacotesHB()[0]||'Minha mesa',...clone(HB_DEFAULT[S.hbType])};if(S.hbType==='trilhas')x.classe=(F()&&F().classe)||'';S.hb[S.hbType].push(x);S.hbSel=x.id;saveHB();break}
    case 'hbOverride':case 'hbClone':{const b=(S.hbType==='criaturas'?(S.cri||[]):D[S.hbType]).find(x=>x.id===ds.id);if(!b)return;const {fonte,...x}=clone(b);x.pacote=pacotesHB()[0]||'Minha mesa';if(a==='hbClone'){x.id='hb_'+uid();x.nome=b.nome+' (variante)'}S.hb[S.hbType].push(x);S.hbSel=x.id;saveHB();break}
    case 'hbDel':S.confirm='hbDel';break;

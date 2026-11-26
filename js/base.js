@@ -4,6 +4,16 @@ const ATTR_NOME={AGI:'Agilidade',FOR:'Força',INT:'Intelecto',PRE:'Presença',VI
 const NEX_LIST=[5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,99];
 const nivelNex=n=>n>=99?20:Math.max(1,Math.round(n/5));
 const ELEM={'':'Nenhum',sangue:'Sangue',morte:'Morte',conhecimento:'Conhecimento',energia:'Energia',medo:'Medo'};
+/* Elementos e fusões criados no Homebrew (aba Elementos) entram em ELEM; ELEM_INFO guarda cor, descrição e componentes. */
+const ELEM_BASE={...ELEM};const ELEM_INFO={};let _elemSig='';
+function syncElementos(){const l=((typeof S!=='undefined'&&S.hb&&S.hb.elementos)||[]).filter(x=>x&&x.id&&!(x.id in ELEM_BASE));
+  const sig=JSON.stringify(l);if(sig===_elemSig)return;_elemSig=sig;
+  Object.keys(ELEM).forEach(k=>{if(!(k in ELEM_BASE))delete ELEM[k]});Object.keys(ELEM_INFO).forEach(k=>delete ELEM_INFO[k]);
+  l.forEach(x=>{ELEM[x.id]=x.nome||'Elemento sem nome';ELEM_INFO[x.id]=x});
+  let st=document.getElementById('el-custom');if(!st){st=document.createElement('style');st.id='el-custom';document.head.appendChild(st)}
+  st.textContent=l.filter(x=>/^#[0-9a-f]{3,8}$/i.test(x.cor||'')).map(x=>`.el.el-${CSS.escape(x.id)},.el-${CSS.escape(x.id)}{--c:${x.cor}}`).join('\n')}
+/* Elementos de um ritual/poder/item, incluindo os que formam uma fusão. */
+function elsCom(lista){const o=[];(lista||[]).filter(Boolean).forEach(e=>{if(!o.includes(e))o.push(e);const i=ELEM_INFO[e];if(i&&i.tipo==='fusao')(i.componentes||[]).forEach(c=>{if(!o.includes(c))o.push(c)})});return o}
 const GRAU={0:'Destreinado',5:'Treinado',10:'Veterano',15:'Experiente'};
 const CUSTO_CIRC=[0,1,3,6,10];
 const PATENTES=[
@@ -40,7 +50,8 @@ let toastT;function toast(msg,ms=3600){let el=document.querySelector('.toast');i
 const fld=(label,inner,cls='')=>`<label class="fld ${cls}"><span>${label}</span>${inner}</label>`;
 const inp=(path,val,extra='')=>`<input class="inp" data-f="${path}" value="${h(val)}" ${extra}>`;
 const numInp=(path,val,extra='')=>`<input class="inp num" type="number" inputmode="numeric" data-f="${path}" data-num value="${h(val??'')}" ${extra}>`;
-const elBadge=e=>e?`<span class="badge el el-${e}">${ELEM[e]||h(e)}</span>`:'';
+const elBadge=e=>{if(!e)return '';const i=ELEM_INFO[e];const tt=i?[i.tipo==='fusao'&&(i.componentes||[]).length?'Fusão de '+i.componentes.map(c=>ELEM[c]||c).join(' + '):'',i.desc||''].filter(Boolean).join(' — '):'';
+  return `<span class="badge el el-${h(e)}"${tt?` title="${h(tt)}"`:''}>${h(ELEM[e]||e)}</span>`};
 const rnd=n=>1+Math.floor(Math.random()*n);
 /* Avalia expressões de dados como "2d6+3", "PRE*10", "1d8+VIG". */
 function rollExpr(expr,A={}){
@@ -59,7 +70,7 @@ let D=null; // conteúdo de data/dados.json
 const FONTE=id=>(D&&D.fontes.find(f=>f.id===id))||{id,sigla:id,nome:id};
 
 /* ============================== ESTADO ============================== */
-const HB_TYPES=[['origens','Origens'],['classes','Classes'],['trilhas','Trilhas'],['poderes','Poderes'],['rituais','Rituais'],['itens','Itens'],['modificacoes','Modificações'],['aliados','Aliados'],['condicoes','Condições'],['pericias','Perícias'],['criaturas','Criaturas e NPCs']];
+const HB_TYPES=[['origens','Origens'],['classes','Classes'],['trilhas','Trilhas'],['poderes','Poderes'],['rituais','Rituais'],['itens','Itens'],['modificacoes','Modificações'],['aliados','Aliados'],['condicoes','Condições'],['pericias','Perícias'],['criaturas','Criaturas e NPCs'],['elementos','Elementos']];
 const emptyHB=()=>Object.fromEntries(HB_TYPES.map(([k])=>[k,[]]));
 const cfgPadrao=()=>({fontes:{core:true},pacotes:{},regras:{},auto:{custoParanormal:true,transcender:true,maldicao:true,massivo:true},acoesInterludio:2,imgs:{}});
 const S={soPosso:(()=>{try{return !!localStorage.getItem('cristopher-soPosso')}catch(e){return false}})(),conta:null,mesas:[],mesaAberta:null,mesaDados:null,mesaEventos:[],alheia:null,fichas:{},hb:emptyHB(),cfg:cfgPadrao(),active:null,view:'ficha',tab:'dossie',hbType:'origens',hbSel:null,hbQ:'',open:{},confirm:null,rolls:[],assets:null,mesaTab:'fontes'};

@@ -13,13 +13,15 @@ const HB_SCHEMA={
  aliados:[['nome','Nome'],['desc','Descrição','area'],['bonus','Bônus (texto)','area'],['habilidade','Habilidade (texto)','area'],['habPE','Custo da habilidade (PE)','num'],['habDado','Dado da habilidade (ex.: 1d8)'],['habCura','Cura da habilidade (ex.: 1d8+1)']],
  condicoes:[['nome','Nome'],['tipo','Tipo','tipoCond'],['desc','Descrição','area'],['efeitos.defesa','Modificador de Defesa','num'],['efeitos.dados.todos','Dados em todos os testes (ex.: −1)','num'],['efeitos.custoPE','PE extra por habilidade','num'],['danoTurno','Dano no início do turno (ex.: 1d6)']],
  pericias:[['nome','Nome'],['attr','Atributo','attr'],['somenteTreinada','Somente treinada','bool'],['carga','Sofre penalidade de carga','bool']],
- criaturas:[['nome','Nome']]};
+ criaturas:[['nome','Nome']],
+ elementos:[['nome','Nome'],['tipo','Tipo','tipoElem'],['componentes','Elementos que se fundem','elemlist'],['cor','Cor','cor'],['vence','É forte contra','elem'],['fraco','É fraco contra','elem'],['desc','Descrição (o que é, como se manifesta)','area'],['propriedades','Propriedades e efeitos (regras, interações, custos)','area'],['sintomas','Exposição e sinais (o que causa em quem tem contato)','area']]};
 const HB_DEFAULT={origens:{pericias:[],poderNome:'',poderDesc:'',mods:[]},classes:{pvBase:16,pvNex:3,peBase:3,peNex:3,sanBase:16,sanNex:4,periciasFixas:[],periciasEscolha:'',periciasLivres:4,grau:3,ritInicial:0,ritNex:0,proficiencias:'',desc:'',habilidades:[]},
  trilhas:{classe:'',desc:'',habilidades:[{nex:10,nome:'',desc:''},{nex:40,nome:'',desc:''},{nex:65,nome:'',desc:''},{nex:99,nome:'',desc:''}]},poderes:{tipo:'geral',elemento:'',prereq:'',desc:'',afinidade:'',mods:[]},
  rituais:{elemento:'',circulo:1,execucao:'Padrão',alcance:'',alvo:'',duracao:'',resistencia:'',desc:'',discente:'',verdadeiro:''},itens:{tipo:'geral',cat:0,esp:1,dano:'',critico:'',alcance:'',tipoDano:'',proficiencia:'',defesa:0,desc:'',mods:[]},
  modificacoes:{aplica:'arma',maldicao:false,elemento:'',desc:'',efeitos:{}},aliados:{desc:'',bonus:'',habilidade:'',habPE:1},condicoes:{tipo:'',desc:'',efeitos:{}},pericias:{attr:'INT',somenteTreinada:false,carga:false},
- criaturas:{tipo:'criatura',elemento:'',elemento2:'',vd:20,tamanho:'Médio',presenca:'',percepcao:'1d20',sentidos:'',iniciativa:'1d20',defesa:12,fortitude:'1d20',reflexos:'1d20',vontade:'1d20',pv:20,resistencias:'',vulnerabilidades:'',imunidades:'',atributos:{AGI:1,FOR:1,INT:1,PRE:1,VIG:1},pericias:'',deslocamento:'9m',acoes:[{ataque:true,nome:'Ataque',alcance:'Corpo a corpo',teste:'1d20+5',dano:'1d6+1'}],enigma:'',desc:''}};
-const HB_NOVO={origens:'origem',classes:'classe',trilhas:'trilha',poderes:'poder',rituais:'ritual',itens:'item',modificacoes:'modificação',aliados:'aliado',condicoes:'condição',pericias:'perícia',criaturas:'criatura ou NPC'};
+ criaturas:{tipo:'criatura',elemento:'',elemento2:'',vd:20,tamanho:'Médio',presenca:'',percepcao:'1d20',sentidos:'',iniciativa:'1d20',defesa:12,fortitude:'1d20',reflexos:'1d20',vontade:'1d20',pv:20,resistencias:'',vulnerabilidades:'',imunidades:'',atributos:{AGI:1,FOR:1,INT:1,PRE:1,VIG:1},pericias:'',deslocamento:'9m',acoes:[{ataque:true,nome:'Ataque',alcance:'Corpo a corpo',teste:'1d20+5',dano:'1d6+1'}],enigma:'',desc:''},
+ elementos:{tipo:'elemento',componentes:[],cor:'#3aa17e',vence:'',fraco:'',desc:'',propriedades:'',sintomas:''}};
+const HB_NOVO={elementos:'elemento ou fusão',origens:'origem',classes:'classe',trilhas:'trilha',poderes:'poder',rituais:'ritual',itens:'item',modificacoes:'modificação',aliados:'aliado',condicoes:'condição',pericias:'perícia',criaturas:'criatura ou NPC'};
 const hbCur=()=>S.hbSel&&(S.hb[S.hbType]||[]).find(x=>x.id===S.hbSel);
 
 function renderHB(){
@@ -66,6 +68,9 @@ function hbForm(t,x){
      case 'tipoItem':return fld(l,`<select class="inp" id="${id}" data-h="${k}" data-r>${Object.entries(TIPO_ITEM).map(([a,b])=>opt(a,b,v)).join('')}</select>`);
      case 'classe':return fld(l,`<select class="inp" id="${id}" data-h="${k}" data-r>${opt('','Escolha…',v)}${cat('classes').map(c=>opt(c.id,c.nome,v)).join('')}</select>`);
      case 'tipoPoder':return fld(l,`<select class="inp" id="${id}" data-h="${k}" data-r>${opt('geral','Geral (qualquer classe)',v)}${opt('paranormal','Paranormal',v)}${cat('classes').map(c=>opt(c.id,'Classe: '+c.nome,v)).join('')}</select>`);
+     case 'tipoElem':return fld(l,`<select class="inp" id="${id}" data-h="${k}" data-r>${opt('elemento','Elemento novo',v)}${opt('fusao','Fusão de elementos',v)}</select>`);
+     case 'elemlist':return x.tipo!=='fusao'?'':`<div class="fld span2"><span>${h(l)}</span><div class="checks">${Object.entries(ELEM).filter(([a])=>a&&a!==x.id).map(([a,b])=>`<label><input type="checkbox" data-act="hbPer" data-k="${k}" data-id="${h(a)}" ${(v||[]).includes(a)?'checked':''}> ${elBadge(a)}</label>`).join('')}</div><span class="hint">Rituais desta fusão também contam como de cada elemento marcado (para bônus de DT, custo e dano de itens e habilidades).</span></div>`;
+     case 'cor':return fld(l,`<div class="row"><input type="color" class="inp" id="${id}" data-h="${k}" data-r value="${h(v||'#3aa17e')}" style="width:64px;padding:2px">${elBadge(x.id)}</div>`);
      case 'perlist':return `<div class="fld span2"><span>${h(l)}</span><div class="checks">${pericias().map(p=>`<label><input type="checkbox" data-act="hbPer" data-k="${k}" data-id="${p.id}" ${(v||[]).includes(p.id)?'checked':''}> ${h(p.nome)}</label>`).join('')}</div></div>`;
      case 'mods':return `<div class="fld span2"><span>${h(l)}</span><div class="grid" style="gap:6px">${(v||[]).map((m,i)=>modRow('h',i,m)).join('')}<div><button class="btn sm" data-act="hbModAdd">+ Modificador</button> <span class="hint">Somados automaticamente na ficha (ex.: +2 Defesa, +1 PV por nível).</span></div></div></div>`;
      case 'habs':return `<div class="fld span2"><span>${h(l)}</span><div class="grid" style="gap:6px">${(v||[]).map((hh,i)=>`<div class="subrow"><input class="inp num" type="number" data-h="${k}.${i}.nex" data-num value="${h(hh.nex)}" aria-label="NEX"><input class="inp" data-h="${k}.${i}.nome" value="${h(hh.nome)}" placeholder="Nome da habilidade"><button class="btn sm ghost danger" data-act="hbHabDel" data-i="${i}" aria-label="Remover">✕</button><textarea class="inp full" data-h="${k}.${i}.desc" rows="2" placeholder="Descrição">${h(hh.desc)}</textarea></div>`).join('')}<div><button class="btn sm" data-act="hbHabAdd">+ Habilidade</button> <span class="hint">O primeiro campo é o NEX (%) em que ela é liberada.</span></div></div></div>`;
@@ -74,8 +79,17 @@ function hbForm(t,x){
   return `<div class="sec-h"><h2 data-d="hbNome">${h(x.nome||'Sem nome')}</h2>${isOver?'<span class="badge acc">ajuste de conteúdo oficial</span>':'<span class="badge hb">homebrew</span>'}
     <div class="row">${S.confirm==='hbDel'?`<span class="confirm">${isOver?'Restaurar o original?':'Excluir?'} <button class="btn sm danger" data-act="hbDelOk">${isOver?'Restaurar':'Excluir'}</button><button class="btn sm" data-act="cancel">Cancelar</button></span>`:`<button class="btn sm danger" data-act="hbDel">${isOver?'Restaurar original':'Excluir'}</button>`}</div></div>
    <div class="grid g2">${fld('Pacote (nome do homebrew)',`<input class="inp" data-h="pacote" list="pk-list" value="${h(x.pacote||'Minha mesa')}"><datalist id="pk-list">${pk.map(p=>`<option value="${h(p)}">`).join('')}</datalist>`)}${fields}</div>
+   ${t==='elementos'?elemUso(x):''}
    <p class="hint">Salvo automaticamente. O pacote aparece na aba Mesa, onde pode ser ligado ou desligado para todas as fichas.</p>`;
 }
+
+/* Elemento do homebrew: o que já usa este elemento e atalhos para criar conteúdo dele. */
+function elemUso(x){const tipos=[['rituais','Ritual','ritual'],['poderes','Poder','poder'],['itens','Item','item'],['modificacoes','Maldição','maldição'],['criaturas','Criatura','criatura']];
+  const usa=it=>it&&(it.elemento===x.id||it.elemento2===x.id||(it.elementos||[]).includes(x.id));
+  const lst=tipos.map(([k,l])=>{const hb=(S.hb[k]||[]).filter(usa);return hb.length?`<div><b>${l}${hb.length>1?'s':''}:</b> ${hb.map(y=>`<button class="btn sm ghost" data-act="hbIr" data-t="${k}" data-id="${h(y.id)}">${h(y.nome||'Sem nome')}</button>`).join(' ')}</div>`:''}).join('');
+  return `<div class="card" style="margin-top:12px"><h4>Conteúdo de ${h(x.nome||'este elemento')}</h4>${lst||'<p class="hint">Nada criado com este elemento ainda.</p>'}
+   <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">${tipos.map(([k,,n])=>`<button class="btn sm acc" data-act="hbElemCriar" data-t="${k}" data-el="${h(x.id)}">+ ${h(n)} de ${h(x.nome||'elemento')}</button>`).join('')}</div>
+   <p class="hint">O elemento aparece nas listas de elemento de rituais, poderes, itens, maldições e criaturas, nos filtros e como afinidade. A cor vale para as etiquetas e os cartões.</p></div>`}
 
 /* ============================== GUIA ============================== */
 function renderGuia(){
@@ -206,7 +220,7 @@ function castModal(id){
   const temEf=x.ef||x.efD||x.efV;const pode=n=>{const m=String(n==='d'?x.discente:x.verdadeiro).match(/Requer (\d)º/);return !m||+m[1]<=r.circ};
   modal('Conjurar '+x.nome,`<div class="modal-b">
    ${(f.grimorio||[]).includes(x.id)?`<p class="alert" style="margin:0"><b>Ritual do grimório:</b> empunhe o grimório e gaste uma <b>ação completa</b> folheando antes de conjurar.</p>`:''}
-   <div class="meta"><span>${x.circulo}º círculo</span><span>DT ${r.dt+(r.dtElem[x.elemento]||0)}${r.dtElem[x.elemento]?' (bônus de elemento)':''}</span><span>Limite por turno ${r.peLimRit} ${r.det?'PD':'PE'}</span>${x.duracao?`<span>${h(x.duracao)}</span>`:''}</div>
+   <div class="meta"><span>${x.circulo}º círculo</span><span>DT ${r.dt+dtElemDe(r,x)}${dtElemDe(r,x)?' (bônus de elemento)':''}</span><span>Limite por turno ${r.peLimRit} ${r.det?'PD':'PE'}</span>${x.duracao?`<span>${h(x.duracao)}</span>`:''}</div>
    <div class="row" role="radiogroup" aria-label="Forma">${[['n','Normal',custo],dis&&['d','Discente',custo+ +dis],ver&&['v','Verdadeiro',custo+ +ver]].filter(Boolean).map(([k,l,c])=>[k,l,ritCustoAj(r,x,c)]).map(([k,l,c],i)=>`<label class="btn sm"><input type="radio" name="forma" value="${k}" data-c="${c}" ${i?'':'checked'} ${k!=='n'&&!pode(k)?'disabled':''}> ${l} · ${c+r.custoExtra} ${r.det?'PD':'PE'}</label>`).join('')}</div>
    ${r.custoExtra?`<p class="hint">Inclui +${r.custoExtra} por condição (alquebrado).</p>`:''}
    ${ritEfDe(r.ie.ritCusto,x).length?`<p class="hint">Custo ajustado por item: ${ritEfDe(r.ie.ritCusto,x).map(e=>`${e.v>0?'+':'−'}${Math.abs(e.v)} (${h(e.fonte)})`).join(', ')}; mínimo 1.</p>`:''}${ritEfDe(r.ie.ritDano,x).length&&x.dano?`<p class="hint">Dano com bônus de item: ${h(ritDanoAj(r,x,x.dano))} (${ritEfDe(r.ie.ritDano,x).map(e=>h(e.fonte)).join(', ')}).</p>`:''}

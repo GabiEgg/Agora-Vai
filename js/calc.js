@@ -385,7 +385,9 @@ const EF_ITEM={
   ritCusto:{l:'Custo de rituais',k:'el'},ritDano:{l:'Dano de rituais',k:'el',txt:true,ph:'+1d ou 1d6'},ritDt:{l:'DT de rituais',k:'el'},
   rd:{l:'Resistência a dano',k:'tipo'},nota:{l:'Outro (lembrete)',txt:true,ph:'texto'}};
 const EF_FORMA={'':'todas','corpo':'corpo a corpo','dist':'à distância'};
-const elsRitual=x=>(x.elementos||[x.elemento]).filter(Boolean);
+const elsRitual=x=>elsCom(x.elementos||[x.elemento]);
+/* Bônus de DT por elemento (Especialista em Elemento, itens, trilhas): numa fusão vale o maior dos componentes. */
+const dtElemDe=(r,x)=>Math.max(0,...elsRitual(x).map(e=>(r.dtElem||{})[e]||0));
 function itemEfLista(it){const l=(it.efeitos||[]).filter(e=>e&&e.t);if(it.efModo==='escolha'){const x=l[+it.efEscolha||0];return x?[x]:[]}return l}
 function itemEfAtivos(f){const out=[];
   (f.inventario||[]).forEach(it=>{const q=it.efQuando||'equipado';if(q==='usar'||(q==='equipado'&&!it.equipado))return;itemEfLista(it).forEach(e=>out.push({...e,fonte:it.nome}))});
